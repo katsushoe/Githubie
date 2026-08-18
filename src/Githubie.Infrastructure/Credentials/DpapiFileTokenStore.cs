@@ -52,7 +52,7 @@ public sealed class DpapiFileTokenStore : IApiTokenStore
         var plainBytes = Encoding.UTF8.GetBytes(token.ToString());
         try
         {
-            Directory.CreateDirectory(_secretsDirectory);
+            WindowsSecretDirectorySecurity.Ensure(_secretsDirectory);
 
             var protectedBytes = _protector.Protect(plainBytes, Entropy);
             var path = GetTokenPath(repositoryId);

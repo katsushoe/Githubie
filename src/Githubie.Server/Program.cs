@@ -30,6 +30,9 @@ var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
 var builder = WebApplication.CreateSlimBuilder(args);
 
 builder.Logging.AddProvider(new DailyFileLoggerProvider(layout.LogsDirectory));
+builder.Logging.AddFilter("Microsoft", LogLevel.Warning);
+builder.Logging.AddFilter("System", LogLevel.Warning);
+builder.Logging.AddFilter("ModelContextProtocol", LogLevel.Warning);
 builder.Services.AddWindowsService(service => service.ServiceName = "Githubie");
 
 builder.WebHost.ConfigureKestrel(server => server.ListenLocalhost(options.McpPort));

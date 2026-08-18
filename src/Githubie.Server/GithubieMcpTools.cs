@@ -91,10 +91,10 @@ public sealed class GithubieMcpTools(IGitGateway gitGateway, IGitHubRepositoryGa
     [Description("Pull Requestの詳細を取得します。")]
     public async Task<GithubieToolResult<GitHubPullRequestInfo>> GetPullRequestAsync(
         [Description("Githubie内部のRepository ID")] string repository,
-        [Description("Pull Request番号")] int pullRequestNumber,
+        [Description("Pull Request番号")] int pull_request_number,
         CancellationToken cancellationToken)
     {
-        var result = await gitHubGateway.GetPullRequestAsync(repository, pullRequestNumber, cancellationToken);
+        var result = await gitHubGateway.GetPullRequestAsync(repository, pull_request_number, cancellationToken);
         return GithubieToolResultMapper.Map("pr_get", repository, result);
     }
 
@@ -102,10 +102,10 @@ public sealed class GithubieMcpTools(IGitGateway gitGateway, IGitHubRepositoryGa
     [Description("Pull Requestの差分(diff・変更統計)を取得します。")]
     public async Task<GithubieToolResult<GitHubPullRequestDiff>> GetPullRequestDiffAsync(
         [Description("Githubie内部のRepository ID")] string repository,
-        [Description("Pull Request番号")] int pullRequestNumber,
+        [Description("Pull Request番号")] int pull_request_number,
         CancellationToken cancellationToken)
     {
-        var result = await gitHubGateway.GetPullRequestDiffAsync(repository, pullRequestNumber, cancellationToken);
+        var result = await gitHubGateway.GetPullRequestDiffAsync(repository, pull_request_number, cancellationToken);
         return GithubieToolResultMapper.Map("pr_diff", repository, result);
     }
 
@@ -126,13 +126,13 @@ public sealed class GithubieMcpTools(IGitGateway gitGateway, IGitHubRepositoryGa
     [Description("Pull Requestをmergeします。State==open、Source/Destinationが許可経路であることを検証します。")]
     public async Task<GithubieToolResult<GitHubPullRequestInfo>> MergePullRequestAsync(
         [Description("Githubie内部のRepository ID")] string repository,
-        [Description("Pull Request番号")] int pullRequestNumber,
-        [Description("merge/squash/rebase。省略時はリポジトリ設定の既定値")] GitHubMergeMethod? mergeStrategy,
+        [Description("Pull Request番号")] int pull_request_number,
+        [Description("merge/squash/rebase。省略時はリポジトリ設定の既定値")] GitHubMergeMethod? merge_strategy,
         [Description("Merge commit message")] string? message,
         CancellationToken cancellationToken)
     {
         var result = await gitHubGateway.MergePullRequestAsync(
-            repository, new GitHubPullRequestMerge(pullRequestNumber, mergeStrategy, message), cancellationToken);
+            repository, new GitHubPullRequestMerge(pull_request_number, merge_strategy, message), cancellationToken);
         return GithubieToolResultMapper.Map("pr_merge", repository, result);
     }
 
