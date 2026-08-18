@@ -1,0 +1,11 @@
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">0.1.0</ProductVersion>
+    <DisplayVersion Condition="'$(DisplayVersion)' == ''">0.1.0.0</DisplayVersion>
+    <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\.local\installer\publish</PublishDir>
+    <OutputName>Githubie-$(DisplayVersion)-win-x64</OutputName>
+    <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);$(DefineConstants)</DefineConstants>
+  </PropertyGroup>
+</Project>
