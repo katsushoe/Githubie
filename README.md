@@ -6,7 +6,7 @@ Githubieは、許可したローカルGitリポジトリとGitHub.comをMCPク�
 
 ## 状態
 
-Phase 1のコア実装（Domain / Application / Infrastructure / MCP Server / 管理CLI）が完了しています。MSIインストーラー、統合テスト、ドキュメント一式は未整備です。
+Phase 1のコア実装（Domain / Application / Infrastructure / MCP Server / 管理CLI）が完了しています。実機（Windows）でのビルド・起動・MCP Tool呼び出し・DPAPI/ACL保護を検証済みです。MSIインストーラーと`docs/adr/`以外の設計背景（Obsidian正本）は未整備です。
 
 ## 構成
 
@@ -71,7 +71,18 @@ github_tag_create
 
 ## セキュリティ
 
-MCP EndpointはLoopbackだけで待ち受けます。Personal Access Tokenを設定ファイルやMCPクライアント設定へ保存しないでください。認証はFine-grained Personal Access Token（対象リポジトリへの`Contents: Read and write` / `Pull requests: Read and write`）を推奨します。
+MCP EndpointはLoopbackだけで待ち受けます。Personal Access Tokenを設定ファイルやMCPクライアント設定へ保存しないでください。認証はFine-grained Personal Access Token（対象リポジトリへの`Contents: Read and write` / `Pull requests: Read and write`）を推奨します。詳細は[セキュリティ](SECURITY.md)を参照してください。
+
+## ドキュメント
+
+- [文書一覧](DOCUMENTS.md)
+- [インストール](INSTALLATION.md)
+- [設定](CONFIG.md)
+- [MCPセットアップ](MCP_SETUP.md)
+- [コマンド](COMMANDS.md)
+- [運用](OPERATIONS.md)
+- [セキュリティ](SECURITY.md)
+- [トラブルシューティング](TROUBLESHOOTING.md)
 
 ## ライセンス
 
