@@ -10,6 +10,8 @@
 | [OPERATIONS.md](OPERATIONS.md) | サービス起動停止、ログ、Tokenローテーション等の日常運用 |
 | [SECURITY.md](SECURITY.md) | 信頼境界、Security原則、Token保護、脆弱性報告 |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | エラーコード一覧と対処法 |
+| [PACKAGES.md](PACKAGES.md) | MSI/ZIP成果物の構成とパッケージ契約 |
+| [RELEASE.md](RELEASE.md) | バージョニング方針とリリース手順 |
 | [docs/adr/](docs/adr/) | 主要な設計判断の記録（Architecture Decision Records） |
 
 設計思想・仕様の背景（Buckettieとの対比を含む）は、Obsidianの`Githubie 仕様書`（社内ナレッジベース、本リポジトリ外）を正本とする。本リポジトリの文書群はコードに密接な操作手順・リファレンスに限定する。

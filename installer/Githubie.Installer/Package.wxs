@@ -1,0 +1,101 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+    Name="Githubie"
+    Manufacturer="Katsushoe"
+    Version="$(ProductVersion)"
+    UpgradeCode="1A5C995A-0F3A-4A4B-B00D-8D9D9BAA6B57"
+    Language="1041"
+    Scope="perMachine"
+    InstallerVersion="500">
+
+    <SummaryInformation Description="Githubie GitHub MCP Server" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Githubie is already installed." />
+    <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLROOT" Name="Githubie">
+        <Directory Id="BINDIR" Name="bin" />
+        <Directory Id="CONFIGDIR" Name="config" />
+        <Directory Id="LOGDIR" Name="logs" />
+        <Directory Id="DATADIR" Name="data">
+          <Directory Id="SECRETSDIR" Name="secrets" />
+        </Directory>
+        <Directory Id="DOCDIR" Name="docs" />
+      </Directory>
+    </StandardDirectory>
+
+    <Feature Id="MainFeature" Title="Githubie" Level="1">
+      <ComponentGroupRef Id="BinaryComponents" />
+      <ComponentGroupRef Id="ConfigurationComponents" />
+      <ComponentGroupRef Id="DataDirectoryComponents" />
+      <ComponentGroupRef Id="DocumentationComponents" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <ComponentGroup Id="BinaryComponents" Directory="BINDIR">
+      <Component Id="ServerServiceComponent" Guid="*">
+        <File Id="ServerExecutable" Source="$(PublishDir)\Githubie.Server.exe" KeyPath="yes" />
+        <ServiceInstall
+          Id="GithubieServiceInstall"
+          Name="Githubie"
+          DisplayName="Githubie MCP Server"
+          Description="Local MCP gateway for approved Git and GitHub.com operations."
+          Type="ownProcess"
+          Start="auto"
+          ErrorControl="normal"
+          Account="LocalSystem"
+          Arguments="&quot;[CONFIGDIR]githubie.json&quot;" />
+        <ServiceControl
+          Id="GithubieServiceControl"
+          Name="Githubie"
+          Stop="both"
+          Remove="uninstall"
+          Wait="yes" />
+      </Component>
+      <Files Include="$(PublishDir)\**">
+        <Exclude Files="$(PublishDir)\Githubie.Server.exe" />
+        <Exclude Files="$(PublishDir)\*.pdb" />
+      </Files>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="ConfigurationComponents" Directory="CONFIGDIR">
+      <Component Id="ConfigurationTemplateComponent" Guid="*" Permanent="yes" NeverOverwrite="yes">
+        <File Id="ConfigurationTemplate" Source="..\..\githubie.example.json" Name="githubie.example.json" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="DataDirectoryComponents">
+      <Component Id="LogDirectoryComponent" Directory="LOGDIR" Guid="A47D7110-9F3C-45ED-87E1-859B3F2D634A" Permanent="yes">
+        <CreateFolder />
+      </Component>
+      <Component Id="DataDirectoryComponent" Directory="DATADIR" Guid="9185AE45-70E4-4E55-AD9D-F14534949F48" Permanent="yes">
+        <CreateFolder />
+      </Component>
+      <Component Id="SecretsDirectoryComponent" Directory="SECRETSDIR" Guid="3D055657-6E9F-43F9-AA96-8F2C767FA1A9" Permanent="yes">
+        <CreateFolder />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+
+  <Fragment>
+    <ComponentGroup Id="DocumentationComponents" Directory="DOCDIR">
+      <Component Id="DocumentationComponent" Guid="8E570EE6-DF3F-48B0-BEE8-87EC77E8C615">
+        <File Source="..\..\README.md" />
+        <File Source="..\..\MCP_SETUP.md" />
+        <File Source="..\..\INSTALLATION.md" />
+        <File Source="..\..\OPERATIONS.md" />
+        <File Source="..\..\TROUBLESHOOTING.md" />
+        <File Source="..\..\CONFIG.md" />
+        <File Source="..\..\COMMANDS.md" />
+        <File Source="..\..\SECURITY.md" />
+        <File Source="..\..\PACKAGES.md" />
+        <File Source="..\..\LICENSE" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>
