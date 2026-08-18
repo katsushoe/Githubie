@@ -57,7 +57,9 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
 
     public async Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repositoryId, string owner, string repo, string branch, CancellationToken cancellationToken)
     {
-        var response = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/branches/{Uri.EscapeDataString(branch)}", null, cancellationToken);
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/branches/{Uri.EscapeDataString(branch)}", null, cancellationToken,
+            notFoundError: GitHubError.BranchNotFound);
         if (!response.IsSuccess)
         {
             return GitHubResult<GitHubBranchInfo>.Failure(response.Error!.Value);

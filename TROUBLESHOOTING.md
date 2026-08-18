@@ -40,6 +40,7 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 
 | error.code | 原因 | 対処 |
 | --- | --- | --- |
+| `branch_not_found` | `github_branch_get`等で指定したBranchがGitHub上に存在しない | Branch名を確認する（`github_branch_list`） |
 | `authentication_failed` | Personal Access Tokenが未登録、または無効（GitHub側でRevoke済み等） | `githubie.exe auth set <repository>`で再登録し、`auth test`で確認する |
 | `permission_denied` | Tokenは有効だが対象操作の権限が不足 | Fine-grained PATの`Contents` / `Pull requests`権限を`Read and write`に見直す（[SECURITY.md](SECURITY.md)） |
 | `token_scope_missing` | 必要なScope/Permissionが不足 | `permission_denied`と同様にToken発行時の権限を見直す |

@@ -58,6 +58,7 @@ public static class GithubieToolResultMapper
     private static GithubieToolError MapGitHubError(GitHubError error) => error switch
     {
         GitHubError.RepositoryNotFound => new("repository_not_found", "Repository is not registered."),
+        GitHubError.BranchNotFound => new("branch_not_found", "Branch was not found."),
         GitHubError.AuthenticationFailed => new("authentication_failed", "GitHub authentication failed."),
         GitHubError.PermissionDenied => new("permission_denied", "GitHub denied the operation."),
         GitHubError.TokenScopeMissing => new("token_scope_missing", "Personal Access Token is missing required permissions."),
