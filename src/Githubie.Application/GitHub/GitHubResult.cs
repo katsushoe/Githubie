@@ -32,6 +32,7 @@ public enum GitHubError
     PullRequestNotMergeable,
     PullRequestRouteNotAllowed,
 
+    TagNotFound,
     TagInvalid,
     TagAlreadyExists,
     TagTargetNotAllowed,

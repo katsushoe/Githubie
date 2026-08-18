@@ -133,4 +133,17 @@ public sealed class GitHubApiClientTests
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(GitHubError.PullRequestNotMergeable);
     }
+
+    [Fact]
+    public async Task GetTagAsync_MapsNotFoundToTagNotFound_NotTagInvalid()
+    {
+        // branch_not_foundと同種の回帰防止: 存在しないtagの404が誤ってtag_invalid
+        // (パターン不一致の意味)へマップされていた。
+        var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        var result = await client.GetTagAsync("repo-id", "owner", "repo", "missing-tag", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(GitHubError.TagNotFound);
+    }
 }

@@ -70,6 +70,7 @@ public static class GithubieToolResultMapper
         GitHubError.PullRequestNotOpen => new("pull_request_not_open", "Pull request is not open."),
         GitHubError.PullRequestNotMergeable => new("pull_request_not_mergeable", "Pull request is not mergeable."),
         GitHubError.PullRequestRouteNotAllowed => new("pull_request_route_not_allowed", "Pull request route is not allowed."),
+        GitHubError.TagNotFound => new("tag_not_found", "Tag was not found."),
         GitHubError.TagInvalid => new("tag_invalid", "Tag name does not match the allowed pattern."),
         GitHubError.TagAlreadyExists => new("tag_already_exists", "Tag already exists."),
         GitHubError.TagTargetNotAllowed => new("tag_target_not_allowed", "Tag target branch is not allowed."),
