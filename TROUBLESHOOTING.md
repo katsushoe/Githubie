@@ -51,6 +51,7 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `pull_request_not_open` | Mergeしようとした PR が既にclosed/merged | 対象PRの状態を確認する |
 | `pull_request_not_mergeable` | GitHub側でConflict等によりmerge不可 | GitHub UI/CLIでConflictを解消してから再実行する |
 | `pull_request_route_not_allowed` | Source/Destinationが`develop_branch → main_branch`以外 | 許可経路のPRのみ操作対象にする。経路自体を変えたい場合は設定の`develop_branch`/`main_branch`を見直す |
+| `tag_not_found` | `github_tag_get`で指定したTagがGitHub上に存在しない | Tag名を確認する（`github_tag_list`） |
 | `tag_invalid` | Tag名が`tag_pattern`に一致しない | 命名規則（既定は`^v[0-9]+\.[0-9]+\.[0-9]+.*$`）に沿ったTag名にする |
 | `tag_already_exists` | 同名Tagが既に存在する | 別のTag名にする、または既存Tagを確認する（Tag削除Toolは公開していない） |
 | `tag_target_not_allowed` | Tag対象Branchが`tag_target_branch`と異なる | 既定では`main` HEADのみ許可。設定を確認する |

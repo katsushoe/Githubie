@@ -209,7 +209,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     public async Task<GitHubResult<GitHubTagInfo>> GetTagAsync(string repositoryId, string owner, string repo, string tag, CancellationToken cancellationToken)
     {
         var refResponse = await SendAsync(
-            repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/git/refs/tags/{Uri.EscapeDataString(tag)}", null, cancellationToken, notFoundError: GitHubError.TagInvalid);
+            repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/git/refs/tags/{Uri.EscapeDataString(tag)}", null, cancellationToken, notFoundError: GitHubError.TagNotFound);
         if (!refResponse.IsSuccess)
         {
             return GitHubResult<GitHubTagInfo>.Failure(refResponse.Error!.Value);
