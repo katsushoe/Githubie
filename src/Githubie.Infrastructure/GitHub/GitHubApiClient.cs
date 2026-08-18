@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Githubie.Application.Credentials;
 using Githubie.Application.GitHub;
@@ -18,6 +19,13 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private const string ApiVersion = "2022-11-28";
     private const int PageSize = 100;
     private const int MaxPages = 100;
+
+    // GitHubのPUT/POST bodyでは省略可能フィールドへ明示nullを送ると422を返す場合があるため、
+    // 未設定プロパティはJSONへ含めない(例: merge_method未指定時のPRマージ)。
+    private static readonly JsonSerializerOptions RequestSerializerOptions = new()
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
 
     private readonly HttpClient _httpClient = httpClient;
     private readonly IApiTokenStore _tokenStore = tokenStore;
@@ -359,7 +367,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
 
             if (jsonBody is not null)
             {
-                request.Content = JsonContent.Create(jsonBody, jsonBody.GetType());
+                request.Content = JsonContent.Create(jsonBody, jsonBody.GetType(), options: RequestSerializerOptions);
             }
 
             HttpResponseMessage response;
@@ -416,6 +424,12 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
             return conflictError;
+        }
+
+        if (response.StatusCode == HttpStatusCode.MethodNotAllowed)
+        {
+            // GitHubのPR merge APIは、mergeableでない場合405 Method Not Allowedを返す。
+            return GitHubError.PullRequestNotMergeable;
         }
 
         if (response.StatusCode == HttpStatusCode.UnprocessableEntity)

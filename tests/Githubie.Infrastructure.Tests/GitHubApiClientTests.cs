@@ -15,6 +15,15 @@ public sealed class GitHubApiClientTests
             Task.FromResult(respond(request));
     }
 
+    private sealed class CapturingStubHandler(Func<HttpRequestMessage, string?, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var body = request.Content is null ? null : await request.Content.ReadAsStringAsync(cancellationToken);
+            return respond(request, body);
+        }
+    }
+
     private sealed class FakeTokenStore : IApiTokenStore
     {
         public ApiTokenStoreResult Save(string repositoryId, ReadOnlySpan<char> token) => ApiTokenStoreResult.Success();
@@ -27,6 +36,12 @@ public sealed class GitHubApiClientTests
     private static GitHubApiClient CreateClient(Func<HttpRequestMessage, HttpResponseMessage> respond)
     {
         var httpClient = new HttpClient(new StubHandler(respond)) { BaseAddress = new Uri("https://api.github.com/") };
+        return new GitHubApiClient(httpClient, new FakeTokenStore());
+    }
+
+    private static GitHubApiClient CreateCapturingClient(Func<HttpRequestMessage, string?, HttpResponseMessage> respond)
+    {
+        var httpClient = new HttpClient(new CapturingStubHandler(respond)) { BaseAddress = new Uri("https://api.github.com/") };
         return new GitHubApiClient(httpClient, new FakeTokenStore());
     }
 
@@ -79,5 +94,43 @@ public sealed class GitHubApiClientTests
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(GitHubError.RateLimited);
+    }
+
+    [Fact]
+    public async Task MergePullRequestAsync_OmitsNullMergeMethodAndCommitMessageFromRequestBody()
+    {
+        // 実データ検証で発見した回帰防止: merge_strategy未指定時にJSON bodyへ
+        // "merge_method": null を明示送信すると、GitHubのmerge APIが422を返して失敗していた。
+        string? capturedBody = null;
+        var client = CreateCapturingClient((request, body) =>
+        {
+            if (request.Method == HttpMethod.Put)
+            {
+                capturedBody = body;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """{"number":1,"title":"t","state":"closed","merged":true,"head":{"ref":"develop"},"base":{"ref":"main"},"user":{"login":"u"},"html_url":"https://example.com","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}""")
+            };
+        });
+
+        await client.MergePullRequestAsync("repo-id", "owner", "repo", new GitHubPullRequestMerge(1, null, null), TestContext.Current.CancellationToken);
+
+        capturedBody.Should().NotBeNull();
+        capturedBody.Should().NotContain("merge_method");
+        capturedBody.Should().NotContain("commit_message");
+    }
+
+    [Fact]
+    public async Task MergePullRequestAsync_MapsMethodNotAllowedToPullRequestNotMergeable()
+    {
+        var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.MethodNotAllowed));
+
+        var result = await client.MergePullRequestAsync("repo-id", "owner", "repo", new GitHubPullRequestMerge(1, null, null), TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(GitHubError.PullRequestNotMergeable);
     }
 }
