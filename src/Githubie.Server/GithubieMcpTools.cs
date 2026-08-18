@@ -1,0 +1,179 @@
+using System.ComponentModel;
+using System.Reflection;
+using Githubie.Application.Git;
+using Githubie.Application.GitHub;
+using ModelContextProtocol.Server;
+
+namespace Githubie.Server;
+
+/// <summary>
+/// Githubieが公開するMCP Toolです。Tool名には`github_`Prefixを付け、変更系操作は<c>Destructive = true</c>を明示します。
+/// </summary>
+[McpServerToolType]
+public sealed class GithubieMcpTools(IGitGateway gitGateway, IGitHubRepositoryGateway gitHubGateway)
+{
+    [McpServerTool(Name = "github_repository_status", ReadOnly = true, UseStructuredContent = true)]
+    [Description("指定リポジトリのGit状態(local/remote head, ahead/behind, working tree clean)を取得します。")]
+    public async Task<GithubieToolResult<GitRepositoryStatus>> GetRepositoryStatusAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitGateway.GetStatusAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_status", repository, result);
+    }
+
+    [McpServerTool(Name = "github_fetch", UseStructuredContent = true)]
+    [Description("設定済みRemoteからgit fetch相当を行います。")]
+    public async Task<GithubieToolResult<Unit>> FetchAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitGateway.FetchAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("fetch", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pull", UseStructuredContent = true)]
+    [Description("git pull --ff-only相当を行います。Fast-forward不能な場合はエラーを返します。")]
+    public async Task<GithubieToolResult<Unit>> PullAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull対象branch")] string branch,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitGateway.PullAsync(repository, branch, cancellationToken);
+        return GithubieToolResultMapper.Map("pull", repository, result);
+    }
+
+    [McpServerTool(Name = "github_push", Destructive = true, UseStructuredContent = true)]
+    [Description("ローカルCommitをGitHubへPushします。mainなどProtected Branchへの直接Pushは拒否します。")]
+    public async Task<GithubieToolResult<Unit>> PushAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitGateway.PushAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("push", repository, result);
+    }
+
+    [McpServerTool(Name = "github_branch_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Remote Branch一覧を取得します。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ListBranchesAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("branch_list", repository, result);
+    }
+
+    [McpServerTool(Name = "github_branch_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("指定Branchのhead commit sha等を取得します。")]
+    public async Task<GithubieToolResult<GitHubBranchInfo>> GetBranchAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Branch名")] string branch,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetBranchAsync(repository, branch, cancellationToken);
+        return GithubieToolResultMapper.Map("branch_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pr_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Pull Request一覧を取得します。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitHubPullRequestInfo>>> ListPullRequestsAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("状態フィルタ(open/closed/merged)")] GitHubPullRequestState? state,
+        [Description("Sourceブランチフィルタ")] string? source,
+        [Description("Destinationブランチフィルタ")] string? destination,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ListPullRequestsAsync(repository, state, source, destination, cancellationToken);
+        return GithubieToolResultMapper.Map("pr_list", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pr_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Pull Requestの詳細を取得します。")]
+    public async Task<GithubieToolResult<GitHubPullRequestInfo>> GetPullRequestAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull Request番号")] int pullRequestNumber,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetPullRequestAsync(repository, pullRequestNumber, cancellationToken);
+        return GithubieToolResultMapper.Map("pr_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pr_diff", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Pull Requestの差分(diff・変更統計)を取得します。")]
+    public async Task<GithubieToolResult<GitHubPullRequestDiff>> GetPullRequestDiffAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull Request番号")] int pullRequestNumber,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetPullRequestDiffAsync(repository, pullRequestNumber, cancellationToken);
+        return GithubieToolResultMapper.Map("pr_diff", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pr_create", Destructive = true, UseStructuredContent = true)]
+    [Description("develop→mainのPull Requestを作成します。Source/Destinationは設定から固定されます。")]
+    public async Task<GithubieToolResult<GitHubPullRequestInfo>> CreatePullRequestAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("PRタイトル")] string title,
+        [Description("PR説明")] string? description,
+        [Description("Draft PRとして作成するか")] bool draft,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.CreatePullRequestAsync(repository, new GitHubPullRequestCreate(title, description, draft), cancellationToken);
+        return GithubieToolResultMapper.Map("pr_create", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pr_merge", Destructive = true, UseStructuredContent = true)]
+    [Description("Pull Requestをmergeします。State==open、Source/Destinationが許可経路であることを検証します。")]
+    public async Task<GithubieToolResult<GitHubPullRequestInfo>> MergePullRequestAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull Request番号")] int pullRequestNumber,
+        [Description("merge/squash/rebase。省略時はリポジトリ設定の既定値")] GitHubMergeMethod? mergeStrategy,
+        [Description("Merge commit message")] string? message,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.MergePullRequestAsync(
+            repository, new GitHubPullRequestMerge(pullRequestNumber, mergeStrategy, message), cancellationToken);
+        return GithubieToolResultMapper.Map("pr_merge", repository, result);
+    }
+
+    [McpServerTool(Name = "github_tag_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Repository Tag一覧を取得します。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ListTagsAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("tag_list", repository, result);
+    }
+
+    [McpServerTool(Name = "github_tag_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Tag詳細を取得します。")]
+    public async Task<GithubieToolResult<GitHubTagInfo>> GetTagAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Tag名")] string tag,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetTagAsync(repository, tag, cancellationToken);
+        return GithubieToolResultMapper.Map("tag_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_tag_create", Destructive = true, UseStructuredContent = true)]
+    [Description("Release Tagを作成します。既定ではmain HEADのみを対象とします。")]
+    public async Task<GithubieToolResult<GitHubTagInfo>> CreateTagAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Tag名(例: v1.0.0)")] string tag,
+        [Description("Annotated tag message")] string? message,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.CreateTagAsync(repository, tag, message, cancellationToken);
+        return GithubieToolResultMapper.Map("tag_create", repository, result);
+    }
+
+    [McpServerTool(Name = "get_version", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Githubie Serverのバージョンを取得します。")]
+    public GithubieToolResult<string> GetVersion()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
+        return GithubieToolResult<string>.Success("get_version", string.Empty, version);
+    }
+}

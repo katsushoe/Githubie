@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Githubie.Application/Githubie.Application.csproj" />
+    <ProjectReference Include="../Githubie.Infrastructure/Githubie.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

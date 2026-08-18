@@ -1,0 +1,21 @@
+{
+  "mcp_port": 45460,
+  "mcp_path": "/mcp",
+  "repositories": {
+    "example": {
+      "github_owner": "example-org",
+      "github_repo": "example-repository",
+      "local_root": "D:\\Projects\\ExampleRepository",
+      "remote": "origin",
+      "develop_branch": "develop",
+      "main_branch": "main",
+      "direct_push_branches": ["develop"],
+      "pull_branches": ["develop", "main"],
+      "protected_branches": ["main"],
+      "tag_target_branch": "main",
+      "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+.*$",
+      "merge_method": "merge",
+      "require_clean_working_tree": true
+    }
+  }
+}

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Githubie.Domain/Githubie.Domain.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Githubie.Application.Tests" />
+    <InternalsVisibleTo Include="Githubie.Server" />
+    <InternalsVisibleTo Include="Githubie.Server.Tests" />
+  </ItemGroup>
+</Project>
