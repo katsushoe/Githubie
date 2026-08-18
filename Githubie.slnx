@@ -1,0 +1,13 @@
+<Solution>
+  <Project Path="src/Githubie.Domain/Githubie.Domain.csproj" />
+  <Project Path="src/Githubie.Application/Githubie.Application.csproj" />
+  <Project Path="src/Githubie.Infrastructure/Githubie.Infrastructure.csproj" />
+  <Project Path="src/Githubie.AskPass/Githubie.AskPass.csproj" />
+  <Project Path="src/Githubie.Server/Githubie.Server.csproj" />
+  <Project Path="src/Githubie.Cli/Githubie.Cli.csproj" />
+  <Project Path="tests/Githubie.Domain.Tests/Githubie.Domain.Tests.csproj" />
+  <Project Path="tests/Githubie.Application.Tests/Githubie.Application.Tests.csproj" />
+  <Project Path="tests/Githubie.Infrastructure.Tests/Githubie.Infrastructure.Tests.csproj" />
+  <Project Path="tests/Githubie.Server.Tests/Githubie.Server.Tests.csproj" />
+  <Project Path="tests/Githubie.Cli.Tests/Githubie.Cli.Tests.csproj" />
+</Solution>

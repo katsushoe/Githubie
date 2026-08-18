@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.8" />
+    <ProjectReference Include="../Githubie.Application/Githubie.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Githubie.Infrastructure.Tests" />
+  </ItemGroup>
+</Project>
