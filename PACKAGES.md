@@ -26,8 +26,8 @@ MSIは`%ProgramFiles%\Githubie`（または`INSTALLROOT`）配下へのインス
 ## ビルド
 
 ```powershell
-pwsh scripts\Build-Msi.ps1 -DisplayVersion 0.1.0.0 -ProductVersion 0.1.0
-pwsh scripts\Build-Zip.ps1 -DisplayVersion 0.1.0.0
+pwsh scripts\Build-Msi.ps1 -DisplayVersion 1.0.0.0 -ProductVersion 1.0.0
+pwsh scripts\Build-Zip.ps1 -DisplayVersion 1.0.0.0
 ```
 
 出力先は`.local\installer\output`（MSI）、`.local\release\output`（ZIP）です。バージョン管理方針は[RELEASE.md](RELEASE.md)を参照してください。
