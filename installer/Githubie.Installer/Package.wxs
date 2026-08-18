@@ -36,6 +36,14 @@
     <ComponentGroup Id="BinaryComponents" Directory="BINDIR">
       <Component Id="ServerServiceComponent" Guid="*">
         <File Id="ServerExecutable" Source="$(PublishDir)\Githubie.Server.exe" KeyPath="yes" />
+        <Environment
+          Id="AddBinToPath"
+          Name="PATH"
+          Value="[BINDIR]"
+          Permanent="no"
+          Part="last"
+          Action="set"
+          System="yes" />
         <ServiceInstall
           Id="GithubieServiceInstall"
           Name="Githubie"
