@@ -371,9 +371,31 @@ public static class CliApplication
         using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
         var uri = new Uri($"http://127.0.0.1:{options.McpPort}{options.McpPath}");
 
+        object payload = method == "initialize"
+            ? new
+            {
+                jsonrpc = "2.0",
+                id = 1,
+                method,
+                @params = new
+                {
+                    protocolVersion = "2025-06-18",
+                    capabilities = new { },
+                    clientInfo = new { name = "githubie-cli", version = "0.1" },
+                },
+            }
+            : new { jsonrpc = "2.0", id = 1, method };
+
         try
         {
-            var response = await httpClient.PostAsJsonAsync(uri, new { jsonrpc = "2.0", id = 1, method }, cancellationToken);
+            using var request = new HttpRequestMessage(HttpMethod.Post, uri)
+            {
+                Content = JsonContent.Create(payload),
+            };
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+            request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+            var response = await httpClient.SendAsync(request, cancellationToken);
             return await response.Content.ReadAsStringAsync(cancellationToken);
         }
         catch (HttpRequestException)
