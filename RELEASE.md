@@ -49,4 +49,4 @@ Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUI
 
 ## Phase 1の状態
 
-コア実装・実機検証・実データ疎通確認（読み取り・書き込み双方、Windows Service運用含む）・テスト（114件）・ドキュメントは完了しています。MSI/ZIPのビルド自体は成功を確認済みですが、`msiexec /i`による実インストール・アップグレード・アンインストールの検証はまだ行っていません（[docs/adr/](docs/adr/)に主要設計判断を記録）。
+コア実装・実機検証・実データ疎通確認（読み取り・書き込み双方、Windows Service運用含む）・テスト（114件）・ドキュメント・MSI Install/Upgrade/Uninstallの実機検証まで完了しています（[docs/adr/](docs/adr/)に主要設計判断を記録）。実機検証でMSI作成ディレクトリのACL不備（`auth set`が`IoError`になる問題）を発見・修正済みです（[0013](docs/adr/0013-msi-directory-acl-grants.md)）。

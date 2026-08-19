@@ -270,6 +270,7 @@ public static class CliApplication
 
         output.Write("Personal Access Token: ");
         var token = ReadMaskedLine();
+        output.WriteLine($"({token.Length} characters captured)");
 
         var store = new DpapiFileTokenStore(layout.SecretsDirectory);
         var result = store.Save(repository, token);
@@ -318,7 +319,9 @@ public static class CliApplication
         }
 
         Console.WriteLine();
-        return chars.ToArray();
+
+        // 貼り付け時に混入しやすい先頭/末尾の空白・改行を除去する。
+        return new string(chars.ToArray()).Trim().ToCharArray();
     }
 
     private static async Task<int> McpStatusAsync(string configPath, TextWriter output, TextWriter error, CancellationToken cancellationToken)

@@ -1,4 +1,4 @@
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <Package
     Name="Githubie"
     Manufacturer="Katsushoe"
@@ -72,6 +72,10 @@
     <ComponentGroup Id="ConfigurationComponents" Directory="CONFIGDIR">
       <Component Id="ConfigurationTemplateComponent" Guid="*" Permanent="yes" NeverOverwrite="yes">
         <File Id="ConfigurationTemplate" Source="..\..\githubie.example.json" Name="githubie.example.json" KeyPath="yes" />
+        <CreateFolder>
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+        </CreateFolder>
       </Component>
     </ComponentGroup>
   </Fragment>
@@ -79,13 +83,22 @@
   <Fragment>
     <ComponentGroup Id="DataDirectoryComponents">
       <Component Id="LogDirectoryComponent" Directory="LOGDIR" Guid="A47D7110-9F3C-45ED-87E1-859B3F2D634A" Permanent="yes">
-        <CreateFolder />
+        <CreateFolder>
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+        </CreateFolder>
       </Component>
       <Component Id="DataDirectoryComponent" Directory="DATADIR" Guid="9185AE45-70E4-4E55-AD9D-F14534949F48" Permanent="yes">
-        <CreateFolder />
+        <CreateFolder>
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+        </CreateFolder>
       </Component>
       <Component Id="SecretsDirectoryComponent" Directory="SECRETSDIR" Guid="3D055657-6E9F-43F9-AA96-8F2C767FA1A9" Permanent="yes">
-        <CreateFolder />
+        <CreateFolder>
+          <util:PermissionEx User="Administrators" GenericAll="yes" />
+          <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+        </CreateFolder>
       </Component>
     </ComponentGroup>
   </Fragment>

@@ -8,4 +8,7 @@
     <OutputName>Githubie-$(DisplayVersion)-win-x64</OutputName>
     <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);$(DefineConstants)</DefineConstants>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
+  </ItemGroup>
 </Project>
