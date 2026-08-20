@@ -34,7 +34,9 @@ dotnet test Githubie.slnx
 
 ## 使用方法
 
-設定、認証情報、診断、Windows Service管理には`githubie.exe`を使います。MCP ClientにはRepository Status、fetch／pull／push、承認付き履歴訂正、Branch、Pull Request、Tag、Version取得の16個の型付きToolを公開します。詳細は[コマンド](COMMANDS.ja.md)を参照してください。
+設定、認証情報、診断、Windows Service管理には`githubie.exe`を使います。MCP ClientにはRepository Status、fetch／pull／push、承認付き履歴訂正、Branch、Pull Request、Tag、Release、Version取得の17個の型付きToolを公開します。詳細は[コマンド](COMMANDS.ja.md)を参照してください。
+
+`github_release_create`は既存Tagからdraft Releaseを作り、Repository配下のMSI／ZIP／SHA-256をすべて添付できた場合だけ公開します。添付失敗時は不完全なReleaseを公開せずdraftを残します。
 
 `github_history_rewrite`は公開済みbranch／tagを訂正する専用Toolです。必ずdry-runで旧SHA・新SHA・拒否理由を確認し、実更新では対話Desktop上の承認を行います。全refは`--atomic`とrefごとの`--force-with-lease`で一括更新され、通常の`github_push`の保護方針は変わりません。実行前にmirrorまたはbackup refを保存し、復旧時は保存SHAを指定して同じ手順を逆向きに実施してください。
 

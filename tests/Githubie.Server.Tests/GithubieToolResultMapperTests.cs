@@ -59,6 +59,10 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.TagInvalid] = "tag_invalid",
         [GitHubError.TagAlreadyExists] = "tag_already_exists",
         [GitHubError.TagTargetNotAllowed] = "tag_target_not_allowed",
+        [GitHubError.ReleaseAlreadyExists] = "release_already_exists",
+        [GitHubError.ReleaseAssetInvalid] = "release_asset_invalid",
+        [GitHubError.ReleaseAssetNotFound] = "release_asset_not_found",
+        [GitHubError.ReleaseUploadFailed] = "release_upload_failed",
         [GitHubError.NetworkError] = "network_error",
         [GitHubError.Timeout] = "timeout",
     };

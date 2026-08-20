@@ -181,6 +181,23 @@ public sealed class GithubieMcpTools(IGitGateway gitGateway, IGitHubRepositoryGa
         return GithubieToolResultMapper.Map("tag_create", repository, result);
     }
 
+    [McpServerTool(Name = "github_release_create", Destructive = true, UseStructuredContent = true)]
+    [Description("既存Tagからdraft Releaseを作成し、Repository配下のMSI/ZIP/SHA-256を添付後に公開します。")]
+    public async Task<GithubieToolResult<GitHubReleaseInfo>> CreateReleaseAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("既存Tag名")] string tag,
+        [Description("Release名")] string name,
+        [Description("Release note")] string? body,
+        [Description("Draftのまま保持するか")] bool draft,
+        [Description("Pre-releaseとして扱うか")] bool prerelease,
+        [Description("Repository local root配下の添付ファイル絶対パス一覧")] IReadOnlyList<string> assets,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.CreateReleaseAsync(
+            repository, new GitHubReleaseCreate(tag, name, body, draft, prerelease, assets), cancellationToken);
+        return GithubieToolResultMapper.Map("release_create", repository, result);
+    }
+
     [McpServerTool(Name = "get_version", ReadOnly = true, UseStructuredContent = true)]
     [Description("Githubie Serverのバージョンを取得します。")]
     public GithubieToolResult<string> GetVersion()

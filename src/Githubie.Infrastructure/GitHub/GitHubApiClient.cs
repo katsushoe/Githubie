@@ -271,6 +271,107 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             request.Tag, request.TargetCommitSha, request.Message, null, null));
     }
 
+    public async Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
+        string repositoryId,
+        string owner,
+        string repo,
+        string localRoot,
+        GitHubReleaseCreate request,
+        CancellationToken cancellationToken)
+    {
+        var assets = ValidateReleaseAssets(localRoot, request.Assets);
+        if (assets.Error is not null) return GitHubResult<GitHubReleaseInfo>.Failure(assets.Error.Value);
+
+        var createPayload = new CreateReleaseRequest(request.Tag, request.Name, request.Body, true, request.Prerelease);
+        var created = await SendAsync(
+            repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/releases", null, cancellationToken,
+            jsonBody: createPayload, unprocessableError: GitHubError.ReleaseAlreadyExists);
+        if (!created.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(created.Error!.Value);
+        var release = await ReadAsync<ReleaseResponse>(created.Value!, cancellationToken);
+        if (!IsValidRelease(release)) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
+
+        var uploadedAssets = new List<GitHubReleaseAssetInfo>(assets.Paths!.Count);
+        foreach (var path in assets.Paths)
+        {
+            var upload = await UploadReleaseAssetAsync(repositoryId, owner, repo, release!.UploadUrl!, path, cancellationToken);
+            if (!upload.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(upload.Error!.Value);
+            uploadedAssets.Add(upload.Value!);
+        }
+
+        if (!request.Draft)
+        {
+            var publish = await SendAsync(
+                repositoryId, HttpMethod.Patch, $"repos/{owner}/{repo}/releases/{release!.Id}", null, cancellationToken,
+                jsonBody: new PublishReleaseRequest(false));
+            if (!publish.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(publish.Error!.Value);
+            var published = await ReadAsync<ReleaseResponse>(publish.Value!, cancellationToken);
+            if (!IsValidRelease(published)) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
+            release = published;
+        }
+
+        return GitHubResult<GitHubReleaseInfo>.Success(new(
+            release!.Id, release.TagName!, release.Name!, release.Draft, release.Prerelease, release.HtmlUrl!, uploadedAssets));
+    }
+
+    private async Task<GitHubResult<GitHubReleaseAssetInfo>> UploadReleaseAssetAsync(
+        string repositoryId, string owner, string repo, string uploadTemplate, string path, CancellationToken cancellationToken)
+    {
+        var templateIndex = uploadTemplate.IndexOf('{', StringComparison.Ordinal);
+        var baseUrl = templateIndex >= 0 ? uploadTemplate[..templateIndex] : uploadTemplate;
+        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var uploadUri) ||
+            uploadUri.Scheme != Uri.UriSchemeHttps || uploadUri.Host != "uploads.github.com" ||
+            !uploadUri.AbsolutePath.StartsWith($"/repos/{owner}/{repo}/releases/", StringComparison.Ordinal))
+            return GitHubResult<GitHubReleaseAssetInfo>.Failure(GitHubError.InvalidResponse);
+
+        var name = Path.GetFileName(path);
+        var builder = new UriBuilder(uploadUri) { Query = $"name={Uri.EscapeDataString(name)}" };
+        await using var stream = File.OpenRead(path);
+        using var content = new StreamContent(stream);
+        content.Headers.ContentType = new MediaTypeHeaderValue(GetAssetContentType(name));
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Post, builder.Uri.ToString(), null, cancellationToken,
+            rawContent: content, unprocessableError: GitHubError.ReleaseUploadFailed);
+        if (!response.IsSuccess) return GitHubResult<GitHubReleaseAssetInfo>.Failure(response.Error!.Value);
+        var body = await ReadAsync<ReleaseAssetResponse>(response.Value!, cancellationToken);
+        return body is null || string.IsNullOrWhiteSpace(body.Name) || string.IsNullOrWhiteSpace(body.BrowserDownloadUrl)
+            ? GitHubResult<GitHubReleaseAssetInfo>.Failure(GitHubError.InvalidResponse)
+            : GitHubResult<GitHubReleaseAssetInfo>.Success(new(body.Name, body.Size, body.BrowserDownloadUrl));
+    }
+
+    private static (IReadOnlyList<string>? Paths, GitHubError? Error) ValidateReleaseAssets(
+        string localRoot, IReadOnlyList<string> requested)
+    {
+        if (requested.Count is < 1 or > 10) return (null, GitHubError.ReleaseAssetInvalid);
+        var root = Path.GetFullPath(localRoot).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var paths = new List<string>(requested.Count);
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var requestedPath in requested)
+        {
+            string path;
+            try { path = Path.GetFullPath(requestedPath); }
+            catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+            { return (null, GitHubError.ReleaseAssetInvalid); }
+            var extension = Path.GetExtension(path).ToLowerInvariant();
+            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) ||
+                extension is not (".msi" or ".zip" or ".sha256") || !names.Add(Path.GetFileName(path)))
+                return (null, GitHubError.ReleaseAssetInvalid);
+            if (!File.Exists(path)) return (null, GitHubError.ReleaseAssetNotFound);
+            paths.Add(path);
+        }
+        return (paths, null);
+    }
+
+    private static string GetAssetContentType(string name) => Path.GetExtension(name).ToLowerInvariant() switch
+    {
+        ".msi" => "application/x-msi",
+        ".zip" => "application/zip",
+        _ => "text/plain",
+    };
+
+    private static bool IsValidRelease(ReleaseResponse? release) => release is not null && release.Id > 0 &&
+        !string.IsNullOrWhiteSpace(release.TagName) && !string.IsNullOrWhiteSpace(release.Name) &&
+        !string.IsNullOrWhiteSpace(release.UploadUrl) && !string.IsNullOrWhiteSpace(release.HtmlUrl);
+
     private async Task<GitHubResult<IReadOnlyList<T>>> GetAllPagesAsync<T>(string repositoryId, string firstPagePath, CancellationToken cancellationToken)
     {
         var results = new List<T>();
@@ -346,6 +447,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         string? acceptOverride,
         CancellationToken cancellationToken,
         object? jsonBody = null,
+        HttpContent? rawContent = null,
         GitHubError notFoundError = GitHubError.RepositoryNotFound,
         GitHubError conflictError = GitHubError.ApiError,
         GitHubError unprocessableError = GitHubError.ApiError)
@@ -369,6 +471,10 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             if (jsonBody is not null)
             {
                 request.Content = JsonContent.Create(jsonBody, jsonBody.GetType(), options: RequestSerializerOptions);
+            }
+            else if (rawContent is not null)
+            {
+                request.Content = rawContent;
             }
 
             HttpResponseMessage response;
@@ -548,4 +654,27 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private sealed record CreateTagObjectResponse(string? Sha);
 
     private sealed record CreateRefRequest(string Ref, string Sha);
+
+    private sealed record CreateReleaseRequest(
+        [property: JsonPropertyName("tag_name")] string TagName,
+        string Name,
+        string? Body,
+        bool Draft,
+        bool Prerelease);
+
+    private sealed record PublishReleaseRequest(bool Draft);
+
+    private sealed record ReleaseResponse(
+        long Id,
+        [property: JsonPropertyName("tag_name")] string? TagName,
+        string? Name,
+        bool Draft,
+        bool Prerelease,
+        [property: JsonPropertyName("html_url")] string? HtmlUrl,
+        [property: JsonPropertyName("upload_url")] string? UploadUrl);
+
+    private sealed record ReleaseAssetResponse(
+        string? Name,
+        long Size,
+        [property: JsonPropertyName("browser_download_url")] string? BrowserDownloadUrl);
 }
