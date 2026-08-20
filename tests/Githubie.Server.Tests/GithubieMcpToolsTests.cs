@@ -30,6 +30,7 @@ public sealed class GithubieMcpToolsTests
         "github_tag_list",
         "github_tag_get",
         "github_tag_create",
+        "github_release_create",
         "get_version",
     ];
 

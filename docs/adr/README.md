@@ -16,5 +16,6 @@
 | [0012](0012-configuration-only-repository-registration.md) | Configuration-file-only repository registration in Phase 1 (no MCP-driven registration) |
 | [0013](0013-msi-directory-acl-grants.md) | Explicit ACL grants on MSI-created directories (fixes `auth set` failing after a fresh install) |
 | [0014](0014-approved-atomic-history-rewrite.md) | Out-of-band approved, atomic, force-with-lease history rewrite for explicit refs |
+| [0015](0015-draft-first-github-release-publication.md) | Draft-first GitHub Release publication with bounded local assets |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

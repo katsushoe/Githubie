@@ -41,3 +41,22 @@ public enum GitHubMergeMethod
 public sealed record GitHubPullRequestMerge(int Number, GitHubMergeMethod? MergeMethod, string? CommitMessage);
 
 public sealed record GitHubPullRequestDiff(string Diff, int FilesChanged, int Additions, int Deletions);
+
+public sealed record GitHubReleaseCreate(
+    string Tag,
+    string Name,
+    string? Body,
+    bool Draft,
+    bool Prerelease,
+    IReadOnlyList<string> Assets);
+
+public sealed record GitHubReleaseAssetInfo(string Name, long Size, string DownloadUrl);
+
+public sealed record GitHubReleaseInfo(
+    long Id,
+    string Tag,
+    string Name,
+    bool Draft,
+    bool Prerelease,
+    string Url,
+    IReadOnlyList<GitHubReleaseAssetInfo> Assets);

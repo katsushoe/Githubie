@@ -172,6 +172,30 @@ public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitH
             cancellationToken);
     }
 
+    public async Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
+        string repository,
+        GitHubReleaseCreate request,
+        CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubReleaseInfo>.Failure(resolved.Error.Value);
+
+        var options = resolved.Options!;
+        var policy = options.ToPolicy(repository);
+        var tagPolicy = policy.ValidateTag(request.Tag, options.TagTargetBranch);
+        if (!tagPolicy.IsAllowed) return GitHubResult<GitHubReleaseInfo>.Failure(MapPolicyError(tagPolicy.ErrorCode!.Value));
+
+        var tag = await _apiClient.GetTagAsync(repository, options.GitHubOwner, options.GitHubRepo, request.Tag, cancellationToken);
+        if (!tag.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(tag.Error!.Value);
+        var main = await _apiClient.GetBranchAsync(repository, options.GitHubOwner, options.GitHubRepo, options.TagTargetBranch, cancellationToken);
+        if (!main.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(main.Error!.Value);
+        if (!string.Equals(tag.Value!.TargetCommitSha, main.Value!.HeadSha, StringComparison.OrdinalIgnoreCase))
+            return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.TagTargetNotAllowed);
+
+        return await _apiClient.CreateReleaseAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, options.LocalRoot, request, cancellationToken);
+    }
+
     private (Configuration.RepositoryOptions? Options, GitHubError? Error) Resolve(string repository)
     {
         if (!RepositoryId.IsValid(repository) || !_allowlist.TryGet(repository, out var options))
