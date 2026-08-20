@@ -97,6 +97,38 @@ public sealed class GitHubApiClientTests
     }
 
     [Fact]
+    public async Task CreatePullRequestAsync_UsesGitHubSnakeCaseRequestPropertyNames()
+    {
+        string? capturedBody = null;
+        var client = CreateCapturingClient((request, body) =>
+        {
+            capturedBody = body;
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(
+                    """{"number":1,"title":"Release","state":"open","merged":false,"head":{"ref":"develop"},"base":{"ref":"main"},"user":{"login":"u"},"html_url":"https://example.com","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}""")
+            };
+        });
+
+        await client.CreatePullRequestAsync(
+            "repo-id",
+            "owner",
+            "repo",
+            "develop",
+            "main",
+            new GitHubPullRequestCreate("Release", "Description", false),
+            TestContext.Current.CancellationToken);
+
+        capturedBody.Should().NotBeNull();
+        capturedBody.Should().Contain("\"title\"");
+        capturedBody.Should().Contain("\"body\"");
+        capturedBody.Should().Contain("\"head\"");
+        capturedBody.Should().Contain("\"base\"");
+        capturedBody.Should().Contain("\"draft\"");
+        capturedBody.Should().NotContain("\"Title\"");
+    }
+
+    [Fact]
     public async Task MergePullRequestAsync_OmitsNullMergeMethodAndCommitMessageFromRequestBody()
     {
         // 実データ検証で発見した回帰防止: merge_strategy未指定時にJSON bodyへ
