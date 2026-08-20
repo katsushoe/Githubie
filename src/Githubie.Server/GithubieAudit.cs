@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
+using Githubie.Application.Repositories;
 using Microsoft.Extensions.Logging;
 
 namespace Githubie.Server;
@@ -62,6 +63,31 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
 
         audit.Write(new GithubieAuditEvent(
             Client: "mcp", Tool: tool, Repository: repository, Branch: branch, PullRequestNumber: null, Tag: null,
+            Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
+            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString()));
+
+        return result;
+    }
+}
+
+/// <summary>
+/// <see cref="IRepositoryRegistrationService"/>呼び出しを計測し、秘密値を含まない結果コードだけを監査ログへ記録します。
+/// </summary>
+public sealed class AuditedRepositoryRegistrationService(
+    IRepositoryRegistrationService inner,
+    IGithubieAuditLogger audit) : IRepositoryRegistrationService
+{
+    public async Task<RepositoryRegistrationResult> RegisterAsync(
+        RepositoryRegistrationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = await inner.RegisterAsync(request, cancellationToken);
+        stopwatch.Stop();
+
+        audit.Write(new GithubieAuditEvent(
+            Client: "mcp", Tool: "github_repository_register", Repository: request.Repository,
+            Branch: null, PullRequestNumber: null, Tag: null,
             Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
             ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString()));
 
