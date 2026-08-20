@@ -38,6 +38,8 @@ Repository IDs must match `^[A-Za-z0-9._-]+$` and contain at most 128 characters
 
 The pull-request route is always `develop_branch` to `main_branch`; clients cannot supply another route.
 
+`github_repository_register` can add an existing local GitHub repository at runtime. It derives `github_owner` and `github_repo` from the selected local remote, requires desktop approval, writes this file atomically, and applies safe branch-policy defaults. A service restart is not required for that newly registered entry.
+
 ## Example
 
 ```json

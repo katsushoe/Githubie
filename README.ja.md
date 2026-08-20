@@ -34,7 +34,9 @@ dotnet test Githubie.slnx
 
 ## 使用方法
 
-設定、認証情報、診断、Windows Service管理には`githubie.exe`を使います。MCP ClientにはRepository Status、fetch／pull／push、承認付き履歴訂正、Branch、Pull Request、Tag、Release、Version取得の17個の型付きToolを公開します。詳細は[コマンド](COMMANDS.ja.md)を参照してください。
+設定、認証情報、診断、Windows Service管理には`githubie.exe`を使います。MCP Clientには承認付きRepository登録、Repository Status、fetch／pull／push、承認付き履歴訂正、Branch、Pull Request、Tag、Release、Version取得の18個の型付きToolを公開します。詳細は[コマンド](COMMANDS.ja.md)を参照してください。
+
+`github_repository_register`は既存Local Repositoryのremote URLからGitHub Owner／Repositoryを導出し、対話Desktopでの承認後に設定を保存して、Service再起動なしで実行中Allowlistへ反映します。
 
 `github_release_create`は既存Tagからdraft Releaseを作り、Repository配下のMSI／ZIP／SHA-256をすべて添付できた場合だけ公開します。添付失敗時は不完全なReleaseを公開せずdraftを残します。
 

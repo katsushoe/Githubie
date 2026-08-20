@@ -1,6 +1,6 @@
 # ADR 0012: Configuration-file-only repository registration in Phase 1
 
-- Status: Accepted
+- Status: Superseded by ADR 0016
 
 ## Context
 

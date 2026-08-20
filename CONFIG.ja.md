@@ -45,6 +45,8 @@ Repository IDは`^[A-Za-z0-9._-]+$`、最大128文字（`Githubie.Application.Re
 
 Pull Request経路（source→destination）は`develop_branch → main_branch`固定で、設定ファイルに個別項目はない。Agentや設定ファイルに自由な経路を指定させない設計上の判断による。
 
+`github_repository_register`は既存Local Git Repositoryを実行中に追加できる。`github_owner`と`github_repo`は指定remote URLから導出し、対話Desktop承認後にこのファイルへatomic保存する。新規登録EntryはService再起動なしで利用できる。
+
 ## 検証ルール
 
 `config check`（および起動時のComposition Root）は以下を検証する。

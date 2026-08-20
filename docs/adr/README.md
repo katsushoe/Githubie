@@ -13,9 +13,10 @@
 | [0009](0009-windows-service-via-sc.md) | Windows Service management via fixed `sc.exe` invocation |
 | [0010](0010-git-data-api-tag-creation.md) | Two-step Git Data API tag creation (GitHub has no single-call tag endpoint) |
 | [0011](0011-snake-case-tool-parameter-names.md) | snake_case MCP tool parameter names via literal C# identifiers |
-| [0012](0012-configuration-only-repository-registration.md) | Configuration-file-only repository registration in Phase 1 (no MCP-driven registration) |
+| [0012](0012-configuration-only-repository-registration.md) | Superseded Phase 1 configuration-file-only repository registration |
 | [0013](0013-msi-directory-acl-grants.md) | Explicit ACL grants on MSI-created directories (fixes `auth set` failing after a fresh install) |
 | [0014](0014-approved-atomic-history-rewrite.md) | Out-of-band approved, atomic, force-with-lease history rewrite for explicit refs |
 | [0015](0015-draft-first-github-release-publication.md) | Draft-first GitHub Release publication with bounded local assets |
+| [0016](0016-approved-mcp-repository-registration.md) | Out-of-band approved MCP registration with GitHub identity derived from the local remote |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.
