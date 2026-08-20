@@ -6,6 +6,10 @@
 
 Retain a repository mirror or `refs/backup/*` before rewriting. Run `github_history_rewrite` with `dry_run=true` and verify every remote SHA, local SHA, and rejection reason. A real update rechecks remote SHAs after desktop approval and aborts on atomic-capability, lease, or permission failure. Recover by selecting the retained SHAs as local targets and running the same dry-run and approved workflow in reverse.
 
+## GitHub Release
+
+Create the version tag at main HEAD first and generate MSI/ZIP plus `.sha256` files under the repository local root. Pass their absolute paths to `github_release_create`. Githubie creates a draft, uploads every asset, and publishes only after all uploads succeed. If the operation fails, inspect the retained GitHub draft and correct duplicate assets or permissions before retrying.
+
 ## Service Management
 
 ```powershell

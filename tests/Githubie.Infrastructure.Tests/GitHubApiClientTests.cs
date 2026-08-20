@@ -178,4 +178,62 @@ public sealed class GitHubApiClientTests
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(GitHubError.TagNotFound);
     }
+
+    [Fact]
+    public async Task CreateReleaseAsync_CreatesDraftUploadsAssetsThenPublishes()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"githubie-release-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var asset = Path.Combine(root, "Githubie-1.2.0.0-win-x64.zip");
+        await File.WriteAllTextAsync(asset, "payload", TestContext.Current.CancellationToken);
+        var requests = new List<(HttpMethod Method, string Url)>();
+        try
+        {
+            var client = CreateCapturingClient((request, _) =>
+            {
+                requests.Add((request.Method, request.RequestUri!.ToString()));
+                if (request.Method == HttpMethod.Post && request.RequestUri.Host == "uploads.github.com")
+                    return Json(HttpStatusCode.Created, """{"name":"Githubie-1.2.0.0-win-x64.zip","size":7,"browser_download_url":"https://github.com/o/r/releases/download/v1.2.0.0/a.zip"}""");
+                if (request.Method == HttpMethod.Patch)
+                    return Json(HttpStatusCode.OK, ReleaseJson(draft: false));
+                return Json(HttpStatusCode.Created, ReleaseJson(draft: true));
+            });
+
+            var result = await client.CreateReleaseAsync(
+                "repo-id", "owner", "repo", root,
+                new GitHubReleaseCreate("v1.2.0.0", "Githubie 1.2.0.0", "notes", false, false, [asset]),
+                TestContext.Current.CancellationToken);
+
+            result.IsSuccess.Should().BeTrue();
+            result.Value!.Draft.Should().BeFalse();
+            result.Value.Assets.Should().ContainSingle().Which.Name.Should().Be("Githubie-1.2.0.0-win-x64.zip");
+            requests.Select(item => item.Method).Should().Equal(HttpMethod.Post, HttpMethod.Post, HttpMethod.Patch);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task CreateReleaseAsync_AssetOutsideRepositoryRoot_IsRejectedBeforeApiCall()
+    {
+        var client = CreateClient(_ => throw new InvalidOperationException("API must not be called"));
+
+        var result = await client.CreateReleaseAsync(
+            "repo-id", "owner", "repo", Path.GetTempPath(),
+            new GitHubReleaseCreate("v1.2.0.0", "Release", null, false, false, ["C:\\outside\\asset.exe"]),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.ReleaseAssetInvalid);
+    }
+
+    private static HttpResponseMessage Json(HttpStatusCode status, string json) => new(status)
+    {
+        Content = new StringContent(json),
+    };
+
+    private static string ReleaseJson(bool draft) => $$"""
+        {"id":10,"tag_name":"v1.2.0.0","name":"Githubie 1.2.0.0","draft":{{draft.ToString().ToLowerInvariant()}},"prerelease":false,"html_url":"https://github.com/owner/repo/releases/tag/v1.2.0.0","upload_url":"https://uploads.github.com/repos/owner/repo/releases/10/assets{?name,label}"}
+        """;
 }

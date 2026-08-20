@@ -34,7 +34,9 @@ Githubie reads `<install-root>\config\githubie.json` by default. Repository IDs 
 
 ## Usage
 
-Use `githubie.exe` for configuration, credentials, diagnostics, and Windows Service management. MCP clients receive 16 typed tools for repository status, fetch/pull/push, approved history rewrite, branches, pull requests, tags, and version information. See [Commands](COMMANDS.md).
+Use `githubie.exe` for configuration, credentials, diagnostics, and Windows Service management. MCP clients receive 17 typed tools for repository status, fetch/pull/push, approved history rewrite, branches, pull requests, tags, releases, and version information. See [Commands](COMMANDS.md).
+
+`github_release_create` creates a draft from an existing tag, uploads bounded MSI/ZIP/SHA-256 assets under the repository root, and publishes only after every upload succeeds.
 
 `github_history_rewrite` corrects published branch/tag history. Inspect its dry-run and retain a mirror or backup refs first. Real updates require out-of-band desktop approval, recheck every remote SHA, and use atomic push with per-ref force-with-lease. Normal `github_push` protection remains unchanged; recovery uses the same workflow with backed-up SHAs.
 

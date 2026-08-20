@@ -37,6 +37,11 @@ public enum GitHubError
     TagAlreadyExists,
     TagTargetNotAllowed,
 
+    ReleaseAlreadyExists,
+    ReleaseAssetInvalid,
+    ReleaseAssetNotFound,
+    ReleaseUploadFailed,
+
     NetworkError,
     Timeout,
 }

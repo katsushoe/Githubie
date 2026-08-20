@@ -30,4 +30,12 @@ public interface IGitHubApiClient
     Task<GitHubResult<GitHubTagInfo>> GetTagAsync(string repositoryId, string owner, string repo, string tag, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repositoryId, string owner, string repo, GitHubTagCreate request, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
+        string repositoryId,
+        string owner,
+        string repo,
+        string localRoot,
+        GitHubReleaseCreate request,
+        CancellationToken cancellationToken);
 }

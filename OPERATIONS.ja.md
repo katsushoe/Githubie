@@ -6,6 +6,10 @@
 
 履歴訂正前に対象Repositoryのmirrorまたは`refs/backup/*`を保存する。`github_history_rewrite`を`dry_run=true`で実行し、全refのremote SHA、local SHA、拒否理由が想定どおりであることを確認してから実更新する。実更新は対話承認後にremote SHAを再検証し、atomic非対応、lease競合、権限不足では全体を中止する。復旧時は保存したSHAを新しいlocal SHAとして同じdry-run／承認手順を逆向きに実施する。
 
+## GitHub Release
+
+先にmain HEADへバージョンTagを作成し、MSI／ZIPと各`.sha256`をRepository local root配下へ生成する。`github_release_create`へTag、Release名、Release note、draft／prerelease指定、成果物の絶対パス一覧を渡す。Githubieはdraftを作成して全成果物を添付し、すべて成功した場合だけ公開する。失敗時はGitHub上のdraftを確認し、重複成果物または権限を解消してから再実行する。
+
 ## サービス起動・停止
 
 ```powershell
