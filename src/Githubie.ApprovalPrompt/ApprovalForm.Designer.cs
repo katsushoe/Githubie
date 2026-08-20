@@ -31,7 +31,8 @@ partial class ApprovalForm
         warningLabel.AutoSize = true; warningLabel.Font = new Font(Font, FontStyle.Bold); warningLabel.ForeColor = Color.DarkRed;
         warningLabel.Text = "Danger: this rewrites published Git history.";
         summaryLabel.AutoSize = true; summaryLabel.Margin = new Padding(0, 12, 0, 12);
-        detailsTextBox.Dock = DockStyle.Fill; detailsTextBox.Multiline = true; detailsTextBox.ReadOnly = true; detailsTextBox.ScrollBars = ScrollBars.Both;
+        detailsTextBox.BackColor = Color.White; detailsTextBox.Dock = DockStyle.Fill; detailsTextBox.Font = new Font(Font.FontFamily, 11F);
+        detailsTextBox.Multiline = true; detailsTextBox.ReadOnly = true; detailsTextBox.ScrollBars = ScrollBars.Both; detailsTextBox.TabStop = false;
         countdownLabel.AutoSize = true; countdownLabel.Margin = new Padding(0, 12, 0, 8); countdownLabel.Text = "Auto-deny in 120s.";
         buttonsPanel.AutoSize = true; buttonsPanel.Dock = DockStyle.Fill; buttonsPanel.FlowDirection = FlowDirection.RightToLeft;
         approveButton.DialogResult = DialogResult.Yes; approveButton.Text = "Approve rewrite"; approveButton.AutoSize = true;
