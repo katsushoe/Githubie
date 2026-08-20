@@ -1,6 +1,7 @@
 using Githubie.Application.Configuration;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
+using Githubie.Application.Repositories;
 using Githubie.Server;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -39,10 +40,12 @@ builder.WebHost.ConfigureKestrel(server => server.ListenLocalhost(options.McpPor
 
 var innerGitGateway = applicationServices.GetRequiredService<IGitGateway>();
 var innerGitHubGateway = applicationServices.GetRequiredService<IGitHubRepositoryGateway>();
+var registrationService = applicationServices.GetRequiredService<IRepositoryRegistrationService>();
 
 builder.Services.AddSingleton<IGithubieAuditLogger, GithubieAuditLogger>();
 builder.Services.AddSingleton<IGitGateway>(sp => new AuditedGitGateway(innerGitGateway, sp.GetRequiredService<IGithubieAuditLogger>()));
 builder.Services.AddSingleton<IGitHubRepositoryGateway>(sp => new AuditedGitHubRepositoryGateway(innerGitHubGateway, sp.GetRequiredService<IGithubieAuditLogger>()));
+builder.Services.AddSingleton(registrationService);
 builder.Services.AddSingleton<GithubieMcpTools>();
 
 builder.Services
