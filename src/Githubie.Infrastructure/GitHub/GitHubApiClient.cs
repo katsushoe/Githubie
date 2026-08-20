@@ -25,6 +25,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private static readonly JsonSerializerOptions RequestSerializerOptions = new()
     {
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
     };
 
     private readonly HttpClient _httpClient = httpClient;

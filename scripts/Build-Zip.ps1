@@ -49,17 +49,30 @@ dotnet publish (Join-Path $repositoryRoot 'src\Githubie.AskPass\Githubie.AskPass
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed: Githubie.AskPass.' }
 
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.example.json') -Destination $configDirectory
-$documents = @(
-    'README.md',
-    'MCP_SETUP.md',
-    'INSTALLATION.md',
-    'OPERATIONS.md',
-    'TROUBLESHOOTING.md',
-    'CONFIG.md',
-    'COMMANDS.md',
-    'SECURITY.md',
-    'PACKAGES.md',
-    'LICENSE'
+  $documents = @(
+      'README.md',
+      'README.ja.md',
+      'DOCUMENTS.md',
+      'DOCUMENTS.ja.md',
+      'MCP_SETUP.md',
+      'MCP_SETUP.ja.md',
+      'INSTALLATION.md',
+      'INSTALLATION.ja.md',
+      'OPERATIONS.md',
+      'OPERATIONS.ja.md',
+      'TROUBLESHOOTING.md',
+      'TROUBLESHOOTING.ja.md',
+      'CONFIG.md',
+      'CONFIG.ja.md',
+      'COMMANDS.md',
+      'COMMANDS.ja.md',
+      'SECURITY.md',
+      'SECURITY.ja.md',
+      'PACKAGES.md',
+      'PACKAGES.ja.md',
+      'RELEASE.md',
+      'RELEASE.ja.md',
+      'LICENSE'
 )
 foreach ($document in $documents) {
     Copy-Item -LiteralPath (Join-Path $repositoryRoot $document) -Destination $docsDirectory

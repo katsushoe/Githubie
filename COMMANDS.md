@@ -1,104 +1,68 @@
-# コマンド
+# Commands
 
-`githubie.exe`（管理CLI）と、MCP Serverが公開するTool一覧を記載する。
+[English](COMMANDS.md) | [日本語](COMMANDS.ja.md)
 
-## グローバルオプション
+## CLI
 
-| オプション | 説明 |
+Use `githubie.exe --config <path>` to override the default configuration.
+
+| Command | Result or state change |
 | --- | --- |
-| `--config <path>` | `githubie.json`の場所を明示指定する。省略時は`<install-root>\config\githubie.json` |
+| `githubie help` | Prints the command list |
+| `githubie version` | Prints the CLI version |
+| `githubie logs` | Prints the log directory |
+| `githubie config check` | Validates JSON, values, local roots, and `.git` directories |
+| `githubie config show` | Prints the loaded port, path, and repository IDs |
+| `githubie repo list` | Prints configured repository IDs |
+| `githubie repo status <repository>` | Reads current branch, HEAD, ahead/behind, and working-tree state |
+| `githubie auth set <repository>` | Replaces the DPAPI-encrypted token after masked input |
+| `githubie auth test <repository>` | Calls GitHub with the stored token and reports authentication status |
+| `githubie auth delete <repository>` | Deletes the stored token |
+| `githubie mcp status` / `mcp test` | Sends MCP `initialize` and reports connectivity |
+| `githubie mcp tools` | Sends `tools/list` and prints the exposed definitions |
+| `githubie doctor` | Reports configuration, Git, service composition, token, and repository checks |
+| `githubie start` / `stop` / `restart` / `status` | Changes or reads the Windows Service state |
+| `githubie service install` / `uninstall` / `status` | Registers, unregisters, or reads the Windows Service |
 
-## CLIコマンド
+Successful diagnostic commands print `[OK]`; failures print `[NG]` and return a nonzero exit code. Commands that query repository state derive branch, HEAD, ahead/behind, and cleanliness values from the configured local repository at call time.
 
-### 基本
+## MCP Result Envelope
 
-| コマンド | 説明 |
-| --- | --- |
-| `githubie help` | コマンド一覧を表示する |
-| `githubie version` | `githubie.exe`のバージョンを表示する |
-| `githubie logs` | ログディレクトリのパスを表示する |
+Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects the operation outcome. `data` is populated on success from local Git state, GitHub API state, configuration, or the server version as appropriate. `error` is populated on failure and includes a stable code documented in [Troubleshooting](TROUBLESHOOTING.md).
 
-### 設定
+```json
+{"ok":true,"operation":"github_branch_get","repository":"example","data":{"name":"develop","sha":"..."},"error":null}
+```
 
-| コマンド | 説明 |
-| --- | --- |
-| `githubie config check` | `githubie.json`の構文・値・各Repositoryの`local_root`/`.git`実在を検証し`[OK]`/`[NG]`を表示する |
-| `githubie config show` | 読み込んだ設定内容（Port、Path、Repository一覧）を表示する |
+```json
+{"ok":false,"operation":"github_push","repository":"example","data":null,"error":{"code":"protected_branch"}}
+```
 
-### リポジトリ
+## Read-only Tools
 
-| コマンド | 説明 |
-| --- | --- |
-| `githubie repo list` | 設定済みRepository ID一覧を表示する |
-| `githubie repo status <repository>` | 指定Repositoryの`local_branch` / `local_head` / `ahead` / `behind` / `working_tree_clean`を実Gitコマンド経由で取得する |
-
-### 認証
-
-| コマンド | 説明 |
-| --- | --- |
-| `githubie auth set <repository>` | Personal Access Tokenをマスク入力で受け取り、DPAPI暗号化してsecretsディレクトリへ保存する |
-| `githubie auth test <repository>` | 保存済みTokenで`github_branch_list`相当のAPI呼び出しを行い、認証が通るか確認する |
-| `githubie auth delete <repository>` | 保存済みTokenを削除する |
-
-### MCP疎通確認
-
-| コマンド | 説明 |
-| --- | --- |
-| `githubie mcp status` | MCP Endpointへ`initialize`リクエストを送り、応答を表示する |
-| `githubie mcp tools` | MCP Endpointへ`tools/list`リクエストを送り、公開Tool定義を表示する |
-| `githubie mcp test` | `mcp status`と同じ疎通確認を行う |
-
-いずれもStreamable HTTP Transportの要件に従い、`Accept: application/json, text/event-stream`を付与してリクエストする。
-
-### 診断
-
-| コマンド | 説明 |
-| --- | --- |
-| `githubie doctor` | Configuration・Git実行可否・Service Composition・各Repositoryの認証Token/Git状態を`[OK]`/`[NG]`形式で診断する |
-
-### サービス管理
-
-| コマンド | 説明 |
-| --- | --- |
-| `githubie start` / `stop` / `restart` / `status` | Windows Service「Githubie」の起動・停止・再起動・状態確認（内部で`sc.exe`を実行） |
-| `githubie service install` | Windows Serviceとして登録する（`binPath`は`Githubie.Server.exe <config-path>`、`start=auto`） |
-| `githubie service uninstall` | Windows Serviceの登録を解除する |
-| `githubie service status` | サービスの状態を確認する（`status`と同じ） |
-
-## MCP Tool一覧
-
-Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべて`{ ok, operation, repository, data, error }`の構造化結果を返す（[TROUBLESHOOTING.md](TROUBLESHOOTING.md)にエラーコード一覧）。パラメータ名はStructured Outputと同様すべてsnake_caseで統一している。
-
-### 読み取り専用（readOnlyHint = true）
-
-| Tool | パラメータ | 説明 |
+| Tool | Parameters | Data source and result |
 | --- | --- | --- |
-| `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得 |
-| `github_branch_list` | `repository` | Remote Branch一覧を取得 |
-| `github_branch_get` | `repository`, `branch` | 指定Branchのhead commit sha等を取得 |
-| `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull Request一覧を取得 |
-| `github_pr_get` | `repository`, `pull_request_number` | Pull Request詳細を取得 |
-| `github_pr_diff` | `repository`, `pull_request_number` | diff・変更統計を取得 |
-| `github_tag_list` | `repository` | Tag一覧を取得 |
-| `github_tag_get` | `repository`, `tag` | Tag詳細を取得 |
-| `get_version` | — | Githubie Serverのバージョンを取得 |
+| `github_repository_status` | `repository` | Local/remote HEAD, ahead/behind, and working-tree state from Git |
+| `github_branch_list` | `repository` | Remote branches visible to the stored token |
+| `github_branch_get` | `repository`, `branch` | The named remote branch and HEAD SHA; fails if absent |
+| `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull requests matching the optional filters |
+| `github_pr_get` | `repository`, `pull_request_number` | Pull-request metadata for an existing number |
+| `github_pr_diff` | `repository`, `pull_request_number` | Diff and change statistics for an existing pull request |
+| `github_tag_list` | `repository` | Repository tags visible through GitHub |
+| `github_tag_get` | `repository`, `tag` | Tag and target details; fails if absent |
+| `get_version` | None | Running Githubie Server version |
 
-### 変更操作（destructiveHint = true。MCP Client側のApproval対象）
+## State-changing Tools
 
-| Tool | パラメータ | 説明 |
+| Tool | Parameters | State and constraints |
 | --- | --- | --- |
-| `github_push` | `repository` | develop等へのGit push。Protected Branchへの直接Pushは`protected_branch`で拒否 |
-| `github_pr_create` | `repository`, `title`, `description?`, `draft` | develop→mainのPRを作成（Source/Destinationは設定固定） |
-| `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | PRをmerge。State==open、Source/Destinationが許可経路であることを検証 |
-| `github_tag_create` | `repository`, `tag`, `message?` | main HEADへAnnotated Tagを作成（Git Data APIの2段階呼び出し） |
+| `github_fetch` | `repository` | Updates remote-tracking refs |
+| `github_pull` | `repository`, `branch` | Fast-forwards an allowed branch; rejects divergent history |
+| `github_push` | `repository` | Pushes the current allowed branch; rejects protected branches, dirty trees when configured, and no-op pushes |
+| `github_pr_create` | `repository`, `title`, `description?`, `draft` | Creates only the configured `develop` to `main` route |
+| `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | Merges an open, mergeable pull request on the allowed route |
+| `github_tag_create` | `repository`, `tag`, `message?` | Creates an annotated tag matching `tag_pattern` at the configured target branch HEAD |
 
-### 未分類（局所的な状態変更を伴うが破壊的操作ではない）
+## Audit Log
 
-| Tool | パラメータ | 説明 |
-| --- | --- | --- |
-| `github_fetch` | `repository` | `git fetch`相当 |
-| `github_pull` | `repository`, `branch` | `git pull --ff-only`相当。Fast-forward不能ならエラー |
-
-## 監査ログ
-
-すべてのTool呼び出しは`<install-root>\logs\githubie-yyyyMMdd.log`へ、`client` / `tool` / `repository` / `branch` / `pull_request_number` / `tag` / `result` / `duration_ms` / `error_code`の構造化行として記録する。Personal Access Token・Authorization Header・生エラーメッセージは記録しない。
+Each call records client, tool, repository, relevant branch/PR/tag fields, result, duration, and error code in `<install-root>\logs\githubie-yyyyMMdd.log`. Tokens, authorization headers, and raw error messages are excluded.
