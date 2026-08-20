@@ -1,63 +1,63 @@
-# 設定
+# Configuration
 
-`githubie.json`の全項目と検証ルールを記載する。読み込みは`Githubie.Infrastructure.Configuration.JsonGithubieOptionsLoader`が行い、プロパティ名はすべてsnake_caseで統一する。JSON中の未知プロパティ・コメント・末尾カンマは拒否する。
+[English](CONFIG.md) | [日本語](CONFIG.ja.md)
 
-サンプルは[githubie.example.json](githubie.example.json)を参照する。
+Githubie reads strict `snake_case` JSON. Unknown properties, comments, and trailing commas are rejected. See [githubie.example.json](githubie.example.json).
 
-## ファイル配置
+## File Location
 
-既定では`<install-root>\config\githubie.json`を読み込む。`githubie.exe` / `Githubie.Server.exe`のいずれも第1引数、または`githubie.exe`は`--config <path>`で明示指定できる。
+The default path is `<install-root>\config\githubie.json`. Pass another path as the server's first argument or with the CLI `--config <path>` option.
 
-```powershell
-Githubie.Server.exe C:\path\to\githubie.json
-githubie.exe --config C:\path\to\githubie.json config check
+## Root Properties
+
+| Key | Required | Type | Default | Constraints and behavior |
+| --- | --- | --- | --- | --- |
+| `mcp_port` | Yes | integer | None | `1` through `65535`; the supplied example uses `45460` |
+| `mcp_path` | Yes | string | None | Must start with `/`; the supplied example uses `/mcp` |
+| `repositories` | Yes | object | None | Maps repository IDs to repository objects; an empty object allows startup but no repository operations |
+
+## `repositories.<id>` Properties
+
+Repository IDs must match `^[A-Za-z0-9._-]+$` and contain at most 128 characters.
+
+| Key | Required | Type | Default | Constraints and behavior |
+| --- | --- | --- | --- | --- |
+| `github_owner` | Yes | string | None | Non-empty GitHub user or organization |
+| `github_repo` | Yes | string | None | Non-empty GitHub repository name |
+| `local_root` | Yes | string | None | Existing local repository root; `.git` must exist and reparse points are rejected |
+| `remote` | Yes | string | None | Fixed Git remote used by Git operations; the example uses `origin` |
+| `develop_branch` | Yes | string | None | Non-empty source branch of the allowed pull-request route |
+| `main_branch` | Yes | string | None | Non-empty destination branch of the allowed pull-request route |
+| `direct_push_branches` | Yes | string array | None | Branches accepted by `github_push` unless protected |
+| `pull_branches` | Yes | string array | None | Branches accepted by `github_pull` |
+| `protected_branches` | Yes | string array | None | Branches rejected by direct push |
+| `tag_target_branch` | Yes | string | None | Branch whose HEAD may be tagged |
+| `tag_pattern` | Yes | string | None | Valid regular expression applied to tag names |
+| `merge_method` | Yes | string | None | One of `merge`, `squash`, or `rebase` |
+| `require_clean_working_tree` | Yes | boolean | None | Rejects push when the working tree is not clean |
+
+The pull-request route is always `develop_branch` to `main_branch`; clients cannot supply another route.
+
+## Example
+
+```json
+{
+  "mcp_port": 45460,
+  "mcp_path": "/mcp",
+  "repositories": {
+    "example": {
+      "github_owner": "owner",
+      "github_repo": "repository",
+      "local_root": "C:\\src\\repository"
+    }
+  }
+}
 ```
 
-## ルート項目
+## Validation
 
-| キー | 型 | 既定値 | 説明 |
-| --- | --- | --- | --- |
-| `mcp_port` | integer (1-65535) | `45460` | MCP Streamable HTTP Endpointの待受ポート。Buckettieの`45450`と衝突しないよう別値にしてある |
-| `mcp_path` | string（`/`始まり） | `/mcp` | MCP Endpointのパス |
-| `repositories` | object | — | Repository ID(キー)ごとの設定。空でも起動は可能だが、公開されるTool呼び出しはすべて`repository_not_allowed`になる |
-
-## `repositories.<id>`項目
-
-Repository IDは`^[A-Za-z0-9._-]+$`、最大128文字（`Githubie.Application.Repositories.RepositoryId`で検証）。MCP Agentはこの内部IDだけを指定し、`github_owner` / `github_repo` / `local_root`を自由指定できない。
-
-| キー | 型 | 説明 |
-| --- | --- | --- |
-| `github_owner` | string | GitHub Owner（ユーザー名またはOrganization名） |
-| `github_repo` | string | GitHub Repository名 |
-| `local_root` | string | ローカルGitリポジトリのルートパス。存在確認・`.git`存在確認・symlink/junction混入確認を行う |
-| `remote` | string | 使用するGit Remote名（通常`origin`） |
-| `develop_branch` | string | 日常開発でdirect pushするBranch |
-| `main_branch` | string | Release対象Branch |
-| `direct_push_branches` | string[] | `github_push`で直接Pushを許可するBranch一覧 |
-| `pull_branches` | string[] | `github_pull`で対象にできるBranch一覧 |
-| `protected_branches` | string[] | `github_push`を拒否するBranch一覧（`protected_branch`エラー） |
-| `tag_target_branch` | string | `github_tag_create`が許可するTag対象Branch（既定でmain HEADのみ） |
-| `tag_pattern` | string | Tag名の許可パターン（正規表現） |
-| `merge_method` | string | `merge` / `squash` / `rebase`のいずれか。`github_pr_merge`の既定Strategy |
-| `require_clean_working_tree` | boolean | `true`の場合、Working Treeが汚れていると`github_push`を拒否する |
-
-Pull Request経路（source→destination）は`develop_branch → main_branch`固定で、設定ファイルに個別項目はない。Agentや設定ファイルに自由な経路を指定させない設計上の判断による。
-
-## 検証ルール
-
-`config check`（および起動時のComposition Root）は以下を検証する。
-
-- JSON構文・スキーマ違反（`InvalidJson`）
-- `mcp_port`が1〜65535の範囲外（`InvalidMcpPort`）
-- `mcp_path`が空または`/`始まりでない（`InvalidMcpPath`）
-- Repository IDが命名規則違反（`InvalidRepositoryId`）
-- `github_owner` / `github_repo` / `local_root`が空（`InvalidGitHubOwner` / `InvalidGitHubRepo` / `InvalidLocalRoot`）
-- `develop_branch` / `main_branch`が空（`InvalidBranchName`）
-- `tag_pattern`が不正な正規表現（`InvalidTagPattern`）
-- `merge_method`が`merge` / `squash` / `rebase`以外（`InvalidMergeMethod`）
-
-`githubie.exe config check`はこれに加えて、`local_root`の実在と`.git`の実在をファイルシステム上で確認する。
+`githubie.exe config check` validates JSON, all constraints above, `local_root`, and `.git`. Startup performs schema and value validation. Invalid values return named errors such as `InvalidMcpPort`, `InvalidRepositoryId`, `InvalidTagPattern`, or `InvalidMergeMethod`.
 
 ## Personal Access Token
 
-Tokenは`githubie.json`に含めない。`githubie.exe auth set <repository-id>`でDPAPI（LocalMachineスコープ）暗号化のうえ`<install-root>\data\secrets\<repository-id>.token`へ1ファイル/Repositoryで保存する。詳細は[SECURITY.md](SECURITY.md)を参照する。
+Never place tokens in JSON. `githubie.exe auth set <repository-id>` encrypts a token with DPAPI LocalMachine and stores it under `<install-root>\data\secrets`. See [Security](SECURITY.md).
