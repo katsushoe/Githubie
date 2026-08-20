@@ -53,6 +53,18 @@ public sealed class GithubieMcpTools(IGitGateway gitGateway, IGitHubRepositoryGa
         return GithubieToolResultMapper.Map("push", repository, result);
     }
 
+    [McpServerTool(Name = "github_history_rewrite", Destructive = true, UseStructuredContent = true)]
+    [Description("複数のbranch/tag refをatomicかつforce-with-leaseで履歴訂正します。実更新は対話承認を要求します。")]
+    public async Task<GithubieToolResult<GitHistoryRewriteResult>> RewriteHistoryAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("対象ref、新local SHA、期待remote SHAの一覧")] IReadOnlyList<GitHistoryRewriteRef> refs,
+        [Description("更新せず検証計画だけを返すか")] bool dry_run,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitGateway.RewriteHistoryAsync(repository, refs, dry_run, cancellationToken);
+        return GithubieToolResultMapper.Map("history_rewrite", repository, result);
+    }
+
     [McpServerTool(Name = "github_branch_list", ReadOnly = true, UseStructuredContent = true)]
     [Description("Remote Branch一覧を取得します。")]
     public async Task<GithubieToolResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(

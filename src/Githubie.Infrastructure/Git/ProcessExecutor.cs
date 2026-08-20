@@ -71,11 +71,11 @@ public sealed class ProcessExecutor : IProcessExecutor
         }
 
         var standardOutput = (await standardOutputTask).Trim();
-        _ = await standardErrorTask;
+        var standardError = (await standardErrorTask).Trim();
 
         return process.ExitCode == 0
             ? GitCommandResult.Success(standardOutput)
-            : GitCommandResult.Failed(GitCommandFailure.Failed, standardOutput);
+            : GitCommandResult.Failed(GitCommandFailure.Failed, standardOutput, standardError);
     }
 
     private static void TryKill(Process process)

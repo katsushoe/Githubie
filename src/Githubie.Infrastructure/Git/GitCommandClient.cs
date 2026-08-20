@@ -41,6 +41,33 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> PushAsync(string repositoryRoot, string repositoryId, string remote, string branch, CancellationToken cancellationToken) =>
         ExecuteNetworkAsync(repositoryRoot, repositoryId, ["push", "--", remote, branch], cancellationToken);
 
+    public Task<GitCommandResult> GetLocalRefAsync(string repositoryRoot, string reference, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--verify", reference], cancellationToken);
+
+    public Task<GitCommandResult> GetRemoteRefAsync(string repositoryRoot, string repositoryId, string remote, string reference, CancellationToken cancellationToken) =>
+        ExecuteNetworkAsync(repositoryRoot, repositoryId, ["ls-remote", "--refs", "--", remote, reference], cancellationToken);
+
+    public Task<GitCommandResult> PushHistoryRewriteAsync(
+        string repositoryRoot,
+        string repositoryId,
+        string remote,
+        IReadOnlyList<GitHistoryRewriteRef> refs,
+        CancellationToken cancellationToken)
+    {
+        var arguments = new List<string> { "push", "--atomic" };
+        foreach (var item in refs)
+        {
+            arguments.Add($"--force-with-lease={item.Ref}:{item.ExpectedRemoteSha}");
+        }
+        arguments.Add("--");
+        arguments.Add(remote);
+        foreach (var item in refs)
+        {
+            arguments.Add($"{item.NewLocalSha}:{item.Ref}");
+        }
+        return ExecuteNetworkAsync(repositoryRoot, repositoryId, arguments, cancellationToken);
+    }
+
     private Task<GitCommandResult> ExecuteLocalAsync(string repositoryRoot, IReadOnlyList<string> gitArguments, CancellationToken cancellationToken)
     {
         var arguments = new List<string> { "-c", $"safe.directory={repositoryRoot}" };

@@ -86,4 +86,24 @@ public sealed class GitCommandClientTests
 
         executor.CapturedArguments.Should().Equal("-c", $"safe.directory={RepositoryRoot}", "remote", "get-url", "--", "--upload-pack=evil");
     }
+
+    [Fact]
+    public async Task PushHistoryRewriteAsync_UsesAtomicAndPerRefForceWithLease()
+    {
+        var executor = new RecordingProcessExecutor();
+        var client = new GitCommandClient(executor, AskPassPath);
+        var refs = new[]
+        {
+            new GitHistoryRewriteRef("refs/heads/main", new string('2', 40), new string('1', 40)),
+            new GitHistoryRewriteRef("refs/tags/v1.0.0", new string('4', 40), new string('3', 40)),
+        };
+
+        await client.PushHistoryRewriteAsync(RepositoryRoot, "sample-repo", "origin", refs, CancellationToken.None);
+
+        executor.CapturedArguments.Should().Equal(
+            "-c", $"safe.directory={RepositoryRoot}", "-c", "credential.helper=", "push", "--atomic",
+            $"--force-with-lease=refs/heads/main:{new string('1', 40)}",
+            $"--force-with-lease=refs/tags/v1.0.0:{new string('3', 40)}",
+            "--", "origin", $"{new string('2', 40)}:refs/heads/main", $"{new string('4', 40)}:refs/tags/v1.0.0");
+    }
 }
