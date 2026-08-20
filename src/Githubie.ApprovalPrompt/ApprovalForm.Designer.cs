@@ -5,44 +5,90 @@ namespace Githubie.ApprovalPrompt;
 partial class ApprovalForm
 {
     private System.ComponentModel.IContainer? components;
-    private TableLayoutPanel rootLayout = null!;
-    private Label warningLabel = null!;
-    private Label summaryLabel = null!;
-    private TextBox detailsTextBox = null!;
+    private Label operationCaptionLabel = null!;
+    private Label operationValueLabel = null!;
+    private Label summaryCaptionLabel = null!;
+    private Label summaryValueLabel = null!;
+    private Label detailsCaptionLabel = null!;
+    private Label detailsValueLabel = null!;
     private Label countdownLabel = null!;
-    private FlowLayoutPanel buttonsPanel = null!;
     private Button approveButton = null!;
     private Button denyButton = null!;
     private System.Windows.Forms.Timer countdownTimer = null!;
 
-    protected override void Dispose(bool disposing) { if (disposing) components?.Dispose(); base.Dispose(disposing); }
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) components?.Dispose();
+        base.Dispose(disposing);
+    }
 
     private void InitializeComponent()
     {
         components = new System.ComponentModel.Container();
-        rootLayout = new TableLayoutPanel(); warningLabel = new Label(); summaryLabel = new Label();
-        detailsTextBox = new TextBox(); countdownLabel = new Label(); buttonsPanel = new FlowLayoutPanel();
-        approveButton = new Button(); denyButton = new Button(); countdownTimer = new System.Windows.Forms.Timer(components);
+        operationCaptionLabel = new Label();
+        operationValueLabel = new Label();
+        summaryCaptionLabel = new Label();
+        summaryValueLabel = new Label();
+        detailsCaptionLabel = new Label();
+        detailsValueLabel = new Label();
+        countdownLabel = new Label();
+        approveButton = new Button();
+        denyButton = new Button();
+        countdownTimer = new System.Windows.Forms.Timer(components);
         SuspendLayout();
-        rootLayout.ColumnCount = 1; rootLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F)); rootLayout.Dock = DockStyle.Fill;
-        rootLayout.Padding = new Padding(16); rootLayout.RowCount = 5;
-        rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        rootLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F)); rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); rootLayout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        warningLabel.AutoSize = true; warningLabel.Font = new Font(Font, FontStyle.Bold); warningLabel.ForeColor = Color.DarkRed;
-        warningLabel.Text = "Danger: this rewrites published Git history.";
-        summaryLabel.AutoSize = true; summaryLabel.Margin = new Padding(0, 12, 0, 12);
-        detailsTextBox.BackColor = Color.White; detailsTextBox.Dock = DockStyle.Fill; detailsTextBox.Font = new Font(Font.FontFamily, 11F);
-        detailsTextBox.Multiline = true; detailsTextBox.ReadOnly = true; detailsTextBox.ScrollBars = ScrollBars.Both; detailsTextBox.TabStop = false;
-        countdownLabel.AutoSize = true; countdownLabel.Margin = new Padding(0, 12, 0, 8); countdownLabel.Text = "Auto-deny in 120s.";
-        buttonsPanel.AutoSize = true; buttonsPanel.Dock = DockStyle.Fill; buttonsPanel.FlowDirection = FlowDirection.RightToLeft;
-        approveButton.DialogResult = DialogResult.Yes; approveButton.Text = "Approve rewrite"; approveButton.AutoSize = true;
-        denyButton.DialogResult = DialogResult.No; denyButton.Text = "Deny"; denyButton.AutoSize = true;
-        buttonsPanel.Controls.Add(denyButton); buttonsPanel.Controls.Add(approveButton);
-        rootLayout.Controls.Add(warningLabel, 0, 0); rootLayout.Controls.Add(summaryLabel, 0, 1); rootLayout.Controls.Add(detailsTextBox, 0, 2);
-        rootLayout.Controls.Add(countdownLabel, 0, 3); rootLayout.Controls.Add(buttonsPanel, 0, 4);
-        countdownTimer.Interval = 1000; countdownTimer.Tick += CountdownTimerTick;
-        AcceptButton = null; CancelButton = denyButton; ClientSize = new Size(680, 420); Controls.Add(rootLayout);
-        FormBorderStyle = FormBorderStyle.FixedDialog; MaximizeBox = false; MinimizeBox = false; StartPosition = FormStartPosition.CenterScreen; TopMost = true;
+        operationCaptionLabel.AutoSize = true;
+        operationCaptionLabel.Font = new Font(Font, FontStyle.Bold);
+        operationCaptionLabel.Location = new Point(16, 16);
+        operationCaptionLabel.Text = "Operation";
+        operationValueLabel.AutoSize = true;
+        operationValueLabel.Location = new Point(16, 34);
+        operationValueLabel.MaximumSize = new Size(448, 0);
+        summaryCaptionLabel.AutoSize = true;
+        summaryCaptionLabel.Font = new Font(Font, FontStyle.Bold);
+        summaryCaptionLabel.Location = new Point(16, 56);
+        summaryCaptionLabel.Text = "Summary";
+        summaryValueLabel.AutoSize = true;
+        summaryValueLabel.Location = new Point(16, 74);
+        summaryValueLabel.MaximumSize = new Size(448, 0);
+        detailsCaptionLabel.AutoSize = true;
+        detailsCaptionLabel.Font = new Font(Font, FontStyle.Bold);
+        detailsCaptionLabel.Location = new Point(16, 116);
+        detailsCaptionLabel.Text = "Details";
+        detailsValueLabel.AutoEllipsis = true;
+        detailsValueLabel.Location = new Point(16, 134);
+        detailsValueLabel.MaximumSize = new Size(448, 72);
+        detailsValueLabel.Size = new Size(448, 72);
+        countdownLabel.AutoSize = true;
+        countdownLabel.Location = new Point(16, 220);
+        countdownLabel.Text = "Auto-deny in 120s if no response.";
+        approveButton.DialogResult = DialogResult.Yes;
+        approveButton.Location = new Point(232, 248);
+        approveButton.Size = new Size(110, 32);
+        approveButton.Text = "&Approve";
+        denyButton.DialogResult = DialogResult.No;
+        denyButton.Location = new Point(352, 248);
+        denyButton.Size = new Size(110, 32);
+        denyButton.Text = "&Deny";
+        countdownTimer.Interval = 1000;
+        countdownTimer.Tick += CountdownTimerTick;
+        AcceptButton = null;
+        CancelButton = denyButton;
+        ClientSize = new Size(480, 300);
+        Controls.Add(operationCaptionLabel);
+        Controls.Add(operationValueLabel);
+        Controls.Add(summaryCaptionLabel);
+        Controls.Add(summaryValueLabel);
+        Controls.Add(detailsCaptionLabel);
+        Controls.Add(detailsValueLabel);
+        Controls.Add(countdownLabel);
+        Controls.Add(approveButton);
+        Controls.Add(denyButton);
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        StartPosition = FormStartPosition.Manual;
+        TopMost = true;
         ResumeLayout(false);
+        PerformLayout();
     }
 }
