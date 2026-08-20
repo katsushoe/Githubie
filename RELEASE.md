@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.0.0.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.1.0.0`.
 
 ## Tags
 
@@ -23,3 +23,5 @@ Create annotated tags in the form `v<display-version>` on the configured `main` 
 ## Validation Record
 
 Phase 1 core implementation, Windows execution, live GitHub read/write operations, Windows Service operation, 114 automated tests, and MSI install/upgrade/uninstall were validated for version `1.0.0.0`. ADR 0013 records the MSI directory ACL correction found during that validation.
+
+Version `1.1.0.0` adds the interactively approved, atomic, force-with-lease history rewrite tool and its dedicated approval prompt executable. ADR 0014 records its safety and recovery model.
