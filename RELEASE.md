@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.0.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.1.0`.
 
 ## Tags
 
@@ -27,3 +27,5 @@ Phase 1 core implementation, Windows execution, live GitHub read/write operation
 Version `1.1.0.0` adds the interactively approved, atomic, force-with-lease history rewrite tool and its dedicated approval prompt executable. ADR 0014 records its safety and recovery model.
 
 Version `1.3.0.0` adds out-of-band approved MCP repository registration with GitHub identity derived from the local remote. ADR 0016 records the registration model.
+
+Version `1.3.1.0` fixes MCP tool activation after repository registration support was added by registering the repository registration service in the HTTP host dependency injection container.
