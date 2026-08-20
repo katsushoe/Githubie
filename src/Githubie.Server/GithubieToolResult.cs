@@ -74,6 +74,7 @@ public static class GithubieToolResultMapper
         GitGatewayError.GitFailed => new("git_failed", "Git command failed."),
         GitGatewayError.GitTimedOut => new("timeout", "Git command timed out."),
         GitGatewayError.GitCancelled => new("git_failed", "Git command was cancelled."),
+        GitGatewayError.AuthenticationFailed => new("authentication_failed", "Git authentication failed."),
         GitGatewayError.WorkingTreeDirty => new("working_tree_dirty", "Working tree has uncommitted changes."),
         GitGatewayError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed for this operation."),
         GitGatewayError.ProtectedBranch => new("protected_branch", "Direct push to a protected branch is not allowed."),
@@ -84,9 +85,9 @@ public static class GithubieToolResultMapper
         GitGatewayError.ApprovalDenied => new("approval_denied", "The history rewrite was denied."),
         GitGatewayError.ApprovalTimedOut => new("approval_timed_out", "The history rewrite approval timed out."),
         GitGatewayError.ApprovalUnavailable => new("approval_unavailable", "The approval prompt could not be displayed."),
-        GitGatewayError.PermissionDenied => new("permission_denied", "GitHub denied the history rewrite."),
+        GitGatewayError.PermissionDenied => new("permission_denied", "GitHub denied the Git operation."),
         GitGatewayError.NothingToPush => new("nothing_to_push", "There is nothing to push."),
-        GitGatewayError.NonFastForward => new("non_fast_forward", "Fast-forward pull is not possible."),
+        GitGatewayError.NonFastForward => new("non_fast_forward", "The remote contains changes that prevent a fast-forward operation."),
         _ => new("git_failed", "Git operation failed."),
     };
 

@@ -33,11 +33,49 @@ public sealed class GitCommandClientIntegrationTests
         result.StandardError.Should().Contain("missing");
     }
 
+    [Fact]
+    public async Task PushAsync_RealGit_FastForwardUpdatesRemoteAndLeavesNoAheadCommits()
+    {
+        using var repository = await TemporaryGitRepository.CreateWithBareRemoteAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+
+        var push = await client.PushAsync(repository.Root, "sample", "origin", "develop", TestContext.Current.CancellationToken);
+        var aheadBehind = await client.GetAheadBehindAsync(repository.Root, "origin", "develop", TestContext.Current.CancellationToken);
+
+        push.IsSuccess.Should().BeTrue(push.StandardError);
+        aheadBehind.IsSuccess.Should().BeTrue(aheadBehind.StandardError);
+        aheadBehind.StandardOutput.Should().Be("0\t0");
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.RemoteRoot, "rev-parse", "refs/heads/develop"))
+            .Should().Be(await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "rev-parse", "HEAD"));
+    }
+
+    [Fact]
+    public async Task PushAsync_RealGit_NonFastForwardReturnsRejectedError()
+    {
+        using var repository = await TemporaryGitRepository.CreateWithBareRemoteAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        (await client.PushAsync(repository.Root, "sample", "origin", "develop", TestContext.Current.CancellationToken)).IsSuccess.Should().BeTrue();
+        await repository.AdvanceRemoteAsync();
+        await repository.CommitAsync("local change");
+
+        var result = await client.PushAsync(repository.Root, "sample", "origin", "develop", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeFalse();
+        result.StandardError.Should().Contain("rejected");
+    }
+
     private sealed class TemporaryGitRepository : IDisposable
     {
-        private TemporaryGitRepository(string root) => Root = root;
+        private TemporaryGitRepository(string root, string? container = null, string? remoteRoot = null)
+        {
+            Root = root;
+            Container = container ?? root;
+            RemoteRoot = remoteRoot ?? string.Empty;
+        }
 
         public string Root { get; }
+        public string Container { get; }
+        public string RemoteRoot { get; }
 
         public static async Task<TemporaryGitRepository> CreateAsync(string remoteUrl)
         {
@@ -47,9 +85,63 @@ public sealed class GitCommandClientIntegrationTests
             return new TemporaryGitRepository(root);
         }
 
-        public void Dispose() => Directory.Delete(Root, recursive: true);
+        public static async Task<TemporaryGitRepository> CreateWithBareRemoteAsync()
+        {
+            var container = Directory.CreateTempSubdirectory("githubie-push-").FullName;
+            var remote = Path.Combine(container, "remote.git");
+            var local = Path.Combine(container, "local");
+            Directory.CreateDirectory(remote);
+            Directory.CreateDirectory(local);
+            await RunGitAsync(remote, "init", "--bare");
+            await RunGitAsync(local, "init");
+            await RunGitAsync(local, "config", "user.name", "Githubie Test");
+            await RunGitAsync(local, "config", "user.email", "githubie@example.invalid");
+            await File.WriteAllTextAsync(Path.Combine(local, "file.txt"), "initial");
+            await RunGitAsync(local, "add", "file.txt");
+            await RunGitAsync(local, "commit", "-m", "initial");
+            await RunGitAsync(local, "branch", "-M", "develop");
+            await RunGitAsync(local, "remote", "add", "origin", remote);
+            return new TemporaryGitRepository(local, container, remote);
+        }
+
+        public async Task CommitAsync(string content)
+        {
+            await File.AppendAllTextAsync(Path.Combine(Root, "file.txt"), content);
+            await RunGitAsync(Root, "add", "file.txt");
+            await RunGitAsync(Root, "commit", "-m", content);
+        }
+
+        public async Task AdvanceRemoteAsync()
+        {
+            var other = Path.Combine(Container, "other");
+            await RunGitAsync(Container, "clone", "--branch", "develop", RemoteRoot, other);
+            await RunGitAsync(other, "config", "user.name", "Githubie Test");
+            await RunGitAsync(other, "config", "user.email", "githubie@example.invalid");
+            await File.AppendAllTextAsync(Path.Combine(other, "file.txt"), "remote change");
+            await RunGitAsync(other, "add", "file.txt");
+            await RunGitAsync(other, "commit", "-m", "remote change");
+            await RunGitAsync(other, "push", "origin", "develop");
+        }
+
+        public void Dispose()
+        {
+            foreach (var file in Directory.EnumerateFiles(Container, "*", SearchOption.AllDirectories))
+                File.SetAttributes(file, FileAttributes.Normal);
+            Directory.Delete(Container, recursive: true);
+        }
+
+        public static async Task<string> RunGitForOutputAsync(string root, params string[] arguments)
+        {
+            var (output, _) = await RunGitCoreAsync(root, arguments);
+            return output;
+        }
 
         private static async Task RunGitAsync(string root, params string[] arguments)
+        {
+            await RunGitCoreAsync(root, arguments);
+        }
+
+        private static async Task<(string Output, string Error)> RunGitCoreAsync(string root, params string[] arguments)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -64,10 +156,12 @@ public sealed class GitCommandClientIntegrationTests
                 startInfo.ArgumentList.Add(argument);
 
             using var process = Process.Start(startInfo) ?? throw new InvalidOperationException("Failed to start git.");
+            var standardOutput = await process.StandardOutput.ReadToEndAsync();
             var standardError = await process.StandardError.ReadToEndAsync();
             await process.WaitForExitAsync();
             if (process.ExitCode != 0)
                 throw new InvalidOperationException($"git failed: {standardError}");
+            return (standardOutput.Trim(), standardError.Trim());
         }
     }
 }
