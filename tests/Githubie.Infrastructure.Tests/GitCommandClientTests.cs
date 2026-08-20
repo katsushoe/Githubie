@@ -38,7 +38,7 @@ public sealed class GitCommandClientTests
 
         await client.GetStatusAsync(RepositoryRoot, CancellationToken.None);
 
-        executor.CapturedArguments.Should().Equal("-c", $"safe.directory={RepositoryRoot}", "status", "--porcelain");
+        executor.CapturedArguments.Should().Equal("-c", "safe.directory=C:/repo", "status", "--porcelain");
         executor.CapturedEnvironment.Should().NotContainKey(GitAskPassProtocol.AskPassVariable);
     }
 
@@ -51,7 +51,7 @@ public sealed class GitCommandClientTests
         await client.PushAsync(RepositoryRoot, "sample-repo", "origin", "develop", CancellationToken.None);
 
         executor.CapturedArguments.Should().Equal(
-            "-c", $"safe.directory={RepositoryRoot}",
+            "-c", "safe.directory=C:/repo",
             "-c", "credential.helper=",
             "push", "--", "origin", "develop");
 
@@ -70,7 +70,7 @@ public sealed class GitCommandClientTests
         await client.PullFastForwardOnlyAsync(RepositoryRoot, "sample-repo", "origin", "main", CancellationToken.None);
 
         executor.CapturedArguments.Should().Equal(
-            "-c", $"safe.directory={RepositoryRoot}",
+            "-c", "safe.directory=C:/repo",
             "-c", "credential.helper=",
             "pull", "--ff-only", "--", "origin", "main");
     }
@@ -84,7 +84,7 @@ public sealed class GitCommandClientTests
 
         await client.GetRemoteUrlAsync(RepositoryRoot, "--upload-pack=evil", CancellationToken.None);
 
-        executor.CapturedArguments.Should().Equal("-c", $"safe.directory={RepositoryRoot}", "remote", "get-url", "--", "--upload-pack=evil");
+        executor.CapturedArguments.Should().Equal("-c", "safe.directory=C:/repo", "remote", "get-url", "--", "--upload-pack=evil");
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed class GitCommandClientTests
         await client.PushHistoryRewriteAsync(RepositoryRoot, "sample-repo", "origin", refs, CancellationToken.None);
 
         executor.CapturedArguments.Should().Equal(
-            "-c", $"safe.directory={RepositoryRoot}", "-c", "credential.helper=", "push", "--atomic",
+            "-c", "safe.directory=C:/repo", "-c", "credential.helper=", "push", "--atomic",
             $"--force-with-lease=refs/heads/main:{new string('1', 40)}",
             $"--force-with-lease=refs/tags/v1.0.0:{new string('3', 40)}",
             "--", "origin", $"{new string('2', 40)}:refs/heads/main", $"{new string('4', 40)}:refs/tags/v1.0.0");
