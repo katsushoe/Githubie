@@ -34,5 +34,15 @@ public sealed class RepositoryAllowlist
         return _repositories.TryAdd(repositoryId, options);
     }
 
+    public bool TryUpdate(string repositoryId, RepositoryOptions options)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryId);
+        ArgumentNullException.ThrowIfNull(options);
+        return _repositories.TryGetValue(repositoryId, out var current)
+            && _repositories.TryUpdate(repositoryId, options, current);
+    }
+
+    public bool TryRemove(string repositoryId) => _repositories.TryRemove(repositoryId, out _);
+
     public IReadOnlyCollection<string> RepositoryIds => (IReadOnlyCollection<string>)_repositories.Keys;
 }

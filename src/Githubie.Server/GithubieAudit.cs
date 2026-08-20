@@ -95,6 +95,35 @@ public sealed class AuditedRepositoryRegistrationService(
     }
 }
 
+/// <summary>Repository設定変更・登録解除を監査ログへ記録します。</summary>
+public sealed class AuditedRepositoryManagementService(
+    IRepositoryManagementService inner,
+    IGithubieAuditLogger audit) : IRepositoryManagementService
+{
+    public Task<RepositoryMutationResult> UpdateAsync(
+        string repositoryId, RepositoryUpdateRequest request, CancellationToken cancellationToken) =>
+        RunAsync("github_repository_update", repositoryId,
+            () => inner.UpdateAsync(repositoryId, request, cancellationToken));
+
+    public Task<RepositoryMutationResult> UnregisterAsync(
+        string repositoryId, CancellationToken cancellationToken) =>
+        RunAsync("github_repository_unregister", repositoryId,
+            () => inner.UnregisterAsync(repositoryId, cancellationToken));
+
+    private async Task<RepositoryMutationResult> RunAsync(
+        string tool, string repository, Func<Task<RepositoryMutationResult>> action)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = await action();
+        stopwatch.Stop();
+        audit.Write(new GithubieAuditEvent(
+            "mcp", tool, repository, null, null, null,
+            result.IsSuccess ? "success" : "failure", stopwatch.ElapsedMilliseconds,
+            result.IsSuccess ? null : result.Error!.Value.ToString()));
+        return result;
+    }
+}
+
 /// <summary>
 /// <see cref="IGitHubRepositoryGateway"/>呼び出しを計測し監査ログへ記録するデコレーターです。
 /// </summary>

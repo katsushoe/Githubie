@@ -103,8 +103,9 @@ internal sealed partial class ApprovalForm : Form
     private static string GetOperation(string title, bool japanese)
     {
         var registration = title.Equals("Githubie repository registration", StringComparison.Ordinal);
-        if (japanese) return registration ? "リポジトリ登録" : "Git履歴書き換え";
-        return registration ? "Repository registration" : "Git history rewrite";
+        var update = title.Equals("Githubie repository update", StringComparison.Ordinal);
+        if (japanese) return registration ? "リポジトリ登録" : update ? "リポジトリ設定変更" : "Git履歴書き換え";
+        return registration ? "Repository registration" : update ? "Repository policy update" : "Git history rewrite";
     }
 
     private static string TranslateSummary(string summary)

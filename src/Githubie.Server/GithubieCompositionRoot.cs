@@ -65,6 +65,7 @@ public static class GithubieCompositionRoot
         services.AddSingleton<IRepositoryConfigurationStore>(sp => new JsonRepositoryConfigurationStore(
             configPath, options, sp.GetRequiredService<IGithubieOptionsLoader>()));
         services.AddSingleton<IRepositoryRegistrationService, RepositoryRegistrationService>();
+        services.AddSingleton<IRepositoryManagementService, RepositoryManagementService>();
         services.AddSingleton<IGitGateway, GitGateway>();
 
         services.AddHttpClient("GitHub", client =>
