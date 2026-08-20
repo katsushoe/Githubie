@@ -70,7 +70,7 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
 
     private Task<GitCommandResult> ExecuteLocalAsync(string repositoryRoot, IReadOnlyList<string> gitArguments, CancellationToken cancellationToken)
     {
-        var arguments = new List<string> { "-c", $"safe.directory={repositoryRoot}" };
+        var arguments = new List<string> { "-c", $"safe.directory={NormalizeSafeDirectory(repositoryRoot)}" };
         arguments.AddRange(gitArguments);
 
         return _processExecutor.ExecuteAsync(repositoryRoot, "git", arguments, GitEnvironmentSanitizer.BuildBaseEnvironment(), LocalTimeout, cancellationToken);
@@ -80,7 +80,7 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     {
         var arguments = new List<string>
         {
-            "-c", $"safe.directory={repositoryRoot}",
+            "-c", $"safe.directory={NormalizeSafeDirectory(repositoryRoot)}",
             "-c", "credential.helper=",
         };
         arguments.AddRange(gitArguments);
@@ -93,4 +93,6 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
 
         return _processExecutor.ExecuteAsync(repositoryRoot, "git", arguments, environment, NetworkTimeout, cancellationToken);
     }
+
+    private static string NormalizeSafeDirectory(string repositoryRoot) => repositoryRoot.Replace('\\', '/');
 }
