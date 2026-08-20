@@ -23,4 +23,15 @@ public interface IGitCommandClient
     Task<GitCommandResult> PullFastForwardOnlyAsync(string repositoryRoot, string repositoryId, string remote, string branch, CancellationToken cancellationToken);
 
     Task<GitCommandResult> PushAsync(string repositoryRoot, string repositoryId, string remote, string branch, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> GetLocalRefAsync(string repositoryRoot, string reference, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> GetRemoteRefAsync(string repositoryRoot, string repositoryId, string remote, string reference, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> PushHistoryRewriteAsync(
+        string repositoryRoot,
+        string repositoryId,
+        string remote,
+        IReadOnlyList<GitHistoryRewriteRef> refs,
+        CancellationToken cancellationToken);
 }

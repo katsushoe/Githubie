@@ -30,6 +30,14 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.ProtectedBranch] = "protected_branch",
         [GitGatewayError.NothingToPush] = "nothing_to_push",
         [GitGatewayError.NonFastForward] = "non_fast_forward",
+        [GitGatewayError.InvalidRef] = "invalid_ref",
+        [GitGatewayError.DuplicateRef] = "duplicate_ref",
+        [GitGatewayError.LeaseConflict] = "lease_conflict",
+        [GitGatewayError.AtomicNotSupported] = "atomic_not_supported",
+        [GitGatewayError.ApprovalDenied] = "approval_denied",
+        [GitGatewayError.ApprovalTimedOut] = "approval_timed_out",
+        [GitGatewayError.ApprovalUnavailable] = "approval_unavailable",
+        [GitGatewayError.PermissionDenied] = "permission_denied",
     };
 
     private static readonly IReadOnlyDictionary<GitHubError, string> ExpectedGitHubCodes = new Dictionary<GitHubError, string>

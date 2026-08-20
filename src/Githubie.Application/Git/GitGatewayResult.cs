@@ -13,6 +13,15 @@ public sealed record GitRepositoryStatus(
     int Behind,
     bool WorkingTreeClean);
 
+public sealed record GitHistoryRewriteRef(string Ref, string NewLocalSha, string ExpectedRemoteSha);
+
+public sealed record GitHistoryRewriteRefResult(string Ref, string OldSha, string NewSha, bool Success, string? RejectionReason);
+
+public sealed record GitHistoryRewriteResult(
+    bool DryRun,
+    string Approval,
+    IReadOnlyList<GitHistoryRewriteRefResult> Refs);
+
 /// <summary>
 /// Git Gateway操作の結果を表します。
 /// </summary>
@@ -48,4 +57,12 @@ public enum GitGatewayError
 
     NothingToPush,
     NonFastForward,
+    InvalidRef,
+    DuplicateRef,
+    LeaseConflict,
+    AtomicNotSupported,
+    ApprovalDenied,
+    ApprovalTimedOut,
+    ApprovalUnavailable,
+    PermissionDenied,
 }

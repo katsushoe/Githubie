@@ -2,6 +2,7 @@ using FluentAssertions;
 using Githubie.Application.Configuration;
 using Githubie.Application.Git;
 using Githubie.Application.Repositories;
+using Githubie.Application.Interactive;
 using NSubstitute;
 using Xunit;
 
@@ -11,9 +12,12 @@ public sealed class GitGatewayTests
 {
     private const string RepositoryId = "sample";
     private const string LocalRoot = "C:\\repo";
+    private const string OldSha = "1111111111111111111111111111111111111111";
+    private const string NewSha = "2222222222222222222222222222222222222222";
 
     private readonly IGitCommandClient _commandClient = Substitute.For<IGitCommandClient>();
     private readonly IRepositoryEnvironment _environment = Substitute.For<IRepositoryEnvironment>();
+    private readonly IInteractiveApprovalPrompt _approvalPrompt = Substitute.For<IInteractiveApprovalPrompt>();
     private readonly GitGateway _gateway;
 
     public GitGatewayTests()
@@ -28,7 +32,7 @@ public sealed class GitGatewayTests
             [RepositoryId] = CreateOptions(),
         });
 
-        _gateway = new GitGateway(allowlist, new LocalPathValidator(_environment), _commandClient);
+        _gateway = new GitGateway(allowlist, new LocalPathValidator(_environment), _commandClient, _approvalPrompt);
     }
 
     private static RepositoryOptions CreateOptions(bool requireCleanWorkingTree = true) => new(
@@ -54,6 +58,104 @@ public sealed class GitGatewayTests
             .Returns(GitCommandResult.Success(remoteUrl));
         _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
             .Returns(GitCommandResult.Success(workingTreeClean ? string.Empty : " M file.txt"));
+    }
+
+    private void SetUpRewritePreconditions(string remoteSha = OldSha)
+    {
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.GetLocalRefAsync(LocalRoot, NewSha, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", "refs/heads/main", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success($"{remoteSha}\trefs/heads/main"));
+    }
+
+    private static GitHistoryRewriteRef RewriteRef(string expected = OldSha) =>
+        new("refs/heads/main", NewSha, expected);
+
+    [Fact]
+    public async Task RewriteHistoryAsync_DryRun_ReturnsPlanWithoutApprovalOrPush()
+    {
+        SetUpRewritePreconditions();
+
+        var result = await _gateway.RewriteHistoryAsync(RepositoryId, [RewriteRef()], true, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.DryRun.Should().BeTrue();
+        result.Value.Refs.Single().Should().BeEquivalentTo(
+            new GitHistoryRewriteRefResult("refs/heads/main", OldSha, NewSha, false, null));
+        await _approvalPrompt.DidNotReceive().RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+        await _commandClient.DidNotReceive().PushHistoryRewriteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IReadOnlyList<GitHistoryRewriteRef>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RewriteHistoryAsync_LeaseMismatch_RejectsBeforeApproval()
+    {
+        SetUpRewritePreconditions();
+
+        var result = await _gateway.RewriteHistoryAsync(
+            RepositoryId, [RewriteRef("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")], false, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.LeaseConflict);
+        await _approvalPrompt.DidNotReceive().RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RewriteHistoryAsync_ApprovalDenied_DoesNotPush()
+    {
+        SetUpRewritePreconditions();
+        _approvalPrompt.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Denied());
+
+        var result = await _gateway.RewriteHistoryAsync(RepositoryId, [RewriteRef()], false, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.ApprovalDenied);
+        await _commandClient.DidNotReceive().PushHistoryRewriteAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<IReadOnlyList<GitHistoryRewriteRef>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RewriteHistoryAsync_Approved_RechecksLeaseAndPushesAtomically()
+    {
+        SetUpRewritePreconditions();
+        _approvalPrompt.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Approved());
+        _commandClient.PushHistoryRewriteAsync(LocalRoot, RepositoryId, "origin", Arg.Any<IReadOnlyList<GitHistoryRewriteRef>>(), Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await _gateway.RewriteHistoryAsync(RepositoryId, [RewriteRef()], false, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Approval.Should().Be("approved");
+        await _commandClient.Received(2).GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", "refs/heads/main", Arg.Any<CancellationToken>());
+        await _commandClient.Received(1).PushHistoryRewriteAsync(LocalRoot, RepositoryId, "origin", Arg.Any<IReadOnlyList<GitHistoryRewriteRef>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RewriteHistoryAsync_AtomicUnsupported_ReturnsSpecificError()
+    {
+        SetUpRewritePreconditions();
+        _approvalPrompt.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Approved());
+        _commandClient.PushHistoryRewriteAsync(LocalRoot, RepositoryId, "origin", Arg.Any<IReadOnlyList<GitHistoryRewriteRef>>(), Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "the receiving end does not support --atomic push"));
+
+        var result = await _gateway.RewriteHistoryAsync(RepositoryId, [RewriteRef()], false, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.AtomicNotSupported);
+    }
+
+    [Fact]
+    public async Task RewriteHistoryAsync_PermissionDenied_ReturnsSpecificError()
+    {
+        SetUpRewritePreconditions();
+        _approvalPrompt.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Approved());
+        _commandClient.PushHistoryRewriteAsync(LocalRoot, RepositoryId, "origin", Arg.Any<IReadOnlyList<GitHistoryRewriteRef>>(), Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "remote: Permission denied"));
+
+        var result = await _gateway.RewriteHistoryAsync(RepositoryId, [RewriteRef()], false, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.PermissionDenied);
     }
 
     [Fact]

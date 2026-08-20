@@ -1,5 +1,5 @@
 param(
-    [string]$DisplayVersion = '1.0.0.0',
+    [string]$DisplayVersion = '1.1.0.0',
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$NoRestore
 )
@@ -17,6 +17,8 @@ if (-not $NoRestore) {
     if ($LASTEXITCODE -ne 0) { throw 'Server restore failed.' }
     dotnet restore (Join-Path $repositoryRoot 'src\Githubie.AskPass\Githubie.AskPass.csproj') -r $RuntimeIdentifier --nologo
     if ($LASTEXITCODE -ne 0) { throw 'AskPass restore failed.' }
+    dotnet restore (Join-Path $repositoryRoot 'src\Githubie.ApprovalPrompt\Githubie.ApprovalPrompt.csproj') -r $RuntimeIdentifier --nologo
+    if ($LASTEXITCODE -ne 0) { throw 'ApprovalPrompt restore failed.' }
 }
 
 foreach ($directory in @($stagingDirectory, $outputDirectory)) {
@@ -47,6 +49,9 @@ if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed: Githubie.Server.' }
 
 dotnet publish (Join-Path $repositoryRoot 'src\Githubie.AskPass\Githubie.AskPass.csproj') -c Release -r $RuntimeIdentifier --self-contained true -o $binDirectory --nologo --no-restore
 if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed: Githubie.AskPass.' }
+
+dotnet publish (Join-Path $repositoryRoot 'src\Githubie.ApprovalPrompt\Githubie.ApprovalPrompt.csproj') -c Release -r $RuntimeIdentifier --self-contained true -o $binDirectory --nologo --no-restore
+if ($LASTEXITCODE -ne 0) { throw 'dotnet publish failed: Githubie.ApprovalPrompt.' }
 
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.example.json') -Destination $configDirectory
   $documents = @(

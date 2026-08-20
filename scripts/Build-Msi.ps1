@@ -1,6 +1,6 @@
 param(
-    [string]$DisplayVersion = '1.0.0.0',
-    [string]$ProductVersion = '1.0.0',
+    [string]$DisplayVersion = '1.1.0.0',
+    [string]$ProductVersion = '1.1.0',
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$NoRestore
 )
@@ -14,7 +14,8 @@ $installerProject = Join-Path $repositoryRoot 'installer\Githubie.Installer\Gith
 $projects = @(
     'src\Githubie.Cli\Githubie.Cli.csproj',
     'src\Githubie.Server\Githubie.Server.csproj',
-    'src\Githubie.AskPass\Githubie.AskPass.csproj'
+    'src\Githubie.AskPass\Githubie.AskPass.csproj',
+    'src\Githubie.ApprovalPrompt\Githubie.ApprovalPrompt.csproj'
 )
 
 if (-not $NoRestore) {

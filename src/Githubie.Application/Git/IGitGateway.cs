@@ -12,6 +12,12 @@ public interface IGitGateway
     Task<GitGatewayResult<Unit>> PullAsync(string repository, string branch, CancellationToken cancellationToken);
 
     Task<GitGatewayResult<Unit>> PushAsync(string repository, CancellationToken cancellationToken);
+
+    Task<GitGatewayResult<GitHistoryRewriteResult>> RewriteHistoryAsync(
+        string repository,
+        IReadOnlyList<GitHistoryRewriteRef> refs,
+        bool dryRun,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>

@@ -1,4 +1,5 @@
 using Githubie.Application.Repositories;
+using Githubie.Application.Interactive;
 
 namespace Githubie.Application.Git;
 
@@ -9,11 +10,14 @@ namespace Githubie.Application.Git;
 public sealed class GitGateway(
     RepositoryAllowlist allowlist,
     LocalPathValidator localPathValidator,
-    IGitCommandClient commandClient) : IGitGateway
+    IGitCommandClient commandClient,
+    IInteractiveApprovalPrompt approvalPrompt) : IGitGateway
 {
     private readonly RepositoryAllowlist _allowlist = allowlist;
     private readonly LocalPathValidator _localPathValidator = localPathValidator;
     private readonly IGitCommandClient _commandClient = commandClient;
+    private readonly IInteractiveApprovalPrompt _approvalPrompt = approvalPrompt;
+    private static readonly TimeSpan ApprovalTimeout = TimeSpan.FromSeconds(120);
 
     public async Task<GitGatewayResult<GitRepositoryStatus>> GetStatusAsync(string repository, CancellationToken cancellationToken)
     {
@@ -151,6 +155,106 @@ public sealed class GitGateway(
             ? GitGatewayResult<Unit>.Failure(GitGatewayError.NothingToPush)
             : GitGatewayResult<Unit>.Failure(MapCommandFailure(result.Failure!.Value));
     }
+
+    public async Task<GitGatewayResult<GitHistoryRewriteResult>> RewriteHistoryAsync(
+        string repository,
+        IReadOnlyList<GitHistoryRewriteRef> refs,
+        bool dryRun,
+        CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<GitHistoryRewriteResult>.Failure(resolved.Error.Value);
+        if (refs.Count == 0 || refs.Any(item => !IsValidRewriteRef(item)))
+            return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitGatewayError.InvalidRef);
+        if (refs.Select(item => item.Ref).Distinct(StringComparer.Ordinal).Count() != refs.Count)
+            return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitGatewayError.DuplicateRef);
+
+        var options = resolved.Options!;
+        var remoteUrl = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, options.Remote, cancellationToken);
+        if (!remoteUrl.IsSuccess) return GitGatewayResult<GitHistoryRewriteResult>.Failure(MapCommandFailure(remoteUrl.Failure!.Value));
+        if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
+            return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitGatewayError.RemoteMismatch);
+
+        var plan = await BuildRewritePlanAsync(options.LocalRoot, repository, options.Remote, refs, cancellationToken);
+        if (plan.Error is not null) return GitGatewayResult<GitHistoryRewriteResult>.Failure(plan.Error.Value);
+        if (dryRun)
+            return GitGatewayResult<GitHistoryRewriteResult>.Success(new(true, "not_requested", plan.Results!));
+        if (plan.Results!.Any(item => item.RejectionReason is not null))
+            return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitGatewayError.LeaseConflict);
+
+        var approval = await _approvalPrompt.RequestApprovalAsync(
+            new ApprovalPromptRequest(
+                "Githubie - History Rewrite Approval",
+                $"Rewrite {refs.Count} published ref(s) in {repository}",
+                plan.Results!.Select(item => $"{item.Ref}: {item.OldSha} -> {item.NewSha}").ToArray()),
+            ApprovalTimeout,
+            cancellationToken);
+        var approvalError = MapApprovalError(approval.Outcome);
+        if (approvalError is not null) return GitGatewayResult<GitHistoryRewriteResult>.Failure(approvalError.Value);
+
+        var recheck = await BuildRewritePlanAsync(options.LocalRoot, repository, options.Remote, refs, cancellationToken);
+        if (recheck.Error is not null) return GitGatewayResult<GitHistoryRewriteResult>.Failure(recheck.Error.Value);
+        if (recheck.Results!.Any(item => item.RejectionReason is not null))
+            return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitGatewayError.LeaseConflict);
+
+        var push = await _commandClient.PushHistoryRewriteAsync(options.LocalRoot, repository, options.Remote, refs, cancellationToken);
+        if (!push.IsSuccess)
+        {
+            var error = push.StandardError.Contains("atomic", StringComparison.OrdinalIgnoreCase)
+                ? GitGatewayError.AtomicNotSupported
+                : push.StandardError.Contains("permission", StringComparison.OrdinalIgnoreCase) ||
+                  push.StandardError.Contains("403", StringComparison.OrdinalIgnoreCase)
+                    ? GitGatewayError.PermissionDenied
+                    : GitGatewayError.GitFailed;
+            return GitGatewayResult<GitHistoryRewriteResult>.Failure(error);
+        }
+
+        return GitGatewayResult<GitHistoryRewriteResult>.Success(new(
+            false, "approved", recheck.Results!.Select(item => item with { Success = true }).ToArray()));
+    }
+
+    private async Task<(IReadOnlyList<GitHistoryRewriteRefResult>? Results, GitGatewayError? Error)> BuildRewritePlanAsync(
+        string root, string repository, string remote, IReadOnlyList<GitHistoryRewriteRef> refs, CancellationToken cancellationToken)
+    {
+        var results = new List<GitHistoryRewriteRefResult>(refs.Count);
+        foreach (var item in refs)
+        {
+            var local = await _commandClient.GetLocalRefAsync(root, item.NewLocalSha, cancellationToken);
+            if (!local.IsSuccess) return (null, MapCommandFailure(local.Failure!.Value));
+            var remoteResult = await _commandClient.GetRemoteRefAsync(root, repository, remote, item.Ref, cancellationToken);
+            if (!remoteResult.IsSuccess) return (null, MapCommandFailure(remoteResult.Failure!.Value));
+            var remoteSha = ParseLsRemoteSha(remoteResult.StandardOutput, item.Ref);
+            if (remoteSha is null) return (null, GitGatewayError.InvalidRef);
+            var reason = string.Equals(remoteSha, item.ExpectedRemoteSha, StringComparison.OrdinalIgnoreCase)
+                ? null : "expected_remote_sha_mismatch";
+            results.Add(new(item.Ref, remoteSha, local.StandardOutput, false, reason));
+        }
+        return (results, null);
+    }
+
+    private static bool IsValidRewriteRef(GitHistoryRewriteRef item) =>
+        (item.Ref.StartsWith("refs/heads/", StringComparison.Ordinal) || item.Ref.StartsWith("refs/tags/", StringComparison.Ordinal)) &&
+        item.Ref.Length > "refs/tags/".Length && !item.Ref.Contains("..", StringComparison.Ordinal) &&
+        !item.Ref.Contains("@{", StringComparison.Ordinal) && !item.Ref.EndsWith(".", StringComparison.Ordinal) &&
+        !item.Ref.EndsWith(".lock", StringComparison.OrdinalIgnoreCase) &&
+        item.Ref.All(character => !char.IsControl(character) && " ~^:?*[\\".IndexOf(character, StringComparison.Ordinal) < 0) &&
+        IsSha(item.NewLocalSha) && IsSha(item.ExpectedRemoteSha);
+
+    private static bool IsSha(string value) => value.Length == 40 && value.All(Uri.IsHexDigit);
+
+    private static string? ParseLsRemoteSha(string output, string reference)
+    {
+        var parts = output.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length == 2 && parts[1].Equals(reference, StringComparison.Ordinal) && IsSha(parts[0]) ? parts[0] : null;
+    }
+
+    private static GitGatewayError? MapApprovalError(ApprovalOutcome outcome) => outcome switch
+    {
+        ApprovalOutcome.Approved => null,
+        ApprovalOutcome.Denied => GitGatewayError.ApprovalDenied,
+        ApprovalOutcome.TimedOut => GitGatewayError.ApprovalTimedOut,
+        _ => GitGatewayError.ApprovalUnavailable,
+    };
 
     private (Configuration.RepositoryOptions? Options, GitGatewayError? Error) Resolve(string repository)
     {

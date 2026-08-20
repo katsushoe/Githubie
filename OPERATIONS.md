@@ -2,6 +2,10 @@
 
 [English](OPERATIONS.md) | [日本語](OPERATIONS.ja.md)
 
+## History rewrite
+
+Retain a repository mirror or `refs/backup/*` before rewriting. Run `github_history_rewrite` with `dry_run=true` and verify every remote SHA, local SHA, and rejection reason. A real update rechecks remote SHAs after desktop approval and aborts on atomic-capability, lease, or permission failure. Recover by selecting the retained SHAs as local targets and running the same dry-run and approved workflow in reverse.
+
 ## Service Management
 
 ```powershell
