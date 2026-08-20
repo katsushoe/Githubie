@@ -2,6 +2,10 @@
 
 [English](OPERATIONS.md) | [日本語](OPERATIONS.ja.md)
 
+## Repository登録
+
+未使用のRepository IDと既存Local Repositoryの絶対Pathを`github_repository_register`へ渡す。GithubieはLocal remoteからGitHub接続先を導出し、Owner／Repository、Local Root、remote、Branch経路を対話Desktopへ表示する。承認後、Network操作にTokenが必要なら`githubie auth set <repository>`を実行し、`github_repository_status`と`github_fetch`で確認する。
+
 ## 履歴訂正
 
 履歴訂正前に対象Repositoryのmirrorまたは`refs/backup/*`を保存する。`github_history_rewrite`を`dry_run=true`で実行し、全refのremote SHA、local SHA、拒否理由が想定どおりであることを確認してから実更新する。実更新は対話承認後にremote SHAを再検証し、atomic非対応、lease競合、権限不足では全体を中止する。復旧時は保存したSHAを新しいlocal SHAとして同じdry-run／承認手順を逆向きに実施する。
@@ -83,7 +87,7 @@ githubie.exe config check
 githubie.exe restart
 ```
 
-設定はComposition Root（起動時1回）で読み込まれるため、動作中のホットリロードには対応していない。
+手動編集した設定はComposition Rootで起動時に読み込む。`github_repository_register`で追加したEntryだけは即時反映される。
 
 ## バックアップ対象
 

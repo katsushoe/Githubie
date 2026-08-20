@@ -1,5 +1,6 @@
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
+using Githubie.Application.Repositories;
 
 namespace Githubie.Server;
 
@@ -34,6 +35,32 @@ public static class GithubieToolResultMapper
         result.IsSuccess
             ? GithubieToolResult<T>.Success(operation, repository, result.Value!)
             : GithubieToolResult<T>.Failure(operation, repository, MapGitHubError(result.Error!.Value));
+
+    public static GithubieToolResult<RepositoryRegistrationInfo> Map(
+        string operation,
+        string repository,
+        RepositoryRegistrationResult result) =>
+        result.IsSuccess
+            ? GithubieToolResult<RepositoryRegistrationInfo>.Success(operation, repository, result.Value!)
+            : GithubieToolResult<RepositoryRegistrationInfo>.Failure(
+                operation, repository, MapRegistrationError(result.Error!.Value));
+
+    private static GithubieToolError MapRegistrationError(RepositoryRegistrationError error) => error switch
+    {
+        RepositoryRegistrationError.InvalidRepositoryId => new("invalid_repository_id", "Repository ID is invalid."),
+        RepositoryRegistrationError.DuplicateRepositoryId => new("duplicate_repository_id", "Repository ID is already registered."),
+        RepositoryRegistrationError.InvalidLocalRoot => new("invalid_local_root", "Local repository root is invalid or missing."),
+        RepositoryRegistrationError.GitMetadataNotFound => new("git_metadata_not_found", "Local root does not contain Git metadata."),
+        RepositoryRegistrationError.ReparsePointDetected => new("reparse_point_detected", "Local root path contains a symlink or junction."),
+        RepositoryRegistrationError.InvalidRemote => new("invalid_remote", "Git remote is missing or invalid."),
+        RepositoryRegistrationError.NonGitHubRemote => new("non_github_remote", "Git remote does not point to github.com."),
+        RepositoryRegistrationError.GitFailed => new("git_failed", "Git remote validation failed."),
+        RepositoryRegistrationError.ApprovalDenied => new("approval_denied", "Repository registration was denied."),
+        RepositoryRegistrationError.ApprovalTimedOut => new("approval_timed_out", "Repository registration approval timed out."),
+        RepositoryRegistrationError.ApprovalUnavailable => new("approval_unavailable", "The approval prompt could not be displayed."),
+        RepositoryRegistrationError.PersistenceFailed => new("persistence_failed", "Repository configuration could not be saved."),
+        _ => new("internal", "Repository registration failed."),
+    };
 
     private static GithubieToolError MapGitError(GitGatewayError error) => error switch
     {

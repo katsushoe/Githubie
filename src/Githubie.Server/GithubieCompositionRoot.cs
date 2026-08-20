@@ -51,6 +51,7 @@ public static class GithubieCompositionRoot
         var services = new ServiceCollection();
 
         services.AddSingleton(options);
+        services.AddSingleton<IGithubieOptionsLoader, JsonGithubieOptionsLoader>();
         services.AddSingleton<IApiTokenStore>(new DpapiFileTokenStore(layout.SecretsDirectory));
         services.AddSingleton(new RepositoryAllowlist(options.Repositories));
         services.AddSingleton<IRepositoryEnvironment, RepositoryEnvironment>();
@@ -59,6 +60,9 @@ public static class GithubieCompositionRoot
         services.AddSingleton<IGitCommandClient>(sp =>
             new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath));
         services.AddSingleton<IInteractiveApprovalPrompt>(new WindowsInteractiveApprovalPrompt(approvalPromptExecutablePath));
+        services.AddSingleton<IRepositoryConfigurationStore>(sp => new JsonRepositoryConfigurationStore(
+            configPath, options, sp.GetRequiredService<IGithubieOptionsLoader>()));
+        services.AddSingleton<IRepositoryRegistrationService, RepositoryRegistrationService>();
         services.AddSingleton<IGitGateway, GitGateway>();
 
         services.AddHttpClient("GitHub", client =>

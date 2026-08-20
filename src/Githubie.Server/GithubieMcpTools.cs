@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Reflection;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
+using Githubie.Application.Repositories;
 using ModelContextProtocol.Server;
 
 namespace Githubie.Server;
@@ -10,8 +11,27 @@ namespace Githubie.Server;
 /// Githubieが公開するMCP Toolです。Tool名には`github_`Prefixを付け、変更系操作は<c>Destructive = true</c>を明示します。
 /// </summary>
 [McpServerToolType]
-public sealed class GithubieMcpTools(IGitGateway gitGateway, IGitHubRepositoryGateway gitHubGateway)
+public sealed class GithubieMcpTools(
+    IGitGateway gitGateway,
+    IGitHubRepositoryGateway gitHubGateway,
+    IRepositoryRegistrationService registrationService)
 {
+    [McpServerTool(Name = "github_repository_register", Destructive = true, UseStructuredContent = true)]
+    [Description("ローカルGit remoteからGitHub接続先を導出し、対話承認後にRepositoryを登録します。")]
+    public async Task<GithubieToolResult<RepositoryRegistrationInfo>> RegisterRepositoryAsync(
+        [Description("Githubie内部の新規Repository ID")] string repository,
+        [Description("既存ローカルGit Repositoryの絶対Path")] string local_root,
+        [Description("検証・使用するGit remote名。省略時はorigin")] string? remote,
+        [Description("開発Branch名。省略時はdevelop")] string? develop_branch,
+        [Description("主要Branch名。省略時はmain")] string? main_branch,
+        CancellationToken cancellationToken)
+    {
+        var result = await registrationService.RegisterAsync(
+            new RepositoryRegistrationRequest(repository, local_root, remote, develop_branch, main_branch),
+            cancellationToken);
+        return GithubieToolResultMapper.Map("repository_register", repository, result);
+    }
+
     [McpServerTool(Name = "github_repository_status", ReadOnly = true, UseStructuredContent = true)]
     [Description("指定リポジトリのGit状態(local/remote head, ahead/behind, working tree clean)を取得します。")]
     public async Task<GithubieToolResult<GitRepositoryStatus>> GetRepositoryStatusAsync(

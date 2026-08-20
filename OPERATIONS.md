@@ -2,6 +2,10 @@
 
 [English](OPERATIONS.md) | [日本語](OPERATIONS.ja.md)
 
+## Repository registration
+
+Call `github_repository_register` with an unused repository ID and an existing absolute local root. Githubie derives the GitHub identity from the local remote and displays the resulting owner/repository, root, remote, and branch route for desktop approval. After approval, run `githubie auth set <repository>` when network operations need a token, then verify `github_repository_status` and `github_fetch`.
+
 ## History rewrite
 
 Retain a repository mirror or `refs/backup/*` before rewriting. Run `github_history_rewrite` with `dry_run=true` and verify every remote SHA, local SHA, and rejection reason. A real update rechecks remote SHAs after desktop approval and aborts on atomic-capability, lease, or permission failure. Recover by selecting the retained SHAs as local targets and running the same dry-run and approved workflow in reverse.
@@ -31,7 +35,7 @@ Replace a token with `githubie.exe auth set <repository>` and revoke the previou
 
 ## Configuration Changes
 
-After editing `githubie.json`, run `githubie.exe config check` and `githubie.exe restart`. Configuration is loaded at startup and is not hot-reloaded.
+After manually editing `githubie.json`, run `githubie.exe config check` and `githubie.exe restart`. Manual edits are loaded at startup; entries added through `github_repository_register` are applied immediately.
 
 ## Backup
 
