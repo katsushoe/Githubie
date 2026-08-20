@@ -21,7 +21,6 @@ internal static class Program
         var request = await ApprovalPipeProtocol.ReadFrameAsync<ApprovalPromptRequest>(pipe, CancellationToken.None);
         if (request is null) return;
         using var form = new ApprovalForm(request);
-        form.Shown += (_, _) => { form.Activate(); form.BringToFront(); };
         var approved = form.ShowDialog() == DialogResult.Yes;
         try { await ApprovalPipeProtocol.WriteFrameAsync(pipe, new ApprovalPromptResponse(approved), CancellationToken.None); }
         catch (IOException) { }
