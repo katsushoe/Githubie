@@ -16,6 +16,7 @@ public sealed class GithubieMcpToolsTests
     private static readonly string[] ExpectedToolNames =
     [
         "github_repository_status",
+        "github_repository_register",
         "github_fetch",
         "github_pull",
         "github_push",
