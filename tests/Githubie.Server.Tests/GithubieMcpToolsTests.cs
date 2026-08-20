@@ -19,6 +19,7 @@ public sealed class GithubieMcpToolsTests
         "github_fetch",
         "github_pull",
         "github_push",
+        "github_history_rewrite",
         "github_branch_list",
         "github_branch_get",
         "github_pr_list",

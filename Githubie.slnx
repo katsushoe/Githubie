@@ -3,6 +3,7 @@
   <Project Path="src/Githubie.Application/Githubie.Application.csproj" />
   <Project Path="src/Githubie.Infrastructure/Githubie.Infrastructure.csproj" />
   <Project Path="src/Githubie.AskPass/Githubie.AskPass.csproj" />
+  <Project Path="src/Githubie.ApprovalPrompt/Githubie.ApprovalPrompt.csproj" />
   <Project Path="src/Githubie.Server/Githubie.Server.csproj" />
   <Project Path="src/Githubie.Cli/Githubie.Cli.csproj" />
   <Project Path="tests/Githubie.Domain.Tests/Githubie.Domain.Tests.csproj" />

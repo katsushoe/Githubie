@@ -50,6 +50,10 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
     public async Task<GitGatewayResult<Unit>> PushAsync(string repository, CancellationToken cancellationToken) =>
         await RunAsync("github_push", repository, null, () => inner.PushAsync(repository, cancellationToken));
 
+    public async Task<GitGatewayResult<GitHistoryRewriteResult>> RewriteHistoryAsync(
+        string repository, IReadOnlyList<GitHistoryRewriteRef> refs, bool dryRun, CancellationToken cancellationToken) =>
+        await RunAsync("github_history_rewrite", repository, null, () => inner.RewriteHistoryAsync(repository, refs, dryRun, cancellationToken));
+
     private async Task<GitGatewayResult<T>> RunAsync<T>(string tool, string repository, string? branch, Func<Task<GitGatewayResult<T>>> action)
     {
         var stopwatch = Stopwatch.StartNew();

@@ -2,6 +2,10 @@
 
 [English](OPERATIONS.md) | [日本語](OPERATIONS.ja.md)
 
+## 履歴訂正
+
+履歴訂正前に対象Repositoryのmirrorまたは`refs/backup/*`を保存する。`github_history_rewrite`を`dry_run=true`で実行し、全refのremote SHA、local SHA、拒否理由が想定どおりであることを確認してから実更新する。実更新は対話承認後にremote SHAを再検証し、atomic非対応、lease競合、権限不足では全体を中止する。復旧時は保存したSHAを新しいlocal SHAとして同じdry-run／承認手順を逆向きに実施する。
+
 ## サービス起動・停止
 
 ```powershell

@@ -6,7 +6,7 @@
 | [0002](0002-git-askpass-fixed-username.md) | `GIT_ASKPASS` helper with a fixed `x-access-token` username convention |
 | [0003](0003-fixed-github-repository-gateway.md) | Fixed GitHub repository gateway — Allowlist resolves owner/repo, PR route is fixed |
 | [0004](0004-dpapi-acl-secret-storage.md) | DPAPI (LocalMachine) token storage with ACL-restricted secrets directory |
-| [0005](0005-local-streamable-http-mcp-server.md) | Local Streamable HTTP MCP server exposing 15 typed tools |
+| [0005](0005-local-streamable-http-mcp-server.md) | Local Streamable HTTP MCP server (initially 15 typed tools) |
 | [0006](0006-common-mcp-tool-result.md) | Common `{ ok, operation, repository, data, error }` MCP tool result |
 | [0007](0007-structured-audit-log.md) | Structured audit log with ASP.NET Core framework noise filtered out |
 | [0008](0008-management-cli-doctor.md) | Management CLI (`githubie.exe`) with `doctor` diagnostics |
@@ -15,5 +15,6 @@
 | [0011](0011-snake-case-tool-parameter-names.md) | snake_case MCP tool parameter names via literal C# identifiers |
 | [0012](0012-configuration-only-repository-registration.md) | Configuration-file-only repository registration in Phase 1 (no MCP-driven registration) |
 | [0013](0013-msi-directory-acl-grants.md) | Explicit ACL grants on MSI-created directories (fixes `auth set` failing after a fresh install) |
+| [0014](0014-approved-atomic-history-rewrite.md) | Out-of-band approved, atomic, force-with-lease history rewrite for explicit refs |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

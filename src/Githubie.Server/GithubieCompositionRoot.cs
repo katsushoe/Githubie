@@ -7,6 +7,8 @@ using Githubie.Infrastructure.Configuration;
 using Githubie.Infrastructure.Credentials;
 using Githubie.Infrastructure.Git;
 using Githubie.Infrastructure.GitHub;
+using Githubie.Application.Interactive;
+using Githubie.Infrastructure.Interactive;
 using Githubie.Infrastructure.Repositories;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -44,6 +46,7 @@ public static class GithubieCompositionRoot
 
         var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
         var askPassExecutablePath = Path.Combine(binDirectory, "Githubie.AskPass.exe");
+        var approvalPromptExecutablePath = Path.Combine(binDirectory, "Githubie.ApprovalPrompt.exe");
 
         var services = new ServiceCollection();
 
@@ -55,6 +58,7 @@ public static class GithubieCompositionRoot
         services.AddSingleton<IProcessExecutor, ProcessExecutor>();
         services.AddSingleton<IGitCommandClient>(sp =>
             new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath));
+        services.AddSingleton<IInteractiveApprovalPrompt>(new WindowsInteractiveApprovalPrompt(approvalPromptExecutablePath));
         services.AddSingleton<IGitGateway, GitGateway>();
 
         services.AddHttpClient("GitHub", client =>
