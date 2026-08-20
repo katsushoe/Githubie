@@ -19,7 +19,7 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。
 
-現在のDisplay Versionは`1.3.5.0`です（2026-08-21、push対象判定とGit失敗分類の修正に伴う小機能バージョン更新）。
+現在のDisplay Versionは`1.3.5.2`です（2026-08-21、承認画面の最前面表示修正に伴うリビジョン更新）。
 
 ## Gitタグ
 

@@ -1,5 +1,6 @@
 using Githubie.Application.Interactive;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 
 namespace Githubie.ApprovalPrompt;
@@ -21,6 +22,40 @@ internal sealed partial class ApprovalForm : Form
         detailsTextBox.Select(0, 0);
         ActiveControl = denyButton;
         countdownTimer.Start();
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        BeginInvoke(EnsureForeground);
+    }
+
+    private void EnsureForeground()
+    {
+        WindowState = FormWindowState.Normal;
+        TopMost = false;
+        TopMost = true;
+        NativeMethods.SetWindowPos(Handle, NativeMethods.TopMost, 0, 0, 0, 0,
+            NativeMethods.NoMove | NativeMethods.NoSize | NativeMethods.ShowWindow);
+
+        var foreground = NativeMethods.GetForegroundWindow();
+        var foregroundThread = foreground == IntPtr.Zero
+            ? 0
+            : NativeMethods.GetWindowThreadProcessId(foreground, IntPtr.Zero);
+        var currentThread = NativeMethods.GetCurrentThreadId();
+        var attached = foregroundThread != 0 && foregroundThread != currentThread
+            && NativeMethods.AttachThreadInput(currentThread, foregroundThread, true);
+        try
+        {
+            NativeMethods.BringWindowToTop(Handle);
+            NativeMethods.SetForegroundWindow(Handle);
+            Activate();
+            denyButton.Focus();
+        }
+        finally
+        {
+            if (attached) NativeMethods.AttachThreadInput(currentThread, foregroundThread, false);
+        }
     }
 
     private void CountdownTimerTick(object? sender, EventArgs e)
@@ -82,5 +117,25 @@ internal sealed partial class ApprovalForm : Form
         if (detail.StartsWith("Branches: ", StringComparison.Ordinal))
             return $"ブランチ: {detail[10..]}";
         return detail;
+    }
+
+    private static class NativeMethods
+    {
+        internal static readonly IntPtr TopMost = new(-1);
+        internal const uint NoSize = 0x0001;
+        internal const uint NoMove = 0x0002;
+        internal const uint ShowWindow = 0x0040;
+
+        [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SetWindowPos(IntPtr window, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
+        [DllImport("user32.dll")] internal static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] internal static extern uint GetWindowThreadProcessId(IntPtr window, IntPtr processId);
+        [DllImport("kernel32.dll")] internal static extern uint GetCurrentThreadId();
+        [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool AttachThreadInput(uint attach, uint attachTo, bool attachState);
+        [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool BringWindowToTop(IntPtr window);
+        [DllImport("user32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool SetForegroundWindow(IntPtr window);
     }
 }

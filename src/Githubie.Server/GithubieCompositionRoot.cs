@@ -11,6 +11,7 @@ using Githubie.Application.Interactive;
 using Githubie.Infrastructure.Interactive;
 using Githubie.Infrastructure.Repositories;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Githubie.Server;
 
@@ -50,6 +51,7 @@ public static class GithubieCompositionRoot
 
         var services = new ServiceCollection();
 
+        services.AddLogging(logging => logging.AddProvider(new DailyFileLoggerProvider(layout.LogsDirectory)));
         services.AddSingleton(options);
         services.AddSingleton<IGithubieOptionsLoader, JsonGithubieOptionsLoader>();
         services.AddSingleton<IApiTokenStore>(new DpapiFileTokenStore(layout.SecretsDirectory));
@@ -59,7 +61,7 @@ public static class GithubieCompositionRoot
         services.AddSingleton<IProcessExecutor, ProcessExecutor>();
         services.AddSingleton<IGitCommandClient>(sp =>
             new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath));
-        services.AddSingleton<IInteractiveApprovalPrompt>(new WindowsInteractiveApprovalPrompt(approvalPromptExecutablePath));
+        services.AddSingleton<IInteractiveApprovalPrompt>(sp => CreateApprovalPrompt(sp, approvalPromptExecutablePath));
         services.AddSingleton<IRepositoryConfigurationStore>(sp => new JsonRepositoryConfigurationStore(
             configPath, options, sp.GetRequiredService<IGithubieOptionsLoader>()));
         services.AddSingleton<IRepositoryRegistrationService, RepositoryRegistrationService>();
@@ -84,4 +86,11 @@ public static class GithubieCompositionRoot
             return GithubieCompositionResult.Failure($"service composition failed: {ex.Message}");
         }
     }
+
+#pragma warning disable CA1416
+    private static IInteractiveApprovalPrompt CreateApprovalPrompt(IServiceProvider services, string executablePath) =>
+        new WindowsInteractiveApprovalPrompt(
+            executablePath,
+            services.GetRequiredService<ILogger<WindowsInteractiveApprovalPrompt>>());
+#pragma warning restore CA1416
 }
