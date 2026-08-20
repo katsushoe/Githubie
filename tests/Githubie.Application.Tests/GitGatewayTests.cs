@@ -50,7 +50,7 @@ public sealed class GitGatewayTests
         MergeMethod: "merge",
         RequireCleanWorkingTree: requireCleanWorkingTree);
 
-    private void SetUpPushPreconditions(string currentBranch, bool workingTreeClean, string remoteUrl = "https://github.com/owner/repo.git")
+    private void SetUpPushPreconditions(string currentBranch, bool workingTreeClean, string remoteUrl = "https://github.com/owner/repo.git", int ahead = 1, int behind = 0)
     {
         _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
             .Returns(GitCommandResult.Success(currentBranch));
@@ -58,6 +58,8 @@ public sealed class GitGatewayTests
             .Returns(GitCommandResult.Success(remoteUrl));
         _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
             .Returns(GitCommandResult.Success(workingTreeClean ? string.Empty : " M file.txt"));
+        _commandClient.GetAheadBehindAsync(LocalRoot, "origin", currentBranch, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success($"{ahead} {behind}"));
     }
 
     private void SetUpRewritePreconditions(string remoteSha = OldSha)
@@ -218,16 +220,31 @@ public sealed class GitGatewayTests
     }
 
     [Fact]
-    public async Task PushAsync_MapsFailedPushToNothingToPush()
+    public async Task PushAsync_WhenAheadIsZero_ReturnsNothingToPushWithoutCallingPush()
     {
-        SetUpPushPreconditions("develop", workingTreeClean: true);
-        _commandClient.PushAsync(LocalRoot, RepositoryId, "origin", "develop", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed));
+        SetUpPushPreconditions("develop", workingTreeClean: true, ahead: 0);
 
         var result = await _gateway.PushAsync(RepositoryId, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(GitGatewayError.NothingToPush);
+        await _commandClient.DidNotReceive().PushAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("fatal: Authentication failed for 'https://github.com/owner/repo.git/'", GitGatewayError.AuthenticationFailed)]
+    [InlineData("remote: Write access to repository not granted. fatal: requested URL returned error: 403", GitGatewayError.PermissionDenied)]
+    [InlineData("! [rejected] develop -> develop (fetch first)", GitGatewayError.NonFastForward)]
+    [InlineData("fatal: unable to access remote: connection reset", GitGatewayError.GitFailed)]
+    public async Task PushAsync_WhenGitFails_ClassifiesStandardError(string standardError, GitGatewayError expected)
+    {
+        SetUpPushPreconditions("develop", workingTreeClean: true, ahead: 1);
+        _commandClient.PushAsync(LocalRoot, RepositoryId, "origin", "develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: standardError));
+
+        var result = await _gateway.PushAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(expected);
     }
 
     [Fact]

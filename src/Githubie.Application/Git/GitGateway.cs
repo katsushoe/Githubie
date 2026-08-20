@@ -145,6 +145,18 @@ public sealed class GitGateway(
             return GitGatewayResult<Unit>.Failure(MapPolicyError(policyResult.ErrorCode!.Value));
         }
 
+        var aheadBehind = await _commandClient.GetAheadBehindAsync(root, options.Remote, branch.StandardOutput, cancellationToken);
+        if (!aheadBehind.IsSuccess)
+        {
+            return GitGatewayResult<Unit>.Failure(MapCommandFailure(aheadBehind.Failure!.Value));
+        }
+
+        var (ahead, _) = ParseAheadBehind(aheadBehind.StandardOutput);
+        if (ahead == 0)
+        {
+            return GitGatewayResult<Unit>.Failure(GitGatewayError.NothingToPush);
+        }
+
         var result = await _commandClient.PushAsync(root, repository, options.Remote, branch.StandardOutput, cancellationToken);
         if (result.IsSuccess)
         {
@@ -152,7 +164,7 @@ public sealed class GitGateway(
         }
 
         return result.Failure == GitCommandFailure.Failed
-            ? GitGatewayResult<Unit>.Failure(GitGatewayError.NothingToPush)
+            ? GitGatewayResult<Unit>.Failure(ClassifyPushFailure(result.StandardError))
             : GitGatewayResult<Unit>.Failure(MapCommandFailure(result.Failure!.Value));
     }
 
@@ -295,6 +307,20 @@ public sealed class GitGateway(
         GitCommandFailure.Cancelled => GitGatewayError.GitCancelled,
         _ => GitGatewayError.GitFailed,
     };
+
+    private static GitGatewayError ClassifyPushFailure(string standardError)
+    {
+        if (ContainsAny(standardError, "authentication failed", "could not read username", "invalid username or password"))
+            return GitGatewayError.AuthenticationFailed;
+        if (ContainsAny(standardError, "permission denied", "write access to repository not granted", "requested url returned error: 403"))
+            return GitGatewayError.PermissionDenied;
+        if (ContainsAny(standardError, "non-fast-forward", "fetch first", "[rejected]"))
+            return GitGatewayError.NonFastForward;
+        return GitGatewayError.GitFailed;
+    }
+
+    private static bool ContainsAny(string value, params string[] candidates) =>
+        candidates.Any(candidate => value.Contains(candidate, StringComparison.OrdinalIgnoreCase));
 
     private static GitGatewayError MapPolicyError(Domain.PolicyErrorCode error) => error switch
     {

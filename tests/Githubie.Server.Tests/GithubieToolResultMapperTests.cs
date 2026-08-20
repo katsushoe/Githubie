@@ -25,6 +25,7 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.GitFailed] = "git_failed",
         [GitGatewayError.GitTimedOut] = "timeout",
         [GitGatewayError.GitCancelled] = "git_failed",
+        [GitGatewayError.AuthenticationFailed] = "authentication_failed",
         [GitGatewayError.WorkingTreeDirty] = "working_tree_dirty",
         [GitGatewayError.BranchNotAllowed] = "branch_not_allowed",
         [GitGatewayError.ProtectedBranch] = "protected_branch",

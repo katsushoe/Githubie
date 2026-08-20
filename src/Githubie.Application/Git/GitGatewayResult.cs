@@ -50,6 +50,7 @@ public enum GitGatewayError
     GitFailed,
     GitTimedOut,
     GitCancelled,
+    AuthenticationFailed,
 
     WorkingTreeDirty,
     BranchNotAllowed,
