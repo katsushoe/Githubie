@@ -1,63 +1,27 @@
-# セキュリティ
+# Security
 
-## 信頼境界
+[English](SECURITY.md) | [日本語](SECURITY.ja.md)
 
-MCP Endpointは`127.0.0.1`（Loopback）のみで待ち受ける。既定ポートは`45460`（[CONFIG.md](CONFIG.md)）。外部ネットワークへの公開は想定せず、リバースプロキシ等でLoopback以外へ転送しないこと。
+## Trust Boundary
 
-```text
-Claude Code / Codex（同一マシン上）
-        ↓ Loopback HTTP
-      Githubie
-        ↓ HTTPS
-     GitHub.com
-```
+Githubie listens only on `127.0.0.1` and connects outward to GitHub.com over HTTPS. Do not expose the MCP endpoint through a reverse proxy. When present, the HTTP `Origin` header must match the configured loopback origin.
 
-MCP Endpointへのリクエストは`Origin`ヘッダを検証し、送信されている場合はLoopback・Port一致・Query/Fragmentなしのみ許可する（[McpOriginValidator](src/Githubie.Server/McpOriginValidator.cs)）。DNS rebinding等のブラウザ経由攻撃を軽減する。
+## Security Principles
 
-## 最重要Security原則
+Githubie never gives agents access to Personal Access Tokens, arbitrary remote URLs, arbitrary Git arguments, arbitrary REST requests, force push, or direct push to protected branches. Every operation resolves a configured repository ID through an allowlist. The standard release route is `develop` to `main`, and tags target `main` HEAD.
 
-1. AgentにPersonal Access Tokenを渡さない
-2. Agentに任意Remote URLを指定させない
-3. Agentに任意Git Argumentを指定させない
-4. Agentに任意REST APIを呼ばせない
-5. Repository Allowlist必須
-6. main direct push禁止
-7. force push禁止
-8. develop → main PRを標準経路とする
-9. Tagはmain HEADを標準Targetとする
-10. SecretをCommand Line / Log / Remote URLへ残さない
+## Credentials
 
-## Personal Access Token
+Use a fine-grained PAT restricted to the required repository with `Contents: Read and write` and `Pull requests: Read and write`. `githubie.exe auth set` encrypts tokens with DPAPI LocalMachine. The secrets directory ACL is limited to LocalSystem, Administrators, and the current user. Tokens are passed to Git through `GIT_ASKPASS`, never through command-line arguments or remote URLs.
 
-- 推奨: **Fine-grained PAT**（対象Repositoryを限定し、`Contents: Read and write` / `Pull requests: Read and write`のみ付与）。Classic PAT（`ghp_...`、Repository横断の`repo`スコープ）は新規登録では使用しない。
-- 保存: `githubie.json`へ平文保存しない。`githubie.exe auth set <repository>`でDPAPI（`DataProtectionScope.LocalMachine`）暗号化のうえ`data\secrets\<repository-id>.token`へ1ファイル/Repositoryで保存する。LocalMachineスコープを用いるのは、Windows Service（LocalSystem）実行時にも復号できる必要があるため。
-- ディレクトリACL: `data\secrets`は継承を切ったうえで、LocalSystem / Administrators / 現在のユーザーのみにFullControlを限定する（[WindowsSecretDirectorySecurity](src/Githubie.Infrastructure/Credentials/WindowsSecretDirectorySecurity.cs)）。
-- 認証Header: `Authorization: Bearer <token>`を都度生成し、AgentやAudit Logへ露出しない。使用直後にメモリをゼロクリアする。
-- Git経由の認証: Git over HTTPSでは`GIT_ASKPASS`相当（`Githubie.AskPass.exe`）が実行時だけTokenをGitへ渡す。Tokenをコマンドライン引数や`git remote`URLへ含めない。
+## Repository and Path Validation
 
-## Repository Allowlist / Local Path
+Local operations are limited to configured `local_root` values. Parent traversal and symlink/junction escape are rejected. Before push, the configured remote must resolve to the configured `github.com/<owner>/<repo>` target.
 
-- MCP Toolは常にGithubie内部のRepository ID（`repositories.<id>`のキー）を受け取り、GitHub Owner/Repo/ローカルパスをAgentへ自由指定させない。
-- ローカルRepositoryの操作は設定済み`local_root`配下のみに限定する。`..`によるroot外参照、symlink/junctionによるroot外参照は拒否する（`LocalPathValidator`）。
-- Git RemoteのURLは`github.com/<owner>/<repo>`と一致することをPush前に検証する（`GitHubRemoteUrlValidator`）。一致しなければ`remote_mismatch`で拒否する。
+## Audit Logging
 
-## 任意コマンド実行の排除
+Audit records include operation identifiers, targets, result, duration, and stable error codes. Tokens, authorization headers, passwords, file contents, and other secrets are excluded.
 
-Githubieは以下のようなToolを一切公開しない。
+## Vulnerability Reporting
 
-```text
-shell(command)
-exec(command)
-run_git(args)
-github_request(method, url, body)
-```
-
-内部で実行するGitコマンドは固定の引数配列（`ArgumentList`、Shellを経由しない）に限定し、Agent入力を直接連結しない（`GitCommandClient`）。
-
-## 監査ログ
-
-Tool呼び出しごとに`client` / `tool` / `repository` / `branch` / `pull_request_number` / `tag` / `result` / `duration_ms` / `error_code`を記録する。Personal Access Token、Authorization Header、Password、ファイル本文、その他Secretは記録しない。
-
-## 脆弱性報告
-
-脆弱性を発見した場合は、Public Issueでの報告を避け、リポジトリ管理者（[katsushoe](https://github.com/katsushoe)）へ直接連絡すること。再現手順・影響範囲・該当バージョンを含めることを推奨する。
+Do not disclose vulnerabilities in a public issue. Contact the repository maintainer [katsushoe](https://github.com/katsushoe) directly with reproduction steps, affected versions, and impact.

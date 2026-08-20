@@ -107,14 +107,27 @@
     <ComponentGroup Id="DocumentationComponents" Directory="DOCDIR">
       <Component Id="DocumentationComponent" Guid="8E570EE6-DF3F-48B0-BEE8-87EC77E8C615">
         <File Source="..\..\README.md" />
+        <File Source="..\..\README.ja.md" />
+        <File Source="..\..\DOCUMENTS.md" />
+        <File Source="..\..\DOCUMENTS.ja.md" />
         <File Source="..\..\MCP_SETUP.md" />
+        <File Source="..\..\MCP_SETUP.ja.md" />
         <File Source="..\..\INSTALLATION.md" />
+        <File Source="..\..\INSTALLATION.ja.md" />
         <File Source="..\..\OPERATIONS.md" />
+        <File Source="..\..\OPERATIONS.ja.md" />
         <File Source="..\..\TROUBLESHOOTING.md" />
+        <File Source="..\..\TROUBLESHOOTING.ja.md" />
         <File Source="..\..\CONFIG.md" />
+        <File Source="..\..\CONFIG.ja.md" />
         <File Source="..\..\COMMANDS.md" />
+        <File Source="..\..\COMMANDS.ja.md" />
         <File Source="..\..\SECURITY.md" />
+        <File Source="..\..\SECURITY.ja.md" />
         <File Source="..\..\PACKAGES.md" />
+        <File Source="..\..\PACKAGES.ja.md" />
+        <File Source="..\..\RELEASE.md" />
+        <File Source="..\..\RELEASE.ja.md" />
         <File Source="..\..\LICENSE" />
       </Component>
     </ComponentGroup>

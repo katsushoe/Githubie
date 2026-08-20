@@ -1,91 +1,58 @@
 # Githubie
 
-Githubieは、許可したローカルGitリポジトリとGitHub.comをMCPクライアントから操作するWindows向けゲートウェイです。リポジトリAllowlist、ブランチ保護、監査ログ、DPAPIで保護したPersonal Access Tokenにより、AIクライアントへ必要な操作だけを公開します。
+[English](README.md) | [日本語](README.ja.md)
 
-[Buckettie](https://github.com/katsushoe/Buckettie)（Bitbucket Cloud向け）の姉妹プロジェクトで、同じアーキテクチャ・Security原則をGitHub向けに踏襲しています。
+Githubie is a Windows gateway that lets MCP clients operate allowlisted local Git repositories and GitHub.com without exposing arbitrary Git commands, repository URLs, or credentials. It is the GitHub companion to [Buckettie](https://github.com/katsushoe/Buckettie).
 
-## 状態
+## Getting Started
 
-Phase 1のコア実装（Domain / Application / Infrastructure / MCP Server / 管理CLI）が完了しています。実機（Windows）でのビルド・起動・MCP Tool呼び出し・DPAPI/ACL保護に加え、実GitHubリポジトリへのPush・PR作成・Mergeまで実データで検証済みです。MSIインストーラーの構成は用意済みですが、ビルド実行自体の検証はまだ行っていません（[RELEASE.md](RELEASE.md)）。
+Install the MSI, copy `githubie.example.json` to `<install-root>\config\githubie.json`, and configure at least one repository. Then run:
 
-## 構成
-
-```text
-src/
-├─ Githubie.Domain          Repository Policy等の純粋ドメインモデル
-├─ Githubie.Application     Port(interface)層
-├─ Githubie.Infrastructure  GitHub REST Client / Git実行 / DPAPI等の実装
-├─ Githubie.AskPass         GIT_ASKPASS相当の一時Credential受け渡し
-├─ Githubie.Server          MCP Server本体(Streamable HTTP)
-└─ Githubie.Cli             管理CLI(githubie.exe)
-
-tests/
-└─ 各層に対応するテストプロジェクト(xUnit v3 + FluentAssertions + NSubstitute)
+```powershell
+githubie.exe config check
+githubie.exe auth set <repository-id>
+githubie.exe start
+githubie.exe doctor
 ```
 
-## ビルド
+Register `http://127.0.0.1:45460/mcp` with your MCP client. See [MCP setup](MCP_SETUP.md) for client-specific instructions.
 
-.NET 9 SDKとGit for Windowsを導入し、次を実行します。
+## Installation
+
+The recommended distribution is the x64 MSI. A portable ZIP and reproducible source-build instructions are also available. See [Installation](INSTALLATION.md).
+
+Developers need the .NET 9 SDK and Git for Windows:
 
 ```powershell
 dotnet build Githubie.slnx
 dotnet test Githubie.slnx
 ```
 
-## 設定
+## Configuration
 
-`githubie.example.json`を`<install-root>\config\githubie.json`へコピーし、リポジトリを設定します。
+Githubie reads `<install-root>\config\githubie.json` by default. Repository IDs map to fixed GitHub owner/repository pairs, local roots, and branch policies. See [Configuration](CONFIG.md).
 
-```powershell
-<install-root>\bin\githubie.exe config check
-<install-root>\bin\githubie.exe auth set <repository-id>
-<install-root>\bin\githubie.exe service install
-<install-root>\bin\githubie.exe start
-<install-root>\bin\githubie.exe doctor
-```
+## Usage
 
-MCPクライアントへ`http://127.0.0.1:45460/mcp`を登録します。
+Use `githubie.exe` for configuration, credentials, diagnostics, and Windows Service management. MCP clients receive 15 typed tools for repository status, fetch/pull/push, branches, pull requests, tags, and version information. See [Commands](COMMANDS.md).
 
-## 公開するMCP Tool
+## Documentation
 
-```text
-github_repository_status
+- [Installation](INSTALLATION.md)
+- [Configuration](CONFIG.md)
+- [MCP setup](MCP_SETUP.md)
+- [Commands](COMMANDS.md)
+- [Operations](OPERATIONS.md)
+- [Security](SECURITY.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
+- [Package layout](PACKAGES.md)
+- [Release process](RELEASE.md)
+- [Architecture Decision Records](docs/adr/README.md)
 
-github_fetch
-github_pull
-github_push
+## Security
 
-github_branch_list
-github_branch_get
+The MCP endpoint listens only on loopback. Keep Personal Access Tokens out of configuration and MCP client settings; store them with `githubie.exe auth set`. A fine-grained PAT limited to the configured repository with `Contents: Read and write` and `Pull requests: Read and write` is recommended. See [Security](SECURITY.md).
 
-github_pr_list
-github_pr_get
-github_pr_diff
-github_pr_create
-github_pr_merge
+## License
 
-github_tag_list
-github_tag_get
-github_tag_create
-```
-
-## セキュリティ
-
-MCP EndpointはLoopbackだけで待ち受けます。Personal Access Tokenを設定ファイルやMCPクライアント設定へ保存しないでください。認証はFine-grained Personal Access Token（対象リポジトリへの`Contents: Read and write` / `Pull requests: Read and write`）を推奨します。詳細は[セキュリティ](SECURITY.md)を参照してください。
-
-## ドキュメント
-
-- [文書一覧](DOCUMENTS.md)
-- [インストール](INSTALLATION.md)
-- [設定](CONFIG.md)
-- [MCPセットアップ](MCP_SETUP.md)
-- [コマンド](COMMANDS.md)
-- [運用](OPERATIONS.md)
-- [セキュリティ](SECURITY.md)
-- [トラブルシューティング](TROUBLESHOOTING.md)
-- [パッケージ構成](PACKAGES.md)
-- [リリース](RELEASE.md)
-
-## ライセンス
-
-Githubieは[MIT License](LICENSE)で提供します。
+Githubie is available under the [MIT License](LICENSE).

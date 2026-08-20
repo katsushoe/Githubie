@@ -1,56 +1,37 @@
-# MCPセットアップ
+# MCP Setup
 
-GithubieはStreamable HTTP TransportでMCP Serverを公開する。既定のEndpointは`http://127.0.0.1:45460/mcp`（`mcp_port` / `mcp_path`は[CONFIG.md](CONFIG.md)で変更可能）。
+[English](MCP_SETUP.md) | [日本語](MCP_SETUP.ja.md)
 
-前提として、`Githubie.Server.exe`（または`githubie.exe start` / Windows Service）が起動していること、対象Repositoryに対して`githubie.exe auth set <repository>`でPersonal Access Tokenを登録済みであることを確認する。
+Githubie exposes MCP over Streamable HTTP at `http://127.0.0.1:45460/mcp` by default. Start `Githubie.Server.exe` or the Windows Service and register credentials with `githubie.exe auth set <repository>` first.
 
-## 疎通確認
-
-MCPクライアントへ登録する前に、CLIで疎通を確認できる。
+## Connectivity Check
 
 ```powershell
 githubie.exe mcp status
 githubie.exe mcp tools
 ```
 
-`mcp tools`で15個のTool定義（[COMMANDS.md](COMMANDS.md)参照）が返れば正常。
+The second command should return 15 tool definitions documented in [Commands](COMMANDS.md).
 
 ## Claude Code
-
-Claude Code CLIから登録する場合。
 
 ```bash
 claude mcp add --transport http githubie http://127.0.0.1:45460/mcp
 ```
 
-または、プロジェクトの`.mcp.json`（もしくはユーザー設定）へ直接記述する。
-
-```json
-{
-  "mcpServers": {
-    "githubie": {
-      "type": "http",
-      "url": "http://127.0.0.1:45460/mcp"
-    }
-  }
-}
-```
-
-登録後、Claude Codeのセッション内で`github_repository_status`等のToolが利用可能になっているか確認する。Loopbackのみ待ち受けるため、リモートのClaude Code環境（クラウド実行等）からは到達できない点に注意する。
-
 ## Codex
 
-CodexのMCPクライアント設定はバージョンによって形式が変わるため、利用中のCodexが対応する正確な設定キーは`codex --help`または該当バージョンのドキュメントで確認すること。一般的には設定ファイル（例: `~/.codex/config.toml`）のMCP Server一覧へ、名前とHTTP Endpoint URLを追加する形になる。
+Confirm the configuration format supported by the installed Codex version. A typical configuration is:
 
 ```toml
 [mcp_servers.githubie]
 url = "http://127.0.0.1:45460/mcp"
 ```
 
-## Originチェックについて
+## Origin Validation
 
-GithubieはMCP EndpointへのリクエストでOriginヘッダを検証する（[McpOriginValidator](src/Githubie.Server/McpOriginValidator.cs)）。Originが送信される場合は`http://127.0.0.1:<mcp_port>`または`http://localhost:<mcp_port>`と完全一致（Query/Fragmentなし）である必要がある。Originヘッダを送らないクライアント（多くのMCP Client実装を含む）はそのまま許可される。
+When an `Origin` header is present, it must exactly match `http://127.0.0.1:<mcp_port>` or `http://localhost:<mcp_port>` with no query or fragment. Clients that omit `Origin` are accepted. Remote or cloud-hosted clients cannot reach the loopback endpoint.
 
-## 複数プロジェクトでの利用
+## Multiple Repositories
 
-Repository AllowlistはGithubie側の設定ファイルで管理するため、MCPクライアント側は`repository`パラメータにGithubie内部のRepository ID（[CONFIG.md](CONFIG.md)の`repositories.<id>`）を指定するだけでよい。GitHub Owner/Repo/ローカルパスをクライアント側で意識する必要はない。
+Configure the allowlist in `githubie.json`. MCP clients specify only the internal `repository` ID and cannot choose arbitrary GitHub owners, repositories, or local paths. See [Configuration](CONFIG.md).
