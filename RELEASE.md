@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.2.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.4.0`.
 
 ## Tags
 
@@ -31,3 +31,7 @@ Version `1.3.0.0` adds out-of-band approved MCP repository registration with Git
 Version `1.3.1.0` fixes MCP tool activation after repository registration support was added by registering the repository registration service in the HTTP host dependency injection container.
 
 Version `1.3.2.0` normalizes Windows repository paths for Git `safe.directory`, allowing approved registration of repositories owned by another Windows account.
+
+Version `1.3.3.0` adds real-Git registration regression tests and secret-free audit logging for repository registration results.
+
+Version `1.3.4.0` routes registered GitHub SSH remotes through HTTPS for PAT-authenticated network operations without changing repository configuration.

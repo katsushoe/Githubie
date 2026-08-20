@@ -1,27 +1,86 @@
 using Githubie.Application.Interactive;
+using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace Githubie.ApprovalPrompt;
 
 internal sealed partial class ApprovalForm : Form
 {
+    private static readonly Regex RegistrationSummaryPattern = new(
+        "^Register '(?<repository>.+)' for (?<target>.+)$",
+        RegexOptions.CultureInvariant);
+    private static readonly Regex RewriteSummaryPattern = new(
+        "^Rewrite (?<count>[0-9]+) published ref\\(s\\) in (?<repository>.+)$",
+        RegexOptions.CultureInvariant);
     private int _remainingSeconds = 120;
 
     public ApprovalForm(ApprovalPromptRequest request)
     {
         InitializeComponent();
-        Text = request.Title;
-        summaryLabel.Text = request.Summary;
-        detailsTextBox.Lines = request.Details.ToArray();
+        ApplyRequestText(request);
+        detailsTextBox.Select(0, 0);
+        ActiveControl = denyButton;
         countdownTimer.Start();
     }
 
     private void CountdownTimerTick(object? sender, EventArgs e)
     {
         _remainingSeconds--;
-        countdownLabel.Text = $"Auto-deny in {_remainingSeconds}s.";
+        countdownLabel.Text = IsJapanese
+            ? $"{_remainingSeconds}秒後に自動的に拒否します。"
+            : $"Auto-deny in {_remainingSeconds}s.";
         if (_remainingSeconds > 0) return;
         countdownTimer.Stop();
         DialogResult = DialogResult.No;
         Close();
+    }
+
+    private static bool IsJapanese =>
+        CultureInfo.CurrentUICulture.TwoLetterISOLanguageName.Equals("ja", StringComparison.OrdinalIgnoreCase);
+
+    private void ApplyRequestText(ApprovalPromptRequest request)
+    {
+        if (!IsJapanese)
+        {
+            Text = request.Title;
+            summaryLabel.Text = request.Summary;
+            detailsTextBox.Lines = request.Details.ToArray();
+            return;
+        }
+
+        var isRegistration = request.Title.Equals("Githubie repository registration", StringComparison.Ordinal);
+        Text = isRegistration ? "Githubie - リポジトリ登録の承認" : "Githubie - 履歴書き換えの承認";
+        warningLabel.Text = isRegistration
+            ? "確認: このリポジトリの登録を承認しますか。"
+            : "危険: 公開済みのGit履歴を書き換えます。";
+        summaryLabel.Text = TranslateSummary(request.Summary);
+        detailsTextBox.Lines = request.Details.Select(TranslateDetail).ToArray();
+        countdownLabel.Text = "120秒後に自動的に拒否します。";
+        approveButton.Text = isRegistration ? "登録を承認" : "書き換えを承認";
+        denyButton.Text = "拒否";
+    }
+
+    private static string TranslateSummary(string summary)
+    {
+        var registrationMatch = RegistrationSummaryPattern.Match(summary);
+        if (registrationMatch.Success)
+            return $"'{registrationMatch.Groups["repository"].Value}' を {registrationMatch.Groups["target"].Value} として登録します。";
+
+        var rewriteMatch = RewriteSummaryPattern.Match(summary);
+        if (rewriteMatch.Success)
+            return $"{rewriteMatch.Groups["repository"].Value} の公開済み参照 {rewriteMatch.Groups["count"].Value} 件を書き換えます。";
+
+        return summary;
+    }
+
+    private static string TranslateDetail(string detail)
+    {
+        if (detail.StartsWith("Local root: ", StringComparison.Ordinal))
+            return $"ローカルルート: {detail[12..]}";
+        if (detail.StartsWith("Remote: ", StringComparison.Ordinal))
+            return $"リモート: {detail[8..]}";
+        if (detail.StartsWith("Branches: ", StringComparison.Ordinal))
+            return $"ブランチ: {detail[10..]}";
+        return detail;
     }
 }

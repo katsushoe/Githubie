@@ -91,6 +91,20 @@ public sealed class RepositoryRegistrationServiceTests
     }
 
     [Fact]
+    public async Task RegisterAsync_RemoteBeginningWithHyphen_IsRejectedBeforeGitExecution()
+    {
+        var service = CreateService();
+
+        var result = await service.RegisterAsync(
+            new RepositoryRegistrationRequest("sample", LocalRoot, "--upload-pack=evil", null, null),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.InvalidRemote);
+        await _git.DidNotReceive().GetRemoteUrlAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task RegisterAsync_NonGitHubRemote_IsRejected()
     {
         _git.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
