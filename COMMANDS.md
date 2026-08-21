@@ -15,6 +15,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie config show` | Prints the loaded port, path, and repository IDs |
 | `githubie repo list` | Prints configured repository IDs |
 | `githubie repo status <repository>` | Reads current branch, HEAD, ahead/behind, and working-tree state |
+| `githubie repo rename <old> <new>` | Atomically migrates repository configuration and its encrypted token to a new ID |
 | `githubie auth set <repository>` | Replaces the DPAPI-encrypted token after masked input |
 | `githubie auth test <repository>` | Calls GitHub with the stored token and reports authentication status |
 | `githubie auth delete <repository>` | Deletes the stored token |
@@ -57,6 +58,9 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | Tool | Parameters | State and constraints |
 | --- | --- | --- |
 | `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?` | Derives GitHub identity from the local remote and registers it only after desktop approval |
+| `github_repository_update` | `repository`, branch policy fields | Updates branch policy only after desktop approval; identity and paths remain unchanged |
+| `github_repository_unregister` | `repository` | Removes the entry from Githubie configuration and the live allowlist without deleting GitHub or local data |
+| `github_repository_rename` | `old_repository`, `new_repository` | Migrates configuration and encrypted token together; keeps the old ID usable if migration fails |
 | `github_fetch` | `repository` | Updates remote-tracking refs |
 | `github_pull` | `repository`, `branch` | Fast-forwards an allowed branch; rejects divergent history |
 | `github_push` | `repository` | Pushes the current allowed branch; rejects protected branches, dirty trees when configured, and no-op pushes |

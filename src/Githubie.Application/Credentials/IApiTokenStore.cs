@@ -11,4 +11,6 @@ public interface IApiTokenStore
     ApiTokenStoreReadResult Read(string repositoryId);
 
     ApiTokenStoreResult Delete(string repositoryId);
+
+    ApiTokenStoreResult Rename(string oldRepositoryId, string newRepositoryId);
 }

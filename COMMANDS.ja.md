@@ -33,6 +33,7 @@
 | --- | --- |
 | `githubie repo list` | 設定済みRepository ID一覧を表示する |
 | `githubie repo status <repository>` | 指定Repositoryの`local_branch` / `local_head` / `ahead` / `behind` / `working_tree_clean`を実Gitコマンド経由で取得する |
+| `githubie repo rename <old> <new>` | Repository設定と暗号化Tokenを新IDへ一括移行する |
 
 ### 認証
 
@@ -90,6 +91,9 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | Tool | パラメータ | 説明 |
 | --- | --- | --- |
 | `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?` | Local Git remoteからGitHub接続先を導出し、対話Desktop承認後に登録 |
+| `github_repository_update` | `repository`、Branch Policy項目 | 対話Desktop承認後にBranch Policyだけを更新。識別情報とPathは変更しない |
+| `github_repository_unregister` | `repository` | Githubie設定と実行中Allowlistから登録解除。GitHub／Localのデータは削除しない |
+| `github_repository_rename` | `old_repository`、`new_repository` | 設定と暗号化Tokenを一括移行し、失敗時は旧IDを維持する |
 | `github_push` | `repository` | develop等へのGit push。Protected Branchへの直接Pushは`protected_branch`で拒否 |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | develop→mainのPRを作成（Source/Destinationは設定固定） |
 | `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | PRをmerge。State==open、Source/Destinationが許可経路であることを検証 |

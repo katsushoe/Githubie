@@ -14,7 +14,8 @@ namespace Githubie.Server;
 public sealed class GithubieMcpTools(
     IGitGateway gitGateway,
     IGitHubRepositoryGateway gitHubGateway,
-    IRepositoryRegistrationService registrationService)
+    IRepositoryRegistrationService registrationService,
+    IRepositoryManagementService managementService)
 {
     [McpServerTool(Name = "github_repository_register", Destructive = true, UseStructuredContent = true)]
     [Description("ローカルGit remoteからGitHub接続先を導出し、対話承認後にRepositoryを登録します。")]
@@ -30,6 +31,46 @@ public sealed class GithubieMcpTools(
             new RepositoryRegistrationRequest(repository, local_root, remote, develop_branch, main_branch),
             cancellationToken);
         return GithubieToolResultMapper.Map("repository_register", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_unregister", Destructive = true, UseStructuredContent = true)]
+    [Description("登録済みRepositoryをGithubieの設定とAllowlistから登録解除します。GitHub/ローカルRepositoryは削除しません。")]
+    public async Task<GithubieToolResult<RepositoryMutationInfo>> UnregisterRepositoryAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await managementService.UnregisterAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_unregister", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_update", Destructive = true, UseStructuredContent = true)]
+    [Description("登録済みRepositoryのBranch Policyを対話承認後に更新します。識別情報とLocal Rootは変更しません。")]
+    public async Task<GithubieToolResult<RepositoryMutationInfo>> UpdateRepositoryAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("直接Pushを許可するBranch")] IReadOnlyList<string> direct_push_branches,
+        [Description("Pullを許可するBranch")] IReadOnlyList<string> pull_branches,
+        [Description("直接Pushから保護するBranch")] IReadOnlyList<string> protected_branches,
+        [Description("Release Tag対象Branch")] string tag_target_branch,
+        [Description("許可するTag名の正規表現")] string tag_pattern,
+        [Description("Push時にcleanな作業Treeを要求するか")] bool require_clean_working_tree = true,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new RepositoryUpdateRequest(
+            direct_push_branches, pull_branches, protected_branches,
+            tag_target_branch, tag_pattern, require_clean_working_tree);
+        var result = await managementService.UpdateAsync(repository, request, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_update", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_rename", Destructive = true, UseStructuredContent = true)]
+    [Description("Repository設定と暗号化Tokenを旧IDから新IDへ一括移行します。")]
+    public async Task<GithubieToolResult<RepositoryMutationInfo>> RenameRepositoryAsync(
+        [Description("現在のRepository ID")] string old_repository,
+        [Description("新しいRepository ID")] string new_repository,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await managementService.RenameAsync(old_repository, new_repository, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_rename", old_repository, result);
     }
 
     [McpServerTool(Name = "github_repository_status", ReadOnly = true, UseStructuredContent = true)]

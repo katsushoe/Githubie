@@ -41,12 +41,15 @@ builder.WebHost.ConfigureKestrel(server => server.ListenLocalhost(options.McpPor
 var innerGitGateway = applicationServices.GetRequiredService<IGitGateway>();
 var innerGitHubGateway = applicationServices.GetRequiredService<IGitHubRepositoryGateway>();
 var innerRegistrationService = applicationServices.GetRequiredService<IRepositoryRegistrationService>();
+var innerManagementService = applicationServices.GetRequiredService<IRepositoryManagementService>();
 
 builder.Services.AddSingleton<IGithubieAuditLogger, GithubieAuditLogger>();
 builder.Services.AddSingleton<IGitGateway>(sp => new AuditedGitGateway(innerGitGateway, sp.GetRequiredService<IGithubieAuditLogger>()));
 builder.Services.AddSingleton<IGitHubRepositoryGateway>(sp => new AuditedGitHubRepositoryGateway(innerGitHubGateway, sp.GetRequiredService<IGithubieAuditLogger>()));
 builder.Services.AddSingleton<IRepositoryRegistrationService>(sp =>
     new AuditedRepositoryRegistrationService(innerRegistrationService, sp.GetRequiredService<IGithubieAuditLogger>()));
+builder.Services.AddSingleton<IRepositoryManagementService>(sp =>
+    new AuditedRepositoryManagementService(innerManagementService, sp.GetRequiredService<IGithubieAuditLogger>()));
 builder.Services.AddSingleton<GithubieMcpTools>();
 
 builder.Services

@@ -33,6 +33,13 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `git_failed` | Gitコマンドが非0で終了した | `repo status`や手動`git status`で状態を確認する |
 | `timeout` | Gitコマンド（fetch/pull/push）が既定時間内に完了しなかった | ネットワーク状態を確認する。大きなリポジトリでは再試行する |
 | `working_tree_dirty` | `require_clean_working_tree=true`でWorking Treeに未コミット変更がある | ローカルでcommitまたはstashしてから再実行する |
+| `branch_protection_denied` | Branch保護またはRepository Rulesetが履歴訂正を拒否した | 対象refのRulesetとforce-push許可を確認する |
+| `token_permission_denied` | TokenにRepository書込み権限がない | Token権限を更新し、`auth test`を実行する |
+| `workflow_permission_denied` | Workflowファイル更新に必要な権限がない | TokenへWorkflow更新権限を付与する |
+| `lease_conflict` | 計画後にRemote refが変化した | fetch後、現在のRemote SHAでdry-runから再実行する |
+| `atomic_not_supported` | Remoteがatomic pushに対応していない | 部分更新へ切り替えず処理を中止する仕様のため、Remote側の対応を確認する |
+
+`repo status`と`github_repository_status`は、最大20件の`working_tree_changes`としてPorcelain状態コード2文字とRepository相対Pathだけを返し、本文は返さない。対話ユーザーのGlobal Git除外だけで無視されるファイルはLocalSystemサービスでは検出される場合があるため、全実行Identityで除外する運用ファイルはRepositoryの`.gitignore`へ記載する。
 | `branch_not_allowed` | 現在のBranchが`direct_push_branches`/Pull対象Branchに含まれない | 許可Branchへ切り替えるか、設定を見直す |
 | `protected_branch` | `protected_branches`に含まれるBranchへ直接Pushしようとした | PR経由（`github_pr_create` → `github_pr_merge`）で更新する。設定からの解除手段はMCP Toolに存在しない |
 | `nothing_to_push` | ローカルCommitがRemoteより先行していない | 変更を先にcommitする |

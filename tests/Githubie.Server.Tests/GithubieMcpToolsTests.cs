@@ -17,6 +17,9 @@ public sealed class GithubieMcpToolsTests
     [
         "github_repository_status",
         "github_repository_register",
+        "github_repository_unregister",
+            "github_repository_update",
+            "github_repository_rename",
         "github_fetch",
         "github_pull",
         "github_push",

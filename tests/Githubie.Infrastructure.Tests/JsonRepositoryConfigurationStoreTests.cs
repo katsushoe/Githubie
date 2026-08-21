@@ -40,6 +40,62 @@ public sealed class JsonRepositoryConfigurationStoreTests
         }
     }
 
+    [Fact]
+    public async Task DeleteRepositoryAsync_RemovesOnlyRequestedEntry()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"githubie-store-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var configPath = Path.Combine(root, "githubie.json");
+        var existing = new GithubieOptions(45460, "/mcp", new Dictionary<string, RepositoryOptions>
+        {
+            ["keep"] = CreateOptions("owner", "keep", "C:\\keep"),
+            ["remove"] = CreateOptions("owner", "remove", "C:\\remove"),
+        });
+        var loader = new JsonGithubieOptionsLoader();
+        try
+        {
+            await using (var initial = File.Create(configPath))
+                await loader.SaveAsync(existing, initial, TestContext.Current.CancellationToken);
+            var store = new JsonRepositoryConfigurationStore(configPath, existing, loader);
+
+            await store.DeleteRepositoryAsync("remove", TestContext.Current.CancellationToken);
+
+            await using var saved = File.OpenRead(configPath);
+            var result = await loader.LoadAsync(saved, TestContext.Current.CancellationToken);
+            result.IsSuccess.Should().BeTrue();
+            result.Options!.Repositories.Keys.Should().Equal("keep");
+            Directory.GetFiles(root, "*.tmp").Should().BeEmpty();
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
+    public async Task RenameRepositoryAsync_ReplacesOnlyRepositoryKeyAtomically()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"githubie-store-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var configPath = Path.Combine(root, "githubie.json");
+        var existing = new GithubieOptions(45460, "/mcp", new Dictionary<string, RepositoryOptions>
+        {
+            ["old-id"] = CreateOptions("owner", "repo", "C:\\repo"),
+        });
+        var loader = new JsonGithubieOptionsLoader();
+        try
+        {
+            await using (var initial = File.Create(configPath))
+                await loader.SaveAsync(existing, initial, TestContext.Current.CancellationToken);
+            var store = new JsonRepositoryConfigurationStore(configPath, existing, loader);
+
+            await store.RenameRepositoryAsync("old-id", "new-id", TestContext.Current.CancellationToken);
+
+            await using var saved = File.OpenRead(configPath);
+            var result = await loader.LoadAsync(saved, TestContext.Current.CancellationToken);
+            result.Options!.Repositories.Keys.Should().Equal("new-id");
+            result.Options.Repositories["new-id"].GitHubRepo.Should().Be("repo");
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     private static RepositoryOptions CreateOptions(string owner, string repo, string localRoot) => new(
         owner, repo, localRoot, "origin", "develop", "main",
         ["develop"], ["develop", "main"], ["main"], "main",

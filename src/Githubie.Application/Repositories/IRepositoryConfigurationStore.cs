@@ -9,4 +9,7 @@ public interface IRepositoryConfigurationStore
         string repositoryId,
         RepositoryOptions options,
         CancellationToken cancellationToken);
+
+    Task DeleteRepositoryAsync(string repositoryId, CancellationToken cancellationToken);
+    Task RenameRepositoryAsync(string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken);
 }

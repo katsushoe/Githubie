@@ -31,6 +31,8 @@ public sealed class GitHubApiClientTests
         public ApiTokenStoreReadResult Read(string repositoryId) => ApiTokenStoreReadResult.Success("dummy-token".ToCharArray());
 
         public ApiTokenStoreResult Delete(string repositoryId) => ApiTokenStoreResult.Success();
+
+        public ApiTokenStoreResult Rename(string oldRepositoryId, string newRepositoryId) => ApiTokenStoreResult.Success();
     }
 
     private static GitHubApiClient CreateClient(Func<HttpRequestMessage, HttpResponseMessage> respond)

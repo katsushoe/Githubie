@@ -19,7 +19,6 @@ internal sealed partial class ApprovalForm : Form
     {
         InitializeComponent();
         ApplyRequestText(request);
-        detailsTextBox.Select(0, 0);
         ActiveControl = denyButton;
         countdownTimer.Start();
     }
@@ -33,6 +32,10 @@ internal sealed partial class ApprovalForm : Form
     private void EnsureForeground()
     {
         WindowState = FormWindowState.Normal;
+        var desktop = Screen.PrimaryScreen?.WorkingArea ?? SystemInformation.WorkingArea;
+        Location = new Point(
+            desktop.Left + Math.Max(0, (desktop.Width - Width) / 2),
+            desktop.Top + Math.Max(0, (desktop.Height - Height) / 2));
         TopMost = false;
         TopMost = true;
         NativeMethods.SetWindowPos(Handle, NativeMethods.TopMost, 0, 0, 0, 0,
@@ -62,8 +65,8 @@ internal sealed partial class ApprovalForm : Form
     {
         _remainingSeconds--;
         countdownLabel.Text = IsJapanese
-            ? $"{_remainingSeconds}秒後に自動的に拒否します。"
-            : $"Auto-deny in {_remainingSeconds}s.";
+            ? $"応答がない場合、{_remainingSeconds}秒後に自動的に拒否します。"
+            : $"Auto-deny in {_remainingSeconds}s if no response.";
         if (_remainingSeconds > 0) return;
         countdownTimer.Stop();
         DialogResult = DialogResult.No;
@@ -78,21 +81,31 @@ internal sealed partial class ApprovalForm : Form
         if (!IsJapanese)
         {
             Text = request.Title;
-            summaryLabel.Text = request.Summary;
-            detailsTextBox.Lines = request.Details.ToArray();
+            operationValueLabel.Text = GetOperation(request.Title, false);
+            summaryValueLabel.Text = request.Summary;
+            detailsValueLabel.Text = string.Join(Environment.NewLine, request.Details);
             return;
         }
 
         var isRegistration = request.Title.Equals("Githubie repository registration", StringComparison.Ordinal);
         Text = isRegistration ? "Githubie - リポジトリ登録の承認" : "Githubie - 履歴書き換えの承認";
-        warningLabel.Text = isRegistration
-            ? "確認: このリポジトリの登録を承認しますか。"
-            : "危険: 公開済みのGit履歴を書き換えます。";
-        summaryLabel.Text = TranslateSummary(request.Summary);
-        detailsTextBox.Lines = request.Details.Select(TranslateDetail).ToArray();
-        countdownLabel.Text = "120秒後に自動的に拒否します。";
-        approveButton.Text = isRegistration ? "登録を承認" : "書き換えを承認";
-        denyButton.Text = "拒否";
+        operationCaptionLabel.Text = "操作";
+        operationValueLabel.Text = GetOperation(request.Title, true);
+        summaryCaptionLabel.Text = "概要";
+        summaryValueLabel.Text = TranslateSummary(request.Summary);
+        detailsCaptionLabel.Text = "詳細";
+        detailsValueLabel.Text = string.Join(Environment.NewLine, request.Details.Select(TranslateDetail));
+        countdownLabel.Text = "応答がない場合、120秒後に自動的に拒否します。";
+        approveButton.Text = "承認(&A)";
+        denyButton.Text = "拒否(&D)";
+    }
+
+    private static string GetOperation(string title, bool japanese)
+    {
+        var registration = title.Equals("Githubie repository registration", StringComparison.Ordinal);
+        var update = title.Equals("Githubie repository update", StringComparison.Ordinal);
+        if (japanese) return registration ? "リポジトリ登録" : update ? "リポジトリ設定変更" : "Git履歴書き換え";
+        return registration ? "Repository registration" : update ? "Repository policy update" : "Git history rewrite";
     }
 
     private static string TranslateSummary(string summary)

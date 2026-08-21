@@ -70,8 +70,8 @@ public sealed class ProcessExecutor : IProcessExecutor
                 : GitCommandResult.Failed(GitCommandFailure.Cancelled);
         }
 
-        var standardOutput = (await standardOutputTask).Trim();
-        var standardError = (await standardErrorTask).Trim();
+        var standardOutput = (await standardOutputTask).TrimEnd('\r', '\n');
+        var standardError = (await standardErrorTask).TrimEnd('\r', '\n');
 
         return process.ExitCode == 0
             ? GitCommandResult.Success(standardOutput)

@@ -11,7 +11,11 @@ public sealed record GitRepositoryStatus(
     string RemoteMainHead,
     int Ahead,
     int Behind,
-    bool WorkingTreeClean);
+    bool WorkingTreeClean,
+    IReadOnlyList<GitWorkingTreeChange> WorkingTreeChanges);
+
+/// <summary>作業Treeで検出した変更の状態コードと相対Pathです。内容は含みません。</summary>
+public sealed record GitWorkingTreeChange(string Status, string Path);
 
 public sealed record GitHistoryRewriteRef(string Ref, string NewLocalSha, string ExpectedRemoteSha);
 
@@ -62,6 +66,9 @@ public enum GitGatewayError
     DuplicateRef,
     LeaseConflict,
     AtomicNotSupported,
+    BranchProtectionDenied,
+    TokenPermissionDenied,
+    WorkflowPermissionDenied,
     ApprovalDenied,
     ApprovalTimedOut,
     ApprovalUnavailable,
