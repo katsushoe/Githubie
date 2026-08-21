@@ -40,6 +40,14 @@ public enum GitHubMergeMethod
 
 public sealed record GitHubPullRequestMerge(int Number, GitHubMergeMethod? MergeMethod, string? CommitMessage);
 
+public sealed record GitHubPullRequestComment(
+    long Id,
+    string Body,
+    string Author,
+    DateTimeOffset Created,
+    DateTimeOffset Updated,
+    string Url);
+
 public sealed record GitHubPullRequestDiff(string Diff, int FilesChanged, int Additions, int Deletions);
 
 public sealed record GitHubReleaseCreate(

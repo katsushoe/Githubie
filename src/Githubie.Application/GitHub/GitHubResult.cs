@@ -31,6 +31,8 @@ public enum GitHubError
     PullRequestNotOpen,
     PullRequestNotMergeable,
     PullRequestRouteNotAllowed,
+    PullRequestStateNotAllowed,
+    PullRequestCommentInvalid,
 
     TagNotFound,
     TagInvalid,

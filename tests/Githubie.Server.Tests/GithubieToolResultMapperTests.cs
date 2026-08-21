@@ -59,6 +59,8 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.PullRequestNotOpen] = "pull_request_not_open",
         [GitHubError.PullRequestNotMergeable] = "pull_request_not_mergeable",
         [GitHubError.PullRequestRouteNotAllowed] = "pull_request_route_not_allowed",
+        [GitHubError.PullRequestStateNotAllowed] = "pull_request_state_not_allowed",
+        [GitHubError.PullRequestCommentInvalid] = "pull_request_comment_invalid",
         [GitHubError.TagNotFound] = "tag_not_found",
         [GitHubError.TagInvalid] = "tag_invalid",
         [GitHubError.TagAlreadyExists] = "tag_already_exists",

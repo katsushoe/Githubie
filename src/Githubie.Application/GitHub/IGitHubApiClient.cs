@@ -25,6 +25,15 @@ public interface IGitHubApiClient
     Task<GitHubResult<GitHubPullRequestInfo>> MergePullRequestAsync(
         string repositoryId, string owner, string repo, GitHubPullRequestMerge request, CancellationToken cancellationToken);
 
+    Task<GitHubResult<GitHubPullRequestInfo>> UpdatePullRequestStateAsync(
+        string repositoryId, string owner, string repo, int number, GitHubPullRequestState state, CancellationToken cancellationToken);
+
+    Task<GitHubResult<IReadOnlyList<GitHubPullRequestComment>>> ListPullRequestCommentsAsync(
+        string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubPullRequestComment>> CreatePullRequestCommentAsync(
+        string repositoryId, string owner, string repo, int number, string body, CancellationToken cancellationToken);
+
     Task<GitHubResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubTagInfo>> GetTagAsync(string repositoryId, string owner, string repo, string tag, CancellationToken cancellationToken);

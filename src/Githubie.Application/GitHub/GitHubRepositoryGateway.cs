@@ -120,6 +120,58 @@ public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitH
         return await _apiClient.MergePullRequestAsync(repository, options.GitHubOwner, options.GitHubRepo, request, cancellationToken);
     }
 
+    public Task<GitHubResult<GitHubPullRequestInfo>> ClosePullRequestAsync(
+        string repository, int number, CancellationToken cancellationToken) =>
+        ChangePullRequestStateAsync(repository, number, GitHubPullRequestState.Closed, cancellationToken);
+
+    public Task<GitHubResult<GitHubPullRequestInfo>> ReopenPullRequestAsync(
+        string repository, int number, CancellationToken cancellationToken) =>
+        ChangePullRequestStateAsync(repository, number, GitHubPullRequestState.Open, cancellationToken);
+
+    public async Task<GitHubResult<IReadOnlyList<GitHubPullRequestComment>>> ListPullRequestCommentsAsync(
+        string repository, int number, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var pullRequest = await _apiClient.GetPullRequestAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, number, cancellationToken);
+        if (!pullRequest.IsSuccess) return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.Failure(pullRequest.Error!.Value);
+        return await _apiClient.ListPullRequestCommentsAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, number, cancellationToken);
+    }
+
+    public async Task<GitHubResult<GitHubPullRequestComment>> CreatePullRequestCommentAsync(
+        string repository, int number, string body, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(body) || body.Length > 65536)
+            return GitHubResult<GitHubPullRequestComment>.Failure(GitHubError.PullRequestCommentInvalid);
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubPullRequestComment>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var pullRequest = await _apiClient.GetPullRequestAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, number, cancellationToken);
+        if (!pullRequest.IsSuccess) return GitHubResult<GitHubPullRequestComment>.Failure(pullRequest.Error!.Value);
+        return await _apiClient.CreatePullRequestCommentAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, number, body, cancellationToken);
+    }
+
+    private async Task<GitHubResult<GitHubPullRequestInfo>> ChangePullRequestStateAsync(
+        string repository, int number, GitHubPullRequestState target, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubPullRequestInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var current = await _apiClient.GetPullRequestAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, number, cancellationToken);
+        if (!current.IsSuccess) return current;
+        if (current.Value!.State == GitHubPullRequestState.Merged)
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestStateNotAllowed);
+        if (current.Value.State == target) return current;
+        return await _apiClient.UpdatePullRequestStateAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, number, target, cancellationToken);
+    }
+
     public async Task<GitHubResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(string repository, CancellationToken cancellationToken)
     {
         var resolved = Resolve(repository);
