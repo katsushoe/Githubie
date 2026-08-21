@@ -11,4 +11,5 @@ public interface IRepositoryConfigurationStore
         CancellationToken cancellationToken);
 
     Task DeleteRepositoryAsync(string repositoryId, CancellationToken cancellationToken);
+    Task RenameRepositoryAsync(string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken);
 }

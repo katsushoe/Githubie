@@ -35,6 +35,8 @@ public static class CliApplication
 
             ["repo", "list"] => await RepoListAsync(effectiveConfigPath, binDirectory, output, error, cancellationToken),
             ["repo", "status", var repo] => await RepoStatusAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
+            ["repo", "rename", var oldRepo, var newRepo] => await RepoRenameAsync(
+                effectiveConfigPath, binDirectory, oldRepo, newRepo, output, error, cancellationToken),
 
             ["auth", "test", var repo] => await AuthTestAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
             ["auth", "set", var repo] => AuthSet(layout, repo, output, error),
@@ -88,6 +90,7 @@ public static class CliApplication
 
               repo list
               repo status <repository>
+              repo rename <old-repository> <new-repository>
 
               auth test <repository>
               auth set <repository>
@@ -238,7 +241,26 @@ public static class CliApplication
         output.WriteLine($"local_head: {status.LocalHead}");
         output.WriteLine($"ahead: {status.Ahead} behind: {status.Behind}");
         output.WriteLine($"working_tree_clean: {status.WorkingTreeClean}");
+        foreach (var change in status.WorkingTreeChanges)
+            output.WriteLine($"working_tree_change: {change.Status} {change.Path}");
         return 0;
+    }
+
+    private static async Task<int> RepoRenameAsync(
+        string configPath, string binDirectory, string oldRepository, string newRepository,
+        TextWriter output, TextWriter error, CancellationToken cancellationToken)
+    {
+        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
+        if (!composition.IsSuccess)
+        {
+            foreach (var item in composition.Errors) error.WriteLine(item);
+            return 1;
+        }
+        var service = (Application.Repositories.IRepositoryManagementService)composition.Services!
+            .GetService(typeof(Application.Repositories.IRepositoryManagementService))!;
+        var result = await service.RenameAsync(oldRepository, newRepository, cancellationToken);
+        output.WriteLine(result.IsSuccess ? $"[OK] renamed: {oldRepository} -> {newRepository}" : $"[NG] {result.Error}");
+        return result.IsSuccess ? 0 : 1;
     }
 
     private static async Task<int> AuthTestAsync(string configPath, string binDirectory, string repository, TextWriter output, TextWriter error, CancellationToken cancellationToken)

@@ -18,7 +18,8 @@ public sealed record GithubieAuditEvent(
     string? Tag,
     string Result,
     long DurationMs,
-    string? ErrorCode);
+    string? ErrorCode,
+    string? NewRepository = null);
 
 public interface IGithubieAuditLogger
 {
@@ -110,8 +111,13 @@ public sealed class AuditedRepositoryManagementService(
         RunAsync("github_repository_unregister", repositoryId,
             () => inner.UnregisterAsync(repositoryId, cancellationToken));
 
+    public Task<RepositoryMutationResult> RenameAsync(
+        string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken) =>
+        RunAsync("github_repository_rename", oldRepositoryId,
+            () => inner.RenameAsync(oldRepositoryId, newRepositoryId, cancellationToken), newRepositoryId);
+
     private async Task<RepositoryMutationResult> RunAsync(
-        string tool, string repository, Func<Task<RepositoryMutationResult>> action)
+        string tool, string repository, Func<Task<RepositoryMutationResult>> action, string? newRepository = null)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = await action();
@@ -119,7 +125,7 @@ public sealed class AuditedRepositoryManagementService(
         audit.Write(new GithubieAuditEvent(
             "mcp", tool, repository, null, null, null,
             result.IsSuccess ? "success" : "failure", stopwatch.ElapsedMilliseconds,
-            result.IsSuccess ? null : result.Error!.Value.ToString()));
+            result.IsSuccess ? null : result.Error!.Value.ToString(), newRepository));
         return result;
     }
 }

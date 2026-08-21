@@ -62,7 +62,8 @@ public sealed class GitGateway(
             RemoteMainHead: remoteMainHead.IsSuccess ? remoteMainHead.StandardOutput : string.Empty,
             Ahead: ahead,
             Behind: behind,
-            WorkingTreeClean: status.StandardOutput.Length == 0);
+            WorkingTreeClean: status.StandardOutput.Length == 0,
+            WorkingTreeChanges: ParseWorkingTreeChanges(status.StandardOutput));
 
         return GitGatewayResult<GitRepositoryStatus>.Success(snapshot);
     }
@@ -212,12 +213,7 @@ public sealed class GitGateway(
         var push = await _commandClient.PushHistoryRewriteAsync(options.LocalRoot, repository, options.Remote, refs, cancellationToken);
         if (!push.IsSuccess)
         {
-            var error = push.StandardError.Contains("atomic", StringComparison.OrdinalIgnoreCase)
-                ? GitGatewayError.AtomicNotSupported
-                : push.StandardError.Contains("permission", StringComparison.OrdinalIgnoreCase) ||
-                  push.StandardError.Contains("403", StringComparison.OrdinalIgnoreCase)
-                    ? GitGatewayError.PermissionDenied
-                    : GitGatewayError.GitFailed;
+            var error = ClassifyHistoryRewriteFailure(push.StandardError);
             return GitGatewayResult<GitHistoryRewriteResult>.Failure(error);
         }
 
@@ -318,6 +314,33 @@ public sealed class GitGateway(
             return GitGatewayError.NonFastForward;
         return GitGatewayError.GitFailed;
     }
+
+    private static GitGatewayError ClassifyHistoryRewriteFailure(string standardError)
+    {
+        if (ContainsAny(standardError, "stale info", "force-with-lease", "cannot lock ref", "fetch first"))
+            return GitGatewayError.LeaseConflict;
+        if (ContainsAny(standardError, "does not support --atomic", "atomic push failed", "atomic pushes are not supported"))
+            return GitGatewayError.AtomicNotSupported;
+        if (ContainsAny(standardError, "protected branch", "repository rule", "ruleset", "gh006", "gh013"))
+            return GitGatewayError.BranchProtectionDenied;
+        if (ContainsAny(standardError, "refusing to allow a personal access token to create or update workflow", "workflow scope"))
+            return GitGatewayError.WorkflowPermissionDenied;
+        if (ContainsAny(standardError, "authentication failed", "bad credentials", "could not read username"))
+            return GitGatewayError.AuthenticationFailed;
+        if (ContainsAny(standardError, "personal access token", "write access to repository not granted", "requested url returned error: 403"))
+            return GitGatewayError.TokenPermissionDenied;
+        if (ContainsAny(standardError, "permission denied"))
+            return GitGatewayError.PermissionDenied;
+        return GitGatewayError.GitFailed;
+    }
+
+    private static IReadOnlyList<GitWorkingTreeChange> ParseWorkingTreeChanges(string output) =>
+        output.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)
+            .Take(20)
+            .Select(line => line.Length >= 4
+                ? new GitWorkingTreeChange(line[..2], line[3..])
+                : new GitWorkingTreeChange("??", "(unparseable)"))
+            .ToArray();
 
     private static bool ContainsAny(string value, params string[] candidates) =>
         candidates.Any(candidate => value.Contains(candidate, StringComparison.OrdinalIgnoreCase));

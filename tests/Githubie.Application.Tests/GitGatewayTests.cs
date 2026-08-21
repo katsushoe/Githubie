@@ -160,6 +160,25 @@ public sealed class GitGatewayTests
         result.Error.Should().Be(GitGatewayError.PermissionDenied);
     }
 
+    [Theory]
+    [InlineData("remote: error: GH013: Repository rule violations found", GitGatewayError.BranchProtectionDenied)]
+    [InlineData("refusing to allow a Personal Access Token to create or update workflow", GitGatewayError.WorkflowPermissionDenied)]
+    [InlineData("remote: Write access to repository not granted. fatal: requested URL returned error: 403", GitGatewayError.TokenPermissionDenied)]
+    [InlineData("! [rejected] main -> main (stale info)", GitGatewayError.LeaseConflict)]
+    public async Task RewriteHistoryAsync_KnownRemoteRejection_ReturnsSafeSpecificError(
+        string standardError, GitGatewayError expected)
+    {
+        SetUpRewritePreconditions();
+        _approvalPrompt.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Approved());
+        _commandClient.PushHistoryRewriteAsync(LocalRoot, RepositoryId, "origin", Arg.Any<IReadOnlyList<GitHistoryRewriteRef>>(), Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: standardError));
+
+        var result = await _gateway.RewriteHistoryAsync(RepositoryId, [RewriteRef()], false, CancellationToken.None);
+
+        result.Error.Should().Be(expected);
+    }
+
     [Fact]
     public async Task PushAsync_AllowsCleanDevelopPush()
     {
@@ -327,5 +346,23 @@ public sealed class GitGatewayTests
         result.Value.Ahead.Should().Be(2);
         result.Value.Behind.Should().Be(0);
         result.Value.WorkingTreeClean.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetStatusAsync_DirtyTree_ReturnsOnlyStatusAndRelativePaths()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetRemoteHeadAsync(LocalRoot, "origin", Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetAheadBehindAsync(LocalRoot, "origin", "develop", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("1 0"));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("?? .claude/settings.local.json\n M src/file.cs"));
+
+        var result = await _gateway.GetStatusAsync(RepositoryId, CancellationToken.None);
+
+        result.Value!.WorkingTreeClean.Should().BeFalse();
+        result.Value.WorkingTreeChanges.Should().Equal(
+            new GitWorkingTreeChange("??", ".claude/settings.local.json"),
+            new GitWorkingTreeChange(" M", "src/file.cs"));
     }
 }

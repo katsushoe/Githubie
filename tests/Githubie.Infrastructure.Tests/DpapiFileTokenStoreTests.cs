@@ -43,6 +43,19 @@ public sealed class DpapiFileTokenStoreTests : IDisposable
         result.Error.Should().Be(Githubie.Application.Credentials.ApiTokenStoreError.TokenNotFound);
     }
 
+    [Fact]
+    public void Rename_ExistingToken_MovesEncryptedCredentialWithoutLeavingOldId()
+    {
+        var store = new DpapiFileTokenStore(_secretsDirectory);
+        store.Save("old-id", "ghp_example_token_value").IsSuccess.Should().BeTrue();
+
+        var result = store.Rename("old-id", "new-id");
+
+        result.IsSuccess.Should().BeTrue();
+        store.Read("old-id").Error.Should().Be(Githubie.Application.Credentials.ApiTokenStoreError.TokenNotFound);
+        new string(store.Read("new-id").Token!).Should().Be("ghp_example_token_value");
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(_secretsDirectory))

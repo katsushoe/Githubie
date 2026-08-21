@@ -62,6 +62,17 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("repository_update", repository, result);
     }
 
+    [McpServerTool(Name = "github_repository_rename", Destructive = true, UseStructuredContent = true)]
+    [Description("Repository設定と暗号化Tokenを旧IDから新IDへ一括移行します。")]
+    public async Task<GithubieToolResult<RepositoryMutationInfo>> RenameRepositoryAsync(
+        [Description("現在のRepository ID")] string old_repository,
+        [Description("新しいRepository ID")] string new_repository,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await managementService.RenameAsync(old_repository, new_repository, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_rename", old_repository, result);
+    }
+
     [McpServerTool(Name = "github_repository_status", ReadOnly = true, UseStructuredContent = true)]
     [Description("指定リポジトリのGit状態(local/remote head, ahead/behind, working tree clean)を取得します。")]
     public async Task<GithubieToolResult<GitRepositoryStatus>> GetRepositoryStatusAsync(

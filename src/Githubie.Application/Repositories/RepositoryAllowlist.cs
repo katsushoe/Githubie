@@ -44,5 +44,13 @@ public sealed class RepositoryAllowlist
 
     public bool TryRemove(string repositoryId) => _repositories.TryRemove(repositoryId, out _);
 
+    public bool TryRename(string oldRepositoryId, string newRepositoryId)
+    {
+        if (!_repositories.TryRemove(oldRepositoryId, out var options)) return false;
+        if (_repositories.TryAdd(newRepositoryId, options)) return true;
+        _repositories.TryAdd(oldRepositoryId, options);
+        return false;
+    }
+
     public IReadOnlyCollection<string> RepositoryIds => (IReadOnlyCollection<string>)_repositories.Keys;
 }

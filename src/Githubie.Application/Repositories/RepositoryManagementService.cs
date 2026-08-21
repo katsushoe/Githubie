@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using Githubie.Application.Configuration;
 using Githubie.Application.Interactive;
+using Githubie.Application.Credentials;
 
 namespace Githubie.Application.Repositories;
 
@@ -23,6 +24,9 @@ public enum RepositoryMutationError
     ApprovalTimedOut,
     ApprovalUnavailable,
     PersistenceFailed,
+    DuplicateRepositoryId,
+    TokenNotFound,
+    CredentialMigrationFailed,
 }
 
 public sealed record RepositoryMutationResult(RepositoryMutationInfo? Value, RepositoryMutationError? Error)
@@ -37,13 +41,16 @@ public interface IRepositoryManagementService
     Task<RepositoryMutationResult> UpdateAsync(
         string repositoryId, RepositoryUpdateRequest request, CancellationToken cancellationToken);
     Task<RepositoryMutationResult> UnregisterAsync(string repositoryId, CancellationToken cancellationToken);
+    Task<RepositoryMutationResult> RenameAsync(
+        string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken);
 }
 
 /// <summary>登録済みRepositoryのPolicy変更と登録解除を提供します。</summary>
 public sealed class RepositoryManagementService(
     RepositoryAllowlist allowlist,
     IInteractiveApprovalPrompt approvalPrompt,
-    IRepositoryConfigurationStore configurationStore) : IRepositoryManagementService
+    IRepositoryConfigurationStore configurationStore,
+    IApiTokenStore tokenStore) : IRepositoryManagementService
 {
     private static readonly TimeSpan ApprovalTimeout = TimeSpan.FromMinutes(5);
     private readonly SemaphoreSlim _mutationLock = new(1, 1);
@@ -110,6 +117,44 @@ public sealed class RepositoryManagementService(
             { return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed); }
             allowlist.TryRemove(repositoryId);
             return RepositoryMutationResult.Success(new RepositoryMutationInfo(false, repositoryId));
+        }
+        finally { _mutationLock.Release(); }
+    }
+
+    public async Task<RepositoryMutationResult> RenameAsync(
+        string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken)
+    {
+        if (!RepositoryId.IsValid(oldRepositoryId) || !RepositoryId.IsValid(newRepositoryId))
+            return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidRepositoryId);
+        await _mutationLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!allowlist.TryGet(oldRepositoryId, out _))
+                return RepositoryMutationResult.Failure(RepositoryMutationError.RepositoryNotRegistered);
+            if (allowlist.TryGet(newRepositoryId, out _))
+                return RepositoryMutationResult.Failure(RepositoryMutationError.DuplicateRepositoryId);
+
+            var tokenMove = tokenStore.Rename(oldRepositoryId, newRepositoryId);
+            if (!tokenMove.IsSuccess)
+                return RepositoryMutationResult.Failure(tokenMove.Error == ApiTokenStoreError.TokenNotFound
+                    ? RepositoryMutationError.TokenNotFound
+                    : RepositoryMutationError.CredentialMigrationFailed);
+            try
+            {
+                await configurationStore.RenameRepositoryAsync(oldRepositoryId, newRepositoryId, cancellationToken);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyNotFoundException or InvalidOperationException)
+            {
+                tokenStore.Rename(newRepositoryId, oldRepositoryId);
+                return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed);
+            }
+            if (!allowlist.TryRename(oldRepositoryId, newRepositoryId))
+            {
+                await configurationStore.RenameRepositoryAsync(newRepositoryId, oldRepositoryId, CancellationToken.None);
+                tokenStore.Rename(newRepositoryId, oldRepositoryId);
+                return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed);
+            }
+            return RepositoryMutationResult.Success(new RepositoryMutationInfo(false, newRepositoryId));
         }
         finally { _mutationLock.Release(); }
     }

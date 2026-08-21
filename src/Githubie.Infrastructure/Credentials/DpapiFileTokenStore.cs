@@ -130,5 +130,26 @@ public sealed class DpapiFileTokenStore : IApiTokenStore
         }
     }
 
+    public ApiTokenStoreResult Rename(string oldRepositoryId, string newRepositoryId)
+    {
+        if (!Application.Repositories.RepositoryId.IsValid(oldRepositoryId)
+            || !Application.Repositories.RepositoryId.IsValid(newRepositoryId))
+            return ApiTokenStoreResult.Failure(ApiTokenStoreError.InvalidRepositoryId);
+
+        var oldPath = GetTokenPath(oldRepositoryId);
+        var newPath = GetTokenPath(newRepositoryId);
+        if (!File.Exists(oldPath)) return ApiTokenStoreResult.Failure(ApiTokenStoreError.TokenNotFound);
+        if (File.Exists(newPath)) return ApiTokenStoreResult.Failure(ApiTokenStoreError.IoError);
+        try
+        {
+            File.Move(oldPath, newPath);
+            return ApiTokenStoreResult.Success();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return ApiTokenStoreResult.Failure(ApiTokenStoreError.IoError);
+        }
+    }
+
     private string GetTokenPath(string repositoryId) => Path.Combine(_secretsDirectory, $"{repositoryId}.token");
 }

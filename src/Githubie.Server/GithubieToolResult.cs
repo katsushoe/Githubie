@@ -63,6 +63,9 @@ public static class GithubieToolResultMapper
         RepositoryMutationError.ApprovalTimedOut => new("approval_timed_out", "Repository update approval timed out."),
         RepositoryMutationError.ApprovalUnavailable => new("approval_unavailable", "The approval prompt could not be displayed."),
         RepositoryMutationError.PersistenceFailed => new("persistence_failed", "Repository configuration could not be saved."),
+        RepositoryMutationError.DuplicateRepositoryId => new("duplicate_repository_id", "The new Repository ID is already registered."),
+        RepositoryMutationError.TokenNotFound => new("token_not_found", "The source Repository has no stored token."),
+        RepositoryMutationError.CredentialMigrationFailed => new("credential_migration_failed", "The encrypted token could not be migrated."),
         _ => new("internal", "Repository mutation failed."),
     };
 
@@ -103,6 +106,9 @@ public static class GithubieToolResultMapper
         GitGatewayError.DuplicateRef => new("duplicate_ref", "A history rewrite ref was specified more than once."),
         GitGatewayError.LeaseConflict => new("lease_conflict", "A remote ref changed or does not match the expected SHA."),
         GitGatewayError.AtomicNotSupported => new("atomic_not_supported", "The remote does not support atomic push."),
+        GitGatewayError.BranchProtectionDenied => new("branch_protection_denied", "A branch protection rule or repository ruleset rejected the history rewrite."),
+        GitGatewayError.TokenPermissionDenied => new("token_permission_denied", "The configured token does not have permission to update the repository."),
+        GitGatewayError.WorkflowPermissionDenied => new("workflow_permission_denied", "The token cannot update workflow files; grant the required workflow permission."),
         GitGatewayError.ApprovalDenied => new("approval_denied", "The history rewrite was denied."),
         GitGatewayError.ApprovalTimedOut => new("approval_timed_out", "The history rewrite approval timed out."),
         GitGatewayError.ApprovalUnavailable => new("approval_unavailable", "The approval prompt could not be displayed."),

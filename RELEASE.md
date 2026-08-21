@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.6.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.6.1`.
 
 ## Tags
 

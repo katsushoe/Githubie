@@ -55,6 +55,17 @@ public sealed class JsonRepositoryConfigurationStore(
         await PersistAsync(_options with { Repositories = repositories }, cancellationToken);
     }
 
+    public async Task RenameRepositoryAsync(
+        string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(oldRepositoryId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(newRepositoryId);
+        var repositories = new Dictionary<string, RepositoryOptions>(_options.Repositories, StringComparer.Ordinal);
+        if (!repositories.Remove(oldRepositoryId, out var options)) throw new KeyNotFoundException(oldRepositoryId);
+        if (!repositories.TryAdd(newRepositoryId, options)) throw new InvalidOperationException(newRepositoryId);
+        await PersistAsync(_options with { Repositories = repositories }, cancellationToken);
+    }
+
     private async Task PersistAsync(GithubieOptions updated, CancellationToken cancellationToken)
     {
         var directory = Path.GetDirectoryName(configPath)
