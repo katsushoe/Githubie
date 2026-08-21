@@ -169,6 +169,71 @@ public sealed class GitHubApiClientTests
     }
 
     [Fact]
+    public async Task UpdatePullRequestStateAsync_UsesPatchWithClosedState()
+    {
+        HttpMethod? method = null;
+        string? capturedBody = null;
+        var client = CreateCapturingClient((request, body) =>
+        {
+            method = request.Method;
+            capturedBody = body;
+            return Json(HttpStatusCode.OK,
+                """{"number":1,"title":"t","state":"closed","merged":false,"head":{"ref":"develop"},"base":{"ref":"main"},"user":{"login":"u"},"html_url":"https://example.com","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}""");
+        });
+
+        var result = await client.UpdatePullRequestStateAsync(
+            "repo-id", "owner", "repo", 1, GitHubPullRequestState.Closed, TestContext.Current.CancellationToken);
+
+        result.Value!.State.Should().Be(GitHubPullRequestState.Closed);
+        method.Should().Be(HttpMethod.Patch);
+        capturedBody.Should().Contain("\"state\":\"closed\"");
+    }
+
+    [Fact]
+    public async Task UpdatePullRequestStateAsync_MergedState_IsRejectedBeforeRequest()
+    {
+        var client = CreateClient(_ => throw new InvalidOperationException("Request must not be sent."));
+
+        var result = await client.UpdatePullRequestStateAsync(
+            "repo-id", "owner", "repo", 1, GitHubPullRequestState.Merged, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.PullRequestStateNotAllowed);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestCommentAsync_UsesIssueCommentEndpointAndMapsResponse()
+    {
+        string? path = null;
+        string? capturedBody = null;
+        var client = CreateCapturingClient((request, body) =>
+        {
+            path = request.RequestUri!.AbsolutePath;
+            capturedBody = body;
+            return Json(HttpStatusCode.Created,
+                """{"id":42,"body":"hello","user":{"login":"u"},"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","html_url":"https://example.com/comment"}""");
+        });
+
+        var result = await client.CreatePullRequestCommentAsync(
+            "repo-id", "owner", "repo", 7, "hello", TestContext.Current.CancellationToken);
+
+        result.Value!.Id.Should().Be(42);
+        path.Should().Be("/repos/owner/repo/issues/7/comments");
+        capturedBody.Should().Contain("\"body\":\"hello\"");
+    }
+
+    [Fact]
+    public async Task ListPullRequestCommentsAsync_ReturnsConversationComments()
+    {
+        var client = CreateClient(_ => Json(HttpStatusCode.OK,
+            """[{"id":42,"body":"hello","user":{"login":"u"},"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","html_url":"https://example.com/comment"}]"""));
+
+        var result = await client.ListPullRequestCommentsAsync(
+            "repo-id", "owner", "repo", 7, TestContext.Current.CancellationToken);
+
+        result.Value.Should().ContainSingle().Which.Author.Should().Be("u");
+    }
+
+    [Fact]
     public async Task GetTagAsync_MapsNotFoundToTagNotFound_NotTagInvalid()
     {
         // branch_not_foundと同種の回帰防止: 存在しないtagの404が誤ってtag_invalid

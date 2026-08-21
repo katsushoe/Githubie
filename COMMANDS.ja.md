@@ -82,6 +82,7 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull Request一覧を取得 |
 | `github_pr_get` | `repository`, `pull_request_number` | Pull Request詳細を取得 |
 | `github_pr_diff` | `repository`, `pull_request_number` | diff・変更統計を取得 |
+| `github_pr_comment_list` | `repository`, `pull_request_number` | PR全体の会話コメント一覧を取得 |
 | `github_tag_list` | `repository` | Tag一覧を取得 |
 | `github_tag_get` | `repository`, `tag` | Tag詳細を取得 |
 | `get_version` | — | Githubie Serverのバージョンを取得 |
@@ -97,6 +98,9 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_push` | `repository` | develop等へのGit push。Protected Branchへの直接Pushは`protected_branch`で拒否 |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | develop→mainのPRを作成（Source/Destinationは設定固定） |
 | `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | PRをmerge。State==open、Source/Destinationが許可経路であることを検証 |
+| `github_pr_close` | `repository`, `pull_request_number` | 未マージのPRをクローズ。クローズ済みの場合は状態を維持 |
+| `github_pr_reopen` | `repository`, `pull_request_number` | 未マージのPRを再オープン。オープン済みの場合は状態を維持 |
+| `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | PR全体へ空でない会話コメントを追加 |
 | `github_tag_create` | `repository`, `tag`, `message?` | main HEADへAnnotated Tagを作成（Git Data APIの2段階呼び出し） |
 
 ### 未分類（局所的な状態変更を伴うが破壊的操作ではない）

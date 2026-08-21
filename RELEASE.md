@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.6.1`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.7.0`.
 
 ## Tags
 
@@ -35,3 +35,5 @@ Version `1.3.2.0` normalizes Windows repository paths for Git `safe.directory`, 
 Version `1.3.3.0` adds real-Git registration regression tests and secret-free audit logging for repository registration results.
 
 Version `1.3.4.0` routes registered GitHub SSH remotes through HTTPS for PAT-authenticated network operations without changing repository configuration.
+
+Version `1.3.7.0` adds pull-request close/reopen operations and pull-request conversation comment listing/creation through the official GitHub REST API.

@@ -49,6 +49,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull requests matching the optional filters |
 | `github_pr_get` | `repository`, `pull_request_number` | Pull-request metadata for an existing number |
 | `github_pr_diff` | `repository`, `pull_request_number` | Diff and change statistics for an existing pull request |
+| `github_pr_comment_list` | `repository`, `pull_request_number` | Conversation comments for an existing pull request |
 | `github_tag_list` | `repository` | Repository tags visible through GitHub |
 | `github_tag_get` | `repository`, `tag` | Tag and target details; fails if absent |
 | `get_version` | None | Running Githubie Server version |
@@ -66,6 +67,9 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_push` | `repository` | Pushes the current allowed branch; rejects protected branches, dirty trees when configured, and no-op pushes |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | Creates only the configured `develop` to `main` route |
 | `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | Merges an open, mergeable pull request on the allowed route |
+| `github_pr_close` | `repository`, `pull_request_number` | Closes an open, unmerged pull request; already-closed requests are unchanged |
+| `github_pr_reopen` | `repository`, `pull_request_number` | Reopens a closed, unmerged pull request; already-open requests are unchanged |
+| `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | Adds a non-empty conversation comment to an existing pull request |
 | `github_tag_create` | `repository`, `tag`, `message?` | Creates an annotated tag matching `tag_pattern` at the configured target branch HEAD |
 
 ## Audit Log

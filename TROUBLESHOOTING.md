@@ -33,6 +33,8 @@
 | `branch_not_found` / `pull_request_not_found` / `tag_not_found` | Verify the requested identifier with the corresponding list tool. |
 | `pull_request_not_open` / `pull_request_not_mergeable` | Verify state and resolve conflicts before merging. |
 | `pull_request_route_not_allowed` | Use the configured `develop_branch` to `main_branch` route. |
+| `pull_request_state_not_allowed` | A merged pull request cannot be closed or reopened. Verify its current state. |
+| `pull_request_comment_invalid` | Supply a non-empty comment body of at most 65,536 characters. |
 | `tag_invalid` / `tag_already_exists` / `tag_target_not_allowed` | Check `tag_pattern`, uniqueness, and the configured target branch. |
 | `network_error` / `timeout` / `github_api_error` | Check connectivity, GitHub status, and the audit error code, then retry. |
 

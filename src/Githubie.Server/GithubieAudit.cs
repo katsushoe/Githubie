@@ -157,6 +157,20 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
     public Task<GitHubResult<GitHubPullRequestInfo>> MergePullRequestAsync(string repository, GitHubPullRequestMerge request, CancellationToken cancellationToken) =>
         RunAsync("github_pr_merge", repository, null, request.Number, () => inner.MergePullRequestAsync(repository, request, cancellationToken));
 
+    public Task<GitHubResult<GitHubPullRequestInfo>> ClosePullRequestAsync(string repository, int number, CancellationToken cancellationToken) =>
+        RunAsync("github_pr_close", repository, null, number, () => inner.ClosePullRequestAsync(repository, number, cancellationToken));
+
+    public Task<GitHubResult<GitHubPullRequestInfo>> ReopenPullRequestAsync(string repository, int number, CancellationToken cancellationToken) =>
+        RunAsync("github_pr_reopen", repository, null, number, () => inner.ReopenPullRequestAsync(repository, number, cancellationToken));
+
+    public Task<GitHubResult<IReadOnlyList<GitHubPullRequestComment>>> ListPullRequestCommentsAsync(
+        string repository, int number, CancellationToken cancellationToken) =>
+        RunAsync("github_pr_comment_list", repository, null, number, () => inner.ListPullRequestCommentsAsync(repository, number, cancellationToken));
+
+    public Task<GitHubResult<GitHubPullRequestComment>> CreatePullRequestCommentAsync(
+        string repository, int number, string body, CancellationToken cancellationToken) =>
+        RunAsync("github_pr_comment_create", repository, null, number, () => inner.CreatePullRequestCommentAsync(repository, number, body, cancellationToken));
+
     public Task<GitHubResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(string repository, CancellationToken cancellationToken) =>
         RunAsync("github_tag_list", repository, null, null, () => inner.ListTagsAsync(repository, cancellationToken));
 

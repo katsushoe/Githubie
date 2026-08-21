@@ -191,6 +191,47 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         return await GetPullRequestAsync(repositoryId, owner, repo, request.Number, cancellationToken);
     }
 
+    public async Task<GitHubResult<GitHubPullRequestInfo>> UpdatePullRequestStateAsync(
+        string repositoryId, string owner, string repo, int number, GitHubPullRequestState state, CancellationToken cancellationToken)
+    {
+        if (state is not (GitHubPullRequestState.Open or GitHubPullRequestState.Closed))
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestStateNotAllowed);
+        var payload = new UpdatePullRequestRequest(state == GitHubPullRequestState.Open ? "open" : "closed");
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Patch, $"repos/{owner}/{repo}/pulls/{number}", null, cancellationToken,
+            jsonBody: payload, notFoundError: GitHubError.PullRequestNotFound,
+            unprocessableError: GitHubError.PullRequestStateNotAllowed);
+        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestInfo>.Failure(response.Error!.Value);
+        var body = await ReadAsync<PullRequestResponse>(response.Value!, cancellationToken);
+        return body is not null && IsValidPullRequest(body)
+            ? GitHubResult<GitHubPullRequestInfo>.Success(ToPullRequestInfo(body))
+            : GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.InvalidResponse);
+    }
+
+    public async Task<GitHubResult<IReadOnlyList<GitHubPullRequestComment>>> ListPullRequestCommentsAsync(
+        string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken)
+    {
+        var page = await GetAllPagesAsync<IssueCommentResponse>(
+            repositoryId, $"repos/{owner}/{repo}/issues/{number}/comments", cancellationToken);
+        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.Failure(page.Error!.Value);
+        var comments = page.Value!.Where(IsValidComment).Select(ToPullRequestComment).ToArray();
+        return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.Success(comments);
+    }
+
+    public async Task<GitHubResult<GitHubPullRequestComment>> CreatePullRequestCommentAsync(
+        string repositoryId, string owner, string repo, int number, string body, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/issues/{number}/comments", null, cancellationToken,
+            jsonBody: new CreateIssueCommentRequest(body), notFoundError: GitHubError.PullRequestNotFound,
+            unprocessableError: GitHubError.PullRequestCommentInvalid);
+        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestComment>.Failure(response.Error!.Value);
+        var item = await ReadAsync<IssueCommentResponse>(response.Value!, cancellationToken);
+        return item is not null && IsValidComment(item)
+            ? GitHubResult<GitHubPullRequestComment>.Success(ToPullRequestComment(item))
+            : GitHubResult<GitHubPullRequestComment>.Failure(GitHubError.InvalidResponse);
+    }
+
     public async Task<GitHubResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken)
     {
         var page = await GetAllPagesAsync<TagResponse>(repositoryId, $"repos/{owner}/{repo}/tags", cancellationToken);
@@ -607,6 +648,12 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         _ => "merge",
     };
 
+    private static bool IsValidComment(IssueCommentResponse comment) =>
+        comment.Id > 0 && comment.Body is not null && comment.User?.Login is not null && comment.HtmlUrl is not null;
+
+    private static GitHubPullRequestComment ToPullRequestComment(IssueCommentResponse comment) => new(
+        comment.Id, comment.Body!, comment.User!.Login!, comment.CreatedAt, comment.UpdatedAt, comment.HtmlUrl!);
+
     private sealed record RepositoryResponse([property: JsonPropertyName("default_branch")] string? DefaultBranch);
 
     private sealed record BranchResponse(string? Name, CommitRef? Commit, bool Protected);
@@ -648,6 +695,18 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private sealed record CreatePullRequestRequest(string Title, string? Body, string Head, [property: JsonPropertyName("base")] string BaseBranch, bool Draft);
 
     private sealed record MergePullRequestRequest([property: JsonPropertyName("commit_message")] string? CommitMessage, [property: JsonPropertyName("merge_method")] string? MergeMethod);
+
+    private sealed record UpdatePullRequestRequest(string State);
+
+    private sealed record CreateIssueCommentRequest(string Body);
+
+    private sealed record IssueCommentResponse(
+        long Id,
+        string? Body,
+        UserRef? User,
+        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+        [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
+        [property: JsonPropertyName("html_url")] string? HtmlUrl);
 
     private sealed record CreateTagObjectRequest(string Tag, string Message, string Object, string Type);
 

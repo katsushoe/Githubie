@@ -209,6 +209,51 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("pr_merge", repository, result);
     }
 
+    [McpServerTool(Name = "github_pr_close", Destructive = true, UseStructuredContent = true)]
+    [Description("未mergeのPull Requestを閉じます。GitHub上から削除はされません。")]
+    public async Task<GithubieToolResult<GitHubPullRequestInfo>> ClosePullRequestAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull Request番号")] int pull_request_number,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ClosePullRequestAsync(repository, pull_request_number, cancellationToken);
+        return GithubieToolResultMapper.Map("pr_close", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pr_reopen", Destructive = true, UseStructuredContent = true)]
+    [Description("閉じた未mergeのPull Requestを再度開きます。")]
+    public async Task<GithubieToolResult<GitHubPullRequestInfo>> ReopenPullRequestAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull Request番号")] int pull_request_number,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ReopenPullRequestAsync(repository, pull_request_number, cancellationToken);
+        return GithubieToolResultMapper.Map("pr_reopen", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pr_comment_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Pull Request全体への会話Comment一覧を取得します。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitHubPullRequestComment>>> ListPullRequestCommentsAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull Request番号")] int pull_request_number,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ListPullRequestCommentsAsync(repository, pull_request_number, cancellationToken);
+        return GithubieToolResultMapper.Map("pr_comment_list", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pr_comment_create", Destructive = true, UseStructuredContent = true)]
+    [Description("Pull Request全体へ会話Commentを追加します。")]
+    public async Task<GithubieToolResult<GitHubPullRequestComment>> CreatePullRequestCommentAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull Request番号")] int pull_request_number,
+        [Description("Comment本文")] string body,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.CreatePullRequestCommentAsync(repository, pull_request_number, body, cancellationToken);
+        return GithubieToolResultMapper.Map("pr_comment_create", repository, result);
+    }
+
     [McpServerTool(Name = "github_tag_list", ReadOnly = true, UseStructuredContent = true)]
     [Description("Repository Tag一覧を取得します。")]
     public async Task<GithubieToolResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(
