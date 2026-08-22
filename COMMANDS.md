@@ -21,11 +21,15 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie auth delete <repository>` | Deletes the stored token |
 | `githubie mcp status` / `mcp test` | Sends MCP `initialize` and reports connectivity |
 | `githubie mcp tools` | Sends `tools/list` and prints the exposed definitions |
+| `githubie mcp call <tool> [<arguments-json>]` | Calls any exposed MCP tool through the running server; arguments default to `{}` |
+| `githubie mcp call <tool> --file <path>` | Calls an MCP tool with a JSON object read from a file |
 | `githubie doctor` | Reports configuration, Git, service composition, token, and repository checks |
 | `githubie start` / `stop` / `restart` / `status` | Changes or reads the Windows Service state |
 | `githubie service install` / `uninstall` / `status` | Registers, unregisters, or reads the Windows Service |
 
 Successful diagnostic commands print `[OK]`; failures print `[NG]` and return a nonzero exit code. Commands that query repository state derive branch, HEAD, ahead/behind, and cleanliness values from the configured local repository at call time.
+
+`mcp call` prints the JSON-RPC response as JSON and returns a nonzero exit code for transport, JSON-RPC, MCP, or structured tool failures. It deliberately delegates to the running MCP server so CLI calls use the same allowlist, approvals, audit log, and safety policy as other MCP clients. Do not place secrets in tool arguments.
 
 ## MCP Result Envelope
 

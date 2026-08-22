@@ -43,6 +43,49 @@ public sealed class CliApplicationTests
     }
 
     [Fact]
+    public async Task RunAsync_McpCall_InvalidJson_ReturnsNonZeroWithoutNetworkCall()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await CliApplication.RunAsync(
+            ["mcp", "call", "github_pr_list", "not-json"], output, error,
+            TestContext.Current.CancellationToken);
+
+        exitCode.Should().Be(1);
+        error.ToString().Should().Contain("invalid arguments JSON");
+    }
+
+    [Fact]
+    public async Task RunAsync_McpCall_ArrayArguments_ReturnsNonZero()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await CliApplication.RunAsync(
+            ["mcp", "call", "github_pr_list", "[]"], output, error,
+            TestContext.Current.CancellationToken);
+
+        exitCode.Should().Be(1);
+        error.ToString().Should().Contain("must be a JSON object");
+    }
+
+    [Fact]
+    public async Task RunAsync_McpCall_MissingArgumentsFile_ReturnsNonZero()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+        var path = Path.Combine(Path.GetTempPath(), $"githubie-missing-{Guid.NewGuid():N}.json");
+
+        var exitCode = await CliApplication.RunAsync(
+            ["mcp", "call", "github_push", "--file", path], output, error,
+            TestContext.Current.CancellationToken);
+
+        exitCode.Should().Be(1);
+        error.ToString().Should().Contain("arguments file not found");
+    }
+
+    [Fact]
     public async Task RunAsync_ConfigCheck_MissingFile_ReturnsNonZero()
     {
         using var output = new StringWriter();
