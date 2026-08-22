@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.9.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.10.0`.
 
 ## Tags
 
@@ -41,3 +41,5 @@ Version `1.3.7.0` adds pull-request close/reopen operations and pull-request con
 Version `1.3.8.0` adds pull-request approval and change-request review submission through the official GitHub REST API.
 
 Version `1.3.9.0` requires HTTPS GitHub remotes so repository configuration matches PAT-authenticated Git transport.
+
+Version `1.3.10.0` adds generic CLI access to every MCP tool through the running server, preserving the same policies, approvals, and audit path.

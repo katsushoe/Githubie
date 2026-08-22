@@ -49,9 +49,13 @@
 | --- | --- |
 | `githubie mcp status` | MCP Endpointへ`initialize`リクエストを送り、応答を表示する |
 | `githubie mcp tools` | MCP Endpointへ`tools/list`リクエストを送り、公開Tool定義を表示する |
+| `githubie mcp call <tool> [<arguments-json>]` | 実行中Server経由で任意の公開Toolを呼び出す。引数省略時は`{}` |
+| `githubie mcp call <tool> --file <path>` | ファイル内のJSON Objectを引数として公開Toolを呼び出す |
 | `githubie mcp test` | `mcp status`と同じ疎通確認を行う |
 
 いずれもStreamable HTTP Transportの要件に従い、`Accept: application/json, text/event-stream`を付与してリクエストする。
+
+`mcp call`はJSON-RPC応答をJSONで出力し、通信・JSON-RPC・MCP・構造化Tool結果の失敗時は非0を返す。処理は実行中MCP Serverへ委譲するため、Allowlist・承認・監査・安全PolicyはMCP Client利用時と共通になる。Tool引数へSecretを含めてはならない。
 
 ### 診断
 

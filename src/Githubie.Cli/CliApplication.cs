@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Text.Json;
 using Githubie.Application.Configuration;
 using Githubie.Application.Credentials;
 using Githubie.Application.Git;
@@ -45,6 +46,12 @@ public static class CliApplication
             ["mcp", "status"] => await McpStatusAsync(effectiveConfigPath, output, error, cancellationToken),
             ["mcp", "tools"] => await McpToolsAsync(effectiveConfigPath, output, error, cancellationToken),
             ["mcp", "test"] => await McpTestAsync(effectiveConfigPath, output, error, cancellationToken),
+            ["mcp", "call", var tool] => await McpCallAsync(
+                effectiveConfigPath, tool, "{}", output, error, cancellationToken),
+            ["mcp", "call", var tool, var argumentsJson] => await McpCallAsync(
+                effectiveConfigPath, tool, argumentsJson, output, error, cancellationToken),
+            ["mcp", "call", var tool, "--file", var argumentsPath] => await McpCallFileAsync(
+                effectiveConfigPath, tool, argumentsPath, output, error, cancellationToken),
 
             ["doctor"] => await DoctorAsync(effectiveConfigPath, binDirectory, output, cancellationToken),
 
@@ -99,6 +106,8 @@ public static class CliApplication
               mcp status
               mcp tools
               mcp test
+              mcp call <tool> [<arguments-json>]
+              mcp call <tool> --file <arguments-json-path>
 
               doctor
 
@@ -391,7 +400,68 @@ public static class CliApplication
         return status;
     }
 
-    private static async Task<string?> SendMcpRequestAsync(GithubieOptions options, string method, CancellationToken cancellationToken)
+    private static async Task<int> McpCallFileAsync(
+        string configPath, string tool, string argumentsPath, TextWriter output, TextWriter error,
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(argumentsPath))
+        {
+            error.WriteLine($"[NG] arguments file not found: {argumentsPath}");
+            return 1;
+        }
+
+        var argumentsJson = await File.ReadAllTextAsync(argumentsPath, cancellationToken);
+        return await McpCallAsync(configPath, tool, argumentsJson, output, error, cancellationToken);
+    }
+
+    private static async Task<int> McpCallAsync(
+        string configPath, string tool, string argumentsJson, TextWriter output, TextWriter error,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(tool))
+        {
+            error.WriteLine("[NG] MCP tool name is required");
+            return 1;
+        }
+
+        JsonElement arguments;
+        try
+        {
+            using var document = JsonDocument.Parse(argumentsJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                error.WriteLine("[NG] MCP tool arguments must be a JSON object");
+                return 1;
+            }
+            arguments = document.RootElement.Clone();
+        }
+        catch (JsonException exception)
+        {
+            error.WriteLine($"[NG] invalid arguments JSON: {exception.Message}");
+            return 1;
+        }
+
+        var options = await TryLoadOptionsAsync(configPath, output, cancellationToken);
+        if (options is null) return 1;
+
+        var response = await SendMcpRequestAsync(options, "tools/call", cancellationToken, new
+        {
+            name = tool,
+            arguments,
+        });
+        if (response is null)
+        {
+            error.WriteLine("[NG] MCP endpoint unreachable");
+            return 1;
+        }
+
+        var json = ExtractMcpJson(response);
+        output.WriteLine(json);
+        return IsMcpCallSuccess(json) ? 0 : 1;
+    }
+
+    private static async Task<string?> SendMcpRequestAsync(
+        GithubieOptions options, string method, CancellationToken cancellationToken, object? parameters = null)
     {
         using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
         var uri = new Uri($"http://127.0.0.1:{options.McpPort}{options.McpPath}");
@@ -409,7 +479,9 @@ public static class CliApplication
                     clientInfo = new { name = "githubie-cli", version = "0.1" },
                 },
             }
-            : new { jsonrpc = "2.0", id = 1, method };
+            : parameters is null
+                ? new { jsonrpc = "2.0", id = 1, method }
+                : new { jsonrpc = "2.0", id = 1, method, @params = parameters };
 
         try
         {
@@ -430,6 +502,34 @@ public static class CliApplication
         catch (TaskCanceledException)
         {
             return null;
+        }
+    }
+
+    private static string ExtractMcpJson(string response)
+    {
+        foreach (var line in response.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (line.StartsWith("data:", StringComparison.Ordinal)) return line[5..].TrimStart();
+        }
+        return response;
+    }
+
+    private static bool IsMcpCallSuccess(string responseJson)
+    {
+        try
+        {
+            using var document = JsonDocument.Parse(responseJson);
+            var root = document.RootElement;
+            if (root.TryGetProperty("error", out _)) return false;
+            if (!root.TryGetProperty("result", out var result)) return false;
+            if (result.TryGetProperty("isError", out var isError) && isError.ValueKind == JsonValueKind.True) return false;
+            if (result.TryGetProperty("structuredContent", out var structured) &&
+                structured.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.False) return false;
+            return true;
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 
