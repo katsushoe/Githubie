@@ -39,10 +39,13 @@ public enum GitHubError
     TagInvalid,
     TagAlreadyExists,
     TagTargetNotAllowed,
+    TagDeleteFailed,
 
     ReleaseAlreadyExists,
+    ReleaseNotFound,
     ReleaseAssetInvalid,
     ReleaseAssetNotFound,
+    ReleaseAssetAlreadyExists,
     ReleaseUploadFailed,
 
     NetworkError,

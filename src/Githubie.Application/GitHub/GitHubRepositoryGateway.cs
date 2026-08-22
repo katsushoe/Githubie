@@ -249,6 +249,51 @@ public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitH
             cancellationToken);
     }
 
+    public async Task<GitHubResult<bool>> DeleteTagAsync(string repository, string tag, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<bool>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var policy = options.ToPolicy(repository).ValidateTag(tag, options.TagTargetBranch);
+        if (!policy.IsAllowed) return GitHubResult<bool>.Failure(MapPolicyError(policy.ErrorCode!.Value));
+        return await _apiClient.DeleteTagAsync(repository, options.GitHubOwner, options.GitHubRepo, tag, cancellationToken);
+    }
+
+    public async Task<GitHubResult<IReadOnlyList<GitHubReleaseInfo>>> ListReleasesAsync(string repository, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        return await _apiClient.ListReleasesAsync(repository, options.GitHubOwner, options.GitHubRepo, cancellationToken);
+    }
+
+    public async Task<GitHubResult<GitHubReleaseInfo>> GetReleaseAsync(string repository, string tag, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubReleaseInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        return await _apiClient.GetReleaseAsync(repository, options.GitHubOwner, options.GitHubRepo, tag, cancellationToken);
+    }
+
+    public async Task<GitHubResult<GitHubReleaseInfo>> UpdateReleaseAsync(
+        string repository, long releaseId, GitHubReleaseUpdate request, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubReleaseInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        return await _apiClient.UpdateReleaseAsync(repository, options.GitHubOwner, options.GitHubRepo, releaseId, request, cancellationToken);
+    }
+
+    public async Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
+        string repository, GitHubReleaseAssetUpload request, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubReleaseInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        return await _apiClient.UploadReleaseAssetsAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, options.LocalRoot, request, cancellationToken);
+    }
+
     public async Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
         string repository,
         GitHubReleaseCreate request,

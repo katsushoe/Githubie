@@ -43,6 +43,16 @@ public interface IGitHubRepositoryGateway
 
     Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string? message, CancellationToken cancellationToken);
 
+    Task<GitHubResult<bool>> DeleteTagAsync(string repository, string tag, CancellationToken cancellationToken);
+
+    Task<GitHubResult<IReadOnlyList<GitHubReleaseInfo>>> ListReleasesAsync(string repository, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> GetReleaseAsync(string repository, string tag, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> UpdateReleaseAsync(string repository, long releaseId, GitHubReleaseUpdate request, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(string repository, GitHubReleaseAssetUpload request, CancellationToken cancellationToken);
+
     Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
         string repository,
         GitHubReleaseCreate request,

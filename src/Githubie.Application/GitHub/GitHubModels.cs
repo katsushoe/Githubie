@@ -73,7 +73,11 @@ public sealed record GitHubReleaseCreate(
     bool Prerelease,
     IReadOnlyList<string> Assets);
 
-public sealed record GitHubReleaseAssetInfo(string Name, long Size, string DownloadUrl);
+public sealed record GitHubReleaseUpdate(string? Name, string? Body, bool? Draft, bool? Prerelease);
+
+public sealed record GitHubReleaseAssetUpload(long ReleaseId, IReadOnlyList<string> Assets, bool ReplaceExisting);
+
+public sealed record GitHubReleaseAssetInfo(string Name, long Size, string DownloadUrl, long Id = 0);
 
 public sealed record GitHubReleaseInfo(
     long Id,

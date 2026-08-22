@@ -38,6 +38,10 @@
 | `pull_request_comment_invalid` | Supply a non-empty comment body of at most 65,536 characters. |
 | `pull_request_review_invalid` | Supply a review body of at most 65,536 characters; change requests require a non-empty body. |
 | `tag_invalid` / `tag_already_exists` / `tag_target_not_allowed` | Check `tag_pattern`, uniqueness, and the configured target branch. |
+| `release_not_found` | Verify the tag or Release ID with `github_release_list`. |
+| `release_already_exists` | Inspect the existing Release; only a matching draft can be resumed by `github_release_create`. |
+| `release_asset_already_exists` | Retry without that file or explicitly set `replace_existing=true`. |
+| `release_asset_invalid` / `release_asset_not_found` / `release_upload_failed` | Use one to ten repository-local MSI, ZIP, `.sha256`, `SHA256SUMS.txt`, or `.ps1` files and retry while the Release is a draft. |
 | `network_error` / `timeout` / `github_api_error` | Check connectivity, GitHub status, and the audit error code, then retry. |
 
 ## Startup and Authentication

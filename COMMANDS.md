@@ -56,6 +56,8 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_pr_comment_list` | `repository`, `pull_request_number` | Conversation comments for an existing pull request |
 | `github_tag_list` | `repository` | Repository tags visible through GitHub |
 | `github_tag_get` | `repository`, `tag` | Tag and target details; fails if absent |
+| `github_release_list` | `repository` | Releases and their assets |
+| `github_release_get` | `repository`, `tag` | Release and asset details for a tag |
 | `get_version` | None | Running Githubie Server version |
 
 ## State-changing Tools
@@ -77,6 +79,10 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_pr_review_approve` | `repository`, `pull_request_number`, `body?` | Approves an open pull request with an optional review body |
 | `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | Requests changes on an open pull request with a required review body |
 | `github_tag_create` | `repository`, `tag`, `message?` | Creates an annotated tag matching `tag_pattern` at the configured target branch HEAD |
+| `github_tag_delete` | `repository`, `tag` | Deletes a policy-compliant tag; returns `tag_not_found` when absent |
+| `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | Creates or resumes a matching draft, uploads all missing assets, then publishes only after success |
+| `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | Updates explicitly supplied release fields |
+| `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | Adds up to ten approved assets; same-name replacement requires `replace_existing=true` |
 
 ## Audit Log
 

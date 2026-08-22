@@ -311,6 +311,68 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("tag_create", repository, result);
     }
 
+    [McpServerTool(Name = "github_tag_delete", Destructive = true, UseStructuredContent = true)]
+    [Description("Tagを削除します。")]
+    public async Task<GithubieToolResult<bool>> DeleteTagAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Tag名")] string tag,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.DeleteTagAsync(repository, tag, cancellationToken);
+        return GithubieToolResultMapper.Map("tag_delete", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Release一覧を取得します。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitHubReleaseInfo>>> ListReleasesAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ListReleasesAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("release_list", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("TagからRelease詳細を取得します。")]
+    public async Task<GithubieToolResult<GitHubReleaseInfo>> GetReleaseAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Tag名")] string tag,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetReleaseAsync(repository, tag, cancellationToken);
+        return GithubieToolResultMapper.Map("release_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_update", Destructive = true, UseStructuredContent = true)]
+    [Description("Release名、本文、draft、prereleaseを更新します。")]
+    public async Task<GithubieToolResult<GitHubReleaseInfo>> UpdateReleaseAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Release ID")] long release_id,
+        [Description("Release名。変更しない場合はnull")] string? name,
+        [Description("Release本文。変更しない場合はnull")] string? body,
+        [Description("Draft。変更しない場合はnull")] bool? draft,
+        [Description("Pre-release。変更しない場合はnull")] bool? prerelease,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.UpdateReleaseAsync(
+            repository, release_id, new GitHubReleaseUpdate(name, body, draft, prerelease), cancellationToken);
+        return GithubieToolResultMapper.Map("release_update", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_asset_upload", Destructive = true, UseStructuredContent = true)]
+    [Description("既存Releaseへ成果物を追加し、明示指定時だけ同名成果物を置換します。")]
+    public async Task<GithubieToolResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Release ID")] long release_id,
+        [Description("Repository local root配下の成果物絶対パス一覧")] IReadOnlyList<string> assets,
+        [Description("同名成果物を置換するか")] bool replace_existing,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.UploadReleaseAssetsAsync(
+            repository, new GitHubReleaseAssetUpload(release_id, assets, replace_existing), cancellationToken);
+        return GithubieToolResultMapper.Map("release_asset_upload", repository, result);
+    }
+
     [McpServerTool(Name = "github_release_create", Destructive = true, UseStructuredContent = true)]
     [Description("既存Tagからdraft Releaseを作成し、Repository配下のMSI/ZIP/SHA-256を添付後に公開します。")]
     public async Task<GithubieToolResult<GitHubReleaseInfo>> CreateReleaseAsync(

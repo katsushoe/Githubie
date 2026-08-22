@@ -44,6 +44,16 @@ public interface IGitHubApiClient
 
     Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repositoryId, string owner, string repo, GitHubTagCreate request, CancellationToken cancellationToken);
 
+    Task<GitHubResult<bool>> DeleteTagAsync(string repositoryId, string owner, string repo, string tag, CancellationToken cancellationToken);
+
+    Task<GitHubResult<IReadOnlyList<GitHubReleaseInfo>>> ListReleasesAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> GetReleaseAsync(string repositoryId, string owner, string repo, string tag, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> UpdateReleaseAsync(string repositoryId, string owner, string repo, long releaseId, GitHubReleaseUpdate request, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(string repositoryId, string owner, string repo, string localRoot, GitHubReleaseAssetUpload request, CancellationToken cancellationToken);
+
     Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
         string repositoryId,
         string owner,

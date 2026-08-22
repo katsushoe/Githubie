@@ -18,5 +18,6 @@
 | [0014](0014-approved-atomic-history-rewrite.md) | Out-of-band approved, atomic, force-with-lease history rewrite for explicit refs |
 | [0015](0015-draft-first-github-release-publication.md) | Draft-first GitHub Release publication with bounded local assets |
 | [0016](0016-approved-mcp-repository-registration.md) | Out-of-band approved MCP registration with GitHub identity derived from the local remote |
+| [0023](0023-retry-safe-release-and-tag-management.md) | Retry-safe Release asset management and policy-bound Tag deletion |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

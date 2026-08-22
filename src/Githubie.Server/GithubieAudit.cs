@@ -188,6 +188,23 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
     public Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string? message, CancellationToken cancellationToken) =>
         RunAsync("github_tag_create", repository, null, null, () => inner.CreateTagAsync(repository, tag, message, cancellationToken), tag);
 
+    public Task<GitHubResult<bool>> DeleteTagAsync(string repository, string tag, CancellationToken cancellationToken) =>
+        RunAsync("github_tag_delete", repository, null, null, () => inner.DeleteTagAsync(repository, tag, cancellationToken), tag);
+
+    public Task<GitHubResult<IReadOnlyList<GitHubReleaseInfo>>> ListReleasesAsync(string repository, CancellationToken cancellationToken) =>
+        RunAsync("github_release_list", repository, null, null, () => inner.ListReleasesAsync(repository, cancellationToken));
+
+    public Task<GitHubResult<GitHubReleaseInfo>> GetReleaseAsync(string repository, string tag, CancellationToken cancellationToken) =>
+        RunAsync("github_release_get", repository, null, null, () => inner.GetReleaseAsync(repository, tag, cancellationToken), tag);
+
+    public Task<GitHubResult<GitHubReleaseInfo>> UpdateReleaseAsync(
+        string repository, long releaseId, GitHubReleaseUpdate request, CancellationToken cancellationToken) =>
+        RunAsync("github_release_update", repository, null, null, () => inner.UpdateReleaseAsync(repository, releaseId, request, cancellationToken));
+
+    public Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
+        string repository, GitHubReleaseAssetUpload request, CancellationToken cancellationToken) =>
+        RunAsync("github_release_asset_upload", repository, null, null, () => inner.UploadReleaseAssetsAsync(repository, request, cancellationToken));
+
     public Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
         string repository, GitHubReleaseCreate request, CancellationToken cancellationToken) =>
         RunAsync("github_release_create", repository, null, null, () => inner.CreateReleaseAsync(repository, request, cancellationToken), request.Tag);

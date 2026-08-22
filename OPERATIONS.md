@@ -12,7 +12,7 @@ Retain a repository mirror or `refs/backup/*` before rewriting. Run `github_hist
 
 ## GitHub Release
 
-Create the version tag at main HEAD first and generate MSI/ZIP plus `.sha256` files under the repository local root. Pass their absolute paths to `github_release_create`. Githubie creates a draft, uploads every asset, and publishes only after all uploads succeed. If the operation fails, inspect the retained GitHub draft and correct duplicate assets or permissions before retrying.
+Create the version tag at main HEAD first and generate approved assets under the repository local root. MSI, ZIP, `.sha256`, `SHA256SUMS.txt`, and distribution `.ps1` files are accepted. Pass their absolute paths to `github_release_create`. Githubie creates a draft, uploads every missing asset, and publishes only after all uploads succeed. Retrying the same matching draft skips completed uploads. Use `github_release_list`/`get` to inspect state, `github_release_update` for metadata, and `github_release_asset_upload` for later additions; same-name replacement requires `replace_existing=true`.
 
 ## Service Management
 

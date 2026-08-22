@@ -89,6 +89,8 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_pr_comment_list` | `repository`, `pull_request_number` | PR全体の会話コメント一覧を取得 |
 | `github_tag_list` | `repository` | Tag一覧を取得 |
 | `github_tag_get` | `repository`, `tag` | Tag詳細を取得 |
+| `github_release_list` | `repository` | Releaseと成果物一覧を取得 |
+| `github_release_get` | `repository`, `tag` | Tagに対応するReleaseと成果物詳細を取得 |
 | `get_version` | — | Githubie Serverのバージョンを取得 |
 
 ### 変更操作（destructiveHint = true。MCP Client側のApproval対象）
@@ -108,6 +110,10 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_pr_review_approve` | `repository`, `pull_request_number`, `body?` | 開いているPRを承認。Review本文は任意 |
 | `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | 開いているPRへ変更を要求。Review本文は必須 |
 | `github_tag_create` | `repository`, `tag`, `message?` | main HEADへAnnotated Tagを作成（Git Data APIの2段階呼び出し） |
+| `github_tag_delete` | `repository`, `tag` | Policyに適合するTagを削除。存在しない場合は`tag_not_found` |
+| `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | 一致するdraftを再利用し、未登録成果物を追加後、全件成功時だけ公開 |
+| `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | 明示指定したRelease項目だけを更新 |
+| `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | 許可成果物を最大10件追加。同名置換は`replace_existing=true`の場合のみ |
 
 ### 未分類（局所的な状態変更を伴うが破壊的操作ではない）
 

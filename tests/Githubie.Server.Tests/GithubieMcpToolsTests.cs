@@ -40,6 +40,11 @@ public sealed class GithubieMcpToolsTests
         "github_tag_list",
         "github_tag_get",
         "github_tag_create",
+        "github_tag_delete",
+        "github_release_list",
+        "github_release_get",
+        "github_release_update",
+        "github_release_asset_upload",
         "github_release_create",
         "get_version",
     ];
@@ -55,6 +60,8 @@ public sealed class GithubieMcpToolsTests
         "github_pr_comment_list",
         "github_tag_list",
         "github_tag_get",
+        "github_release_list",
+        "github_release_get",
         "get_version",
     ];
 

@@ -66,7 +66,11 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `pull_request_review_invalid` | Review本文が65,536文字超、または変更要求の本文が空 | 有効な本文を指定する。変更要求では本文を省略しない |
 | `tag_not_found` | `github_tag_get`で指定したTagがGitHub上に存在しない | Tag名を確認する（`github_tag_list`） |
 | `tag_invalid` | Tag名が`tag_pattern`に一致しない | 命名規則（既定は`^v[0-9]+\.[0-9]+\.[0-9]+.*$`）に沿ったTag名にする |
-| `tag_already_exists` | 同名Tagが既に存在する | 別のTag名にする、または既存Tagを確認する（Tag削除Toolは公開していない） |
+| `tag_already_exists` | 同名Tagが既に存在する | 別のTag名にするか、既存Tagを確認する。削除が必要なら`github_tag_delete`を使う |
+| `release_not_found` | 指定したTagまたはRelease IDが存在しない | `github_release_list`で確認する |
+| `release_already_exists` | 同じTagに別のReleaseまたは公開済みReleaseがある | 既存Releaseを取得し、更新または成果物追加Toolを使う |
+| `release_asset_already_exists` | 同名成果物が既にある | 対象を除外するか、意図した置換時だけ`replace_existing=true`を指定する |
+| `release_asset_invalid` / `release_asset_not_found` / `release_upload_failed` | 成果物の場所、種類、存在、Uploadに失敗した | Repository配下のMSI、ZIP、`.sha256`、`SHA256SUMS.txt`、`.ps1`を1～10件指定し、draftのまま再試行する |
 | `tag_target_not_allowed` | Tag対象Branchが`tag_target_branch`と異なる | 既定では`main` HEADのみ許可。設定を確認する |
 | `network_error` | GitHub REST APIへの接続に失敗した | ネットワーク疎通・プロキシ設定を確認する |
 | `timeout`（GitHub API） | GitHub REST API呼び出しが既定時間内に完了しなかった | 再実行する。継続する場合はGitHub側の状態を確認する |

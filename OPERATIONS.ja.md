@@ -12,7 +12,7 @@
 
 ## GitHub Release
 
-先にmain HEADへバージョンTagを作成し、MSI／ZIPと各`.sha256`をRepository local root配下へ生成する。`github_release_create`へTag、Release名、Release note、draft／prerelease指定、成果物の絶対パス一覧を渡す。Githubieはdraftを作成して全成果物を添付し、すべて成功した場合だけ公開する。失敗時はGitHub上のdraftを確認し、重複成果物または権限を解消してから再実行する。
+先にmain HEADへバージョンTagを作成し、Repository local root配下へ許可成果物を生成する。MSI、ZIP、`.sha256`、`SHA256SUMS.txt`、配布用`.ps1`を指定できる。`github_release_create`はdraftへ未登録成果物だけを追加し、全件成功後にのみ公開する。同一入力の再試行では一致するdraftを再利用する。状態確認は`github_release_list`／`get`、情報更新は`github_release_update`、後からの追加は`github_release_asset_upload`を使い、同名置換時だけ`replace_existing=true`を明示する。
 
 ## サービス起動・停止
 
