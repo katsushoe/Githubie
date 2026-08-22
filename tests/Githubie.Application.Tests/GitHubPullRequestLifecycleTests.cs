@@ -61,7 +61,50 @@ public sealed class GitHubPullRequestLifecycleTests
             Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task ApprovePullRequestAsync_OpenPullRequest_CreatesApproval()
+    {
+        _api.GetPullRequestAsync("sample", "owner", "repo", 1, Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Success(PullRequest(GitHubPullRequestState.Open)));
+        _api.CreatePullRequestReviewAsync(
+                "sample", "owner", "repo", 1, GitHubPullRequestReviewAction.Approve, "Looks good",
+                Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestReview>.Success(Review("APPROVED")));
+
+        var result = await _gateway.ApprovePullRequestAsync(
+            "sample", 1, "Looks good", TestContext.Current.CancellationToken);
+
+        result.Value!.State.Should().Be("APPROVED");
+    }
+
+    [Fact]
+    public async Task RequestPullRequestChangesAsync_EmptyBody_ReturnsValidationError()
+    {
+        var result = await _gateway.RequestPullRequestChangesAsync(
+            "sample", 1, " ", TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.PullRequestReviewInvalid);
+        await _api.DidNotReceive().CreatePullRequestReviewAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<int>(),
+            Arg.Any<GitHubPullRequestReviewAction>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ApprovePullRequestAsync_ClosedPullRequest_ReturnsNotOpen()
+    {
+        _api.GetPullRequestAsync("sample", "owner", "repo", 1, Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Success(PullRequest(GitHubPullRequestState.Closed)));
+
+        var result = await _gateway.ApprovePullRequestAsync(
+            "sample", 1, null, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.PullRequestNotOpen);
+    }
+
     private static GitHubPullRequestInfo PullRequest(GitHubPullRequestState state) => new(
         1, "title", null, state, "develop", "main", "user", null, true,
         DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, "https://example.com/pr/1");
+
+    private static GitHubPullRequestReview Review(string state) => new(
+        10, "body", "reviewer", state, DateTimeOffset.UnixEpoch, "abc", "https://example.com/review/10");
 }

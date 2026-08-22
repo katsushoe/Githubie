@@ -48,6 +48,21 @@ public sealed record GitHubPullRequestComment(
     DateTimeOffset Updated,
     string Url);
 
+public enum GitHubPullRequestReviewAction
+{
+    Approve,
+    RequestChanges,
+}
+
+public sealed record GitHubPullRequestReview(
+    long Id,
+    string? Body,
+    string Author,
+    string State,
+    DateTimeOffset Submitted,
+    string CommitSha,
+    string Url);
+
 public sealed record GitHubPullRequestDiff(string Diff, int FilesChanged, int Additions, int Deletions);
 
 public sealed record GitHubReleaseCreate(

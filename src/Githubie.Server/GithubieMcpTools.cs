@@ -254,6 +254,30 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("pr_comment_create", repository, result);
     }
 
+    [McpServerTool(Name = "github_pr_review_approve", Destructive = true, UseStructuredContent = true)]
+    [Description("開いているPull Requestを承認します。")]
+    public async Task<GithubieToolResult<GitHubPullRequestReview>> ApprovePullRequestAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull Request番号")] int pull_request_number,
+        [Description("任意のReview本文")] string? body,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ApprovePullRequestAsync(repository, pull_request_number, body, cancellationToken);
+        return GithubieToolResultMapper.Map("pr_review_approve", repository, result);
+    }
+
+    [McpServerTool(Name = "github_pr_review_request_changes", Destructive = true, UseStructuredContent = true)]
+    [Description("開いているPull Requestへ変更を要求します。Review本文は必須です。")]
+    public async Task<GithubieToolResult<GitHubPullRequestReview>> RequestPullRequestChangesAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Pull Request番号")] int pull_request_number,
+        [Description("変更要求のReview本文")] string body,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.RequestPullRequestChangesAsync(repository, pull_request_number, body, cancellationToken);
+        return GithubieToolResultMapper.Map("pr_review_request_changes", repository, result);
+    }
+
     [McpServerTool(Name = "github_tag_list", ReadOnly = true, UseStructuredContent = true)]
     [Description("Repository Tag一覧を取得します。")]
     public async Task<GithubieToolResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(

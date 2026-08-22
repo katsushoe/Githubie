@@ -35,6 +35,7 @@
 | `pull_request_route_not_allowed` | Use the configured `develop_branch` to `main_branch` route. |
 | `pull_request_state_not_allowed` | A merged pull request cannot be closed or reopened. Verify its current state. |
 | `pull_request_comment_invalid` | Supply a non-empty comment body of at most 65,536 characters. |
+| `pull_request_review_invalid` | Supply a review body of at most 65,536 characters; change requests require a non-empty body. |
 | `tag_invalid` / `tag_already_exists` / `tag_target_not_allowed` | Check `tag_pattern`, uniqueness, and the configured target branch. |
 | `network_error` / `timeout` / `github_api_error` | Check connectivity, GitHub status, and the audit error code, then retry. |
 

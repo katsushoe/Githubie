@@ -62,6 +62,7 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `pull_request_route_not_allowed` | Source/Destinationが`develop_branch → main_branch`以外 | 許可経路のPRのみ操作対象にする。経路自体を変えたい場合は設定の`develop_branch`/`main_branch`を見直す |
 | `pull_request_state_not_allowed` | マージ済みPRをクローズまたは再オープンしようとした | 対象PRの現在状態を確認する |
 | `pull_request_comment_invalid` | コメント本文が空、または65,536文字を超えている | 有効な長さの本文を指定する |
+| `pull_request_review_invalid` | Review本文が65,536文字超、または変更要求の本文が空 | 有効な本文を指定する。変更要求では本文を省略しない |
 | `tag_not_found` | `github_tag_get`で指定したTagがGitHub上に存在しない | Tag名を確認する（`github_tag_list`） |
 | `tag_invalid` | Tag名が`tag_pattern`に一致しない | 命名規則（既定は`^v[0-9]+\.[0-9]+\.[0-9]+.*$`）に沿ったTag名にする |
 | `tag_already_exists` | 同名Tagが既に存在する | 別のTag名にする、または既存Tagを確認する（Tag削除Toolは公開していない） |

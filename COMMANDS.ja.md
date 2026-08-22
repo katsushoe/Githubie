@@ -101,6 +101,8 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_pr_close` | `repository`, `pull_request_number` | 未マージのPRをクローズ。クローズ済みの場合は状態を維持 |
 | `github_pr_reopen` | `repository`, `pull_request_number` | 未マージのPRを再オープン。オープン済みの場合は状態を維持 |
 | `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | PR全体へ空でない会話コメントを追加 |
+| `github_pr_review_approve` | `repository`, `pull_request_number`, `body?` | 開いているPRを承認。Review本文は任意 |
+| `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | 開いているPRへ変更を要求。Review本文は必須 |
 | `github_tag_create` | `repository`, `tag`, `message?` | main HEADへAnnotated Tagを作成（Git Data APIの2段階呼び出し） |
 
 ### 未分類（局所的な状態変更を伴うが破壊的操作ではない）

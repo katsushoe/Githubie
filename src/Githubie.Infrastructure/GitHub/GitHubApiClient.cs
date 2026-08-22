@@ -232,6 +232,23 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             : GitHubResult<GitHubPullRequestComment>.Failure(GitHubError.InvalidResponse);
     }
 
+    public async Task<GitHubResult<GitHubPullRequestReview>> CreatePullRequestReviewAsync(
+        string repositoryId, string owner, string repo, int number, GitHubPullRequestReviewAction action,
+        string? body, CancellationToken cancellationToken)
+    {
+        var reviewEvent = action == GitHubPullRequestReviewAction.Approve ? "APPROVE" : "REQUEST_CHANGES";
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/pulls/{number}/reviews", null, cancellationToken,
+            jsonBody: new CreatePullRequestReviewRequest(body, reviewEvent),
+            notFoundError: GitHubError.PullRequestNotFound,
+            unprocessableError: GitHubError.PullRequestReviewInvalid);
+        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestReview>.Failure(response.Error!.Value);
+        var review = await ReadAsync<PullRequestReviewResponse>(response.Value!, cancellationToken);
+        return review is not null && IsValidReview(review)
+            ? GitHubResult<GitHubPullRequestReview>.Success(ToPullRequestReview(review))
+            : GitHubResult<GitHubPullRequestReview>.Failure(GitHubError.InvalidResponse);
+    }
+
     public async Task<GitHubResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken)
     {
         var page = await GetAllPagesAsync<TagResponse>(repositoryId, $"repos/{owner}/{repo}/tags", cancellationToken);
@@ -654,6 +671,14 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private static GitHubPullRequestComment ToPullRequestComment(IssueCommentResponse comment) => new(
         comment.Id, comment.Body!, comment.User!.Login!, comment.CreatedAt, comment.UpdatedAt, comment.HtmlUrl!);
 
+    private static bool IsValidReview(PullRequestReviewResponse review) =>
+        review.Id > 0 && review.User?.Login is not null && review.State is not null &&
+        review.SubmittedAt is not null && review.CommitId is not null && review.HtmlUrl is not null;
+
+    private static GitHubPullRequestReview ToPullRequestReview(PullRequestReviewResponse review) => new(
+        review.Id, review.Body, review.User!.Login!, review.State!, review.SubmittedAt!.Value,
+        review.CommitId!, review.HtmlUrl!);
+
     private sealed record RepositoryResponse([property: JsonPropertyName("default_branch")] string? DefaultBranch);
 
     private sealed record BranchResponse(string? Name, CommitRef? Commit, bool Protected);
@@ -706,6 +731,19 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         UserRef? User,
         [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
         [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
+        [property: JsonPropertyName("html_url")] string? HtmlUrl);
+
+    private sealed record CreatePullRequestReviewRequest(
+        string? Body,
+        [property: JsonPropertyName("event")] string EventName);
+
+    private sealed record PullRequestReviewResponse(
+        long Id,
+        string? Body,
+        UserRef? User,
+        string? State,
+        [property: JsonPropertyName("submitted_at")] DateTimeOffset? SubmittedAt,
+        [property: JsonPropertyName("commit_id")] string? CommitId,
         [property: JsonPropertyName("html_url")] string? HtmlUrl);
 
     private sealed record CreateTagObjectRequest(string Tag, string Message, string Object, string Type);

@@ -31,6 +31,12 @@ public interface IGitHubRepositoryGateway
     Task<GitHubResult<GitHubPullRequestComment>> CreatePullRequestCommentAsync(
         string repository, int number, string body, CancellationToken cancellationToken);
 
+    Task<GitHubResult<GitHubPullRequestReview>> ApprovePullRequestAsync(
+        string repository, int number, string? body, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubPullRequestReview>> RequestPullRequestChangesAsync(
+        string repository, int number, string body, CancellationToken cancellationToken);
+
     Task<GitHubResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(string repository, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubTagInfo>> GetTagAsync(string repository, string tag, CancellationToken cancellationToken);
