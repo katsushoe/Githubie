@@ -41,7 +41,7 @@ MCP Endpointへのリクエストは`Origin`ヘッダを検証し、送信され
 
 - MCP Toolは常にGithubie内部のRepository ID（`repositories.<id>`のキー）を受け取り、GitHub Owner/Repo/ローカルパスをAgentへ自由指定させない。
 - ローカルRepositoryの操作は設定済み`local_root`配下のみに限定する。`..`によるroot外参照、symlink/junctionによるroot外参照は拒否する（`LocalPathValidator`）。
-- Git RemoteのURLは`github.com/<owner>/<repo>`と一致することをPush前に検証する（`GitHubRemoteUrlValidator`）。一致しなければ`remote_mismatch`で拒否する。
+- Git RemoteのURLはHTTPS形式かつ`github.com/<owner>/<repo>`と一致することをGit通信前に検証する（`GitHubRemoteUrlValidator`）。SSH形式は`remote_https_required`、接続先不一致は`remote_mismatch`で拒否する。
 
 ## 任意コマンド実行の排除
 

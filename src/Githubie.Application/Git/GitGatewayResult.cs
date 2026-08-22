@@ -49,6 +49,7 @@ public enum GitGatewayError
     ReparsePointDetected,
 
     RemoteMismatch,
+    RemoteHttpsRequired,
 
     GitNotFound,
     GitFailed,

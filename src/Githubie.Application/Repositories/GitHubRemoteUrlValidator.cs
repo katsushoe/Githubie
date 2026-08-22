@@ -34,13 +34,13 @@ public static partial class GitHubRemoteUrlValidator
             return (httpsMatch.Groups["owner"].Value, httpsMatch.Groups["repo"].Value);
         }
 
-        var sshMatch = SshPattern().Match(remoteUrl);
-        if (sshMatch.Success)
-        {
-            return (sshMatch.Groups["owner"].Value, sshMatch.Groups["repo"].Value);
-        }
-
         return null;
+    }
+
+    public static bool IsSshRemote(string remoteUrl)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteUrl);
+        return SshPattern().IsMatch(remoteUrl) || SshUriPattern().IsMatch(remoteUrl);
     }
 
     [GeneratedRegex(@"^https://github\.com/(?<owner>[A-Za-z0-9._-]+)/(?<repo>[A-Za-z0-9._-]+?)(\.git)?/?$", RegexOptions.CultureInvariant)]
@@ -48,4 +48,7 @@ public static partial class GitHubRemoteUrlValidator
 
     [GeneratedRegex(@"^git@github\.com:(?<owner>[A-Za-z0-9._-]+)/(?<repo>[A-Za-z0-9._-]+?)(\.git)?$", RegexOptions.CultureInvariant)]
     private static partial Regex SshPattern();
+
+    [GeneratedRegex(@"^ssh://git@github\.com/(?<owner>[A-Za-z0-9._-]+)/(?<repo>[A-Za-z0-9._-]+?)(\.git)?/?$", RegexOptions.CultureInvariant)]
+    private static partial Regex SshUriPattern();
 }

@@ -132,7 +132,9 @@ public sealed class GitGateway(
 
         if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
         {
-            return GitGatewayResult<Unit>.Failure(GitGatewayError.RemoteMismatch);
+            return GitGatewayResult<Unit>.Failure(GitHubRemoteUrlValidator.IsSshRemote(remoteUrl.StandardOutput)
+                ? GitGatewayError.RemoteHttpsRequired
+                : GitGatewayError.RemoteMismatch);
         }
 
         var policy = options.ToPolicy(repository);
@@ -186,7 +188,9 @@ public sealed class GitGateway(
         var remoteUrl = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, options.Remote, cancellationToken);
         if (!remoteUrl.IsSuccess) return GitGatewayResult<GitHistoryRewriteResult>.Failure(MapCommandFailure(remoteUrl.Failure!.Value));
         if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
-            return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitGatewayError.RemoteMismatch);
+            return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitHubRemoteUrlValidator.IsSshRemote(remoteUrl.StandardOutput)
+                ? GitGatewayError.RemoteHttpsRequired
+                : GitGatewayError.RemoteMismatch);
 
         var plan = await BuildRewritePlanAsync(options.LocalRoot, repository, options.Remote, refs, cancellationToken);
         if (plan.Error is not null) return GitGatewayResult<GitHistoryRewriteResult>.Failure(plan.Error.Value);

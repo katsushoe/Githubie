@@ -31,6 +31,7 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | --- | --- | --- |
 | `git_not_found` | `git`実行ファイルがPATHにない | Git for Windowsを導入しPATHを通す（`githubie.exe doctor`の`[NG] Git`で切り分け可能） |
 | `git_failed` | Gitコマンドが非0で終了した | `repo status`や手動`git status`で状態を確認する |
+| `remote_https_required` | Git RemoteがSSH形式になっている | `git remote set-url <remote> https://github.com/OWNER/REPOSITORY.git`でHTTPS形式へ変更する |
 | `timeout` | Gitコマンド（fetch/pull/push）が既定時間内に完了しなかった | ネットワーク状態を確認する。大きなリポジトリでは再試行する |
 | `working_tree_dirty` | `require_clean_working_tree=true`でWorking Treeに未コミット変更がある | ローカルでcommitまたはstashしてから再実行する |
 | `branch_protection_denied` | Branch保護またはRepository Rulesetが履歴訂正を拒否した | 対象refのRulesetとforce-push許可を確認する |

@@ -82,7 +82,6 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
         {
             "-c", $"safe.directory={NormalizeSafeDirectory(repositoryRoot)}",
             "-c", "credential.helper=",
-            "-c", "url.https://github.com/.insteadOf=git@github.com:",
         };
         arguments.AddRange(gitArguments);
 

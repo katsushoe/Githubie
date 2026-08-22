@@ -239,6 +239,18 @@ public sealed class GitGatewayTests
     }
 
     [Fact]
+    public async Task PushAsync_DeniesSshRemoteWithSpecificError()
+    {
+        SetUpPushPreconditions("develop", workingTreeClean: true, remoteUrl: "git@github.com:owner/repo.git");
+
+        var result = await _gateway.PushAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.RemoteHttpsRequired);
+        await _commandClient.DidNotReceive().PushAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task PushAsync_WhenAheadIsZero_ReturnsNothingToPushWithoutCallingPush()
     {
         SetUpPushPreconditions("develop", workingTreeClean: true, ahead: 0);

@@ -16,7 +16,7 @@ Use a fine-grained PAT restricted to the required repository with `Contents: Rea
 
 ## Repository and Path Validation
 
-Local operations are limited to configured `local_root` values. Parent traversal and symlink/junction escape are rejected. Before push, the configured remote must resolve to the configured `github.com/<owner>/<repo>` target.
+Local operations are limited to configured `local_root` values. Parent traversal and symlink/junction escape are rejected. Before Git network operations, the configured remote must be HTTPS and resolve to the configured `github.com/<owner>/<repo>` target. SSH remotes are rejected rather than rewritten implicitly.
 
 ## Audit Logging
 
