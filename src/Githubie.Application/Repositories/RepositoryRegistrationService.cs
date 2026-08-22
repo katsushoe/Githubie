@@ -60,7 +60,10 @@ public sealed class RepositoryRegistrationService(
                         ? RepositoryRegistrationError.InvalidRemote
                         : RepositoryRegistrationError.GitFailed);
 
-            var parsed = GitHubRemoteUrlValidator.TryParse(remoteResult.StandardOutput.Trim());
+            var remoteUrl = remoteResult.StandardOutput.Trim();
+            if (GitHubRemoteUrlValidator.IsSshRemote(remoteUrl))
+                return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.RemoteHttpsRequired);
+            var parsed = GitHubRemoteUrlValidator.TryParse(remoteUrl);
             if (parsed is null)
                 return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.NonGitHubRemote);
 

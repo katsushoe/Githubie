@@ -10,6 +10,7 @@
 | `local_root_not_found` / `git_metadata_not_found` | Correct `local_root` and ensure its `.git` directory exists. |
 | `reparse_point_detected` | Configure the physical path without a symlink or junction. |
 | `remote_mismatch` | Make the Git remote match the configured GitHub owner and repository. |
+| `remote_https_required` | Change the Git remote to `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are not accepted. |
 | `git_not_found` / `git_failed` | Install Git for Windows, check `PATH`, and inspect `repo status`. |
 | `working_tree_dirty` | Commit or stash changes when clean-tree enforcement is enabled. |
 | `branch_protection_denied` | GitHub branch protection or a repository ruleset rejected the rewrite. Review the target ref's rules and force-push policy. |

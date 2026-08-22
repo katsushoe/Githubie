@@ -9,7 +9,8 @@ public sealed class GitHubRemoteUrlValidatorTests
     [Theory]
     [InlineData("https://github.com/example-org/example-repo.git", "example-org", "example-repo", true)]
     [InlineData("https://github.com/example-org/example-repo", "example-org", "example-repo", true)]
-    [InlineData("git@github.com:example-org/example-repo.git", "example-org", "example-repo", true)]
+    [InlineData("git@github.com:example-org/example-repo.git", "example-org", "example-repo", false)]
+    [InlineData("ssh://git@github.com/example-org/example-repo.git", "example-org", "example-repo", false)]
     [InlineData("https://github.com/other-org/example-repo.git", "example-org", "example-repo", false)]
     [InlineData("https://gitlab.com/example-org/example-repo.git", "example-org", "example-repo", false)]
     [InlineData("https://github.com/example-org/other-repo.git", "example-org", "example-repo", false)]
@@ -22,5 +23,13 @@ public sealed class GitHubRemoteUrlValidatorTests
     public void TryParse_ReturnsNullForUnrecognizedFormat()
     {
         GitHubRemoteUrlValidator.TryParse("not-a-url").Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData("git@github.com:example-org/example-repo.git")]
+    [InlineData("ssh://git@github.com/example-org/example-repo.git")]
+    public void IsSshRemote_RecognizesSupportedSshShapes(string remoteUrl)
+    {
+        GitHubRemoteUrlValidator.IsSshRemote(remoteUrl).Should().BeTrue();
     }
 }

@@ -24,7 +24,7 @@ public sealed class RepositoryRegistrationServiceTests
         _environment.GitMetadataExists(LocalRoot).Returns(true);
         _environment.ContainsReparsePoint(LocalRoot).Returns(false);
         _git.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success("git@github.com:derived-owner/derived-repo.git"));
+            .Returns(GitCommandResult.Success("https://github.com/derived-owner/derived-repo.git"));
         _approval.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(ApprovalPromptOutcome.Approved());
     }
@@ -116,6 +116,22 @@ public sealed class RepositoryRegistrationServiceTests
             TestContext.Current.CancellationToken);
 
         result.Error.Should().Be(RepositoryRegistrationError.NonGitHubRemote);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_SshGitHubRemote_RequiresHttps()
+    {
+        _git.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("git@github.com:owner/repo.git"));
+        var service = CreateService();
+
+        var result = await service.RegisterAsync(
+            new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.RemoteHttpsRequired);
+        await _approval.DidNotReceive().RequestApprovalAsync(
+            Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -37,6 +37,7 @@ public enum RepositoryRegistrationError
     ReparsePointDetected,
     InvalidRemote,
     NonGitHubRemote,
+    RemoteHttpsRequired,
     GitFailed,
     ApprovalDenied,
     ApprovalTimedOut,

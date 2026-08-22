@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
+using Githubie.Application.Repositories;
 using Xunit;
 
 namespace Githubie.Server.Tests;
@@ -21,6 +22,7 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.GitMetadataNotFound] = "git_metadata_not_found",
         [GitGatewayError.ReparsePointDetected] = "reparse_point_detected",
         [GitGatewayError.RemoteMismatch] = "remote_mismatch",
+        [GitGatewayError.RemoteHttpsRequired] = "remote_https_required",
         [GitGatewayError.GitNotFound] = "git_not_found",
         [GitGatewayError.GitFailed] = "git_failed",
         [GitGatewayError.GitTimedOut] = "timeout",
@@ -111,6 +113,16 @@ public sealed class GithubieToolResultMapperTests
 
         mapped.Ok.Should().BeFalse();
         mapped.Error!.Code.Should().Be(ExpectedGitHubCodes[error]);
+    }
+
+    [Fact]
+    public void Map_RegistrationSshRemote_ProducesHttpsRequiredCode()
+    {
+        var result = RepositoryRegistrationResult.Failure(RepositoryRegistrationError.RemoteHttpsRequired);
+
+        var mapped = GithubieToolResultMapper.Map("register", "repo", result);
+
+        mapped.Error!.Code.Should().Be("remote_https_required");
     }
 
     public static IEnumerable<object[]> GitGatewayErrorValues() =>
