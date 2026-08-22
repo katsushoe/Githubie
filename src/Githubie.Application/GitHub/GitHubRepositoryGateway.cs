@@ -156,6 +156,31 @@ public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitH
             repository, options.GitHubOwner, options.GitHubRepo, number, body, cancellationToken);
     }
 
+    public Task<GitHubResult<GitHubPullRequestReview>> ApprovePullRequestAsync(
+        string repository, int number, string? body, CancellationToken cancellationToken) =>
+        CreatePullRequestReviewAsync(repository, number, GitHubPullRequestReviewAction.Approve, body, cancellationToken);
+
+    public Task<GitHubResult<GitHubPullRequestReview>> RequestPullRequestChangesAsync(
+        string repository, int number, string body, CancellationToken cancellationToken) =>
+        CreatePullRequestReviewAsync(repository, number, GitHubPullRequestReviewAction.RequestChanges, body, cancellationToken);
+
+    private async Task<GitHubResult<GitHubPullRequestReview>> CreatePullRequestReviewAsync(
+        string repository, int number, GitHubPullRequestReviewAction action, string? body, CancellationToken cancellationToken)
+    {
+        if (body?.Length > 65536 || action == GitHubPullRequestReviewAction.RequestChanges && string.IsNullOrWhiteSpace(body))
+            return GitHubResult<GitHubPullRequestReview>.Failure(GitHubError.PullRequestReviewInvalid);
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubPullRequestReview>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var pullRequest = await _apiClient.GetPullRequestAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, number, cancellationToken);
+        if (!pullRequest.IsSuccess) return GitHubResult<GitHubPullRequestReview>.Failure(pullRequest.Error!.Value);
+        if (pullRequest.Value!.State != GitHubPullRequestState.Open)
+            return GitHubResult<GitHubPullRequestReview>.Failure(GitHubError.PullRequestNotOpen);
+        return await _apiClient.CreatePullRequestReviewAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, number, action, body, cancellationToken);
+    }
+
     private async Task<GitHubResult<GitHubPullRequestInfo>> ChangePullRequestStateAsync(
         string repository, int number, GitHubPullRequestState target, CancellationToken cancellationToken)
     {

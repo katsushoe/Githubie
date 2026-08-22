@@ -135,6 +135,7 @@ public static class GithubieToolResultMapper
         GitHubError.PullRequestRouteNotAllowed => new("pull_request_route_not_allowed", "Pull request route is not allowed."),
         GitHubError.PullRequestStateNotAllowed => new("pull_request_state_not_allowed", "A merged pull request cannot be closed or reopened."),
         GitHubError.PullRequestCommentInvalid => new("pull_request_comment_invalid", "Pull request comment body is invalid."),
+        GitHubError.PullRequestReviewInvalid => new("pull_request_review_invalid", "Pull request review input or state is invalid."),
         GitHubError.TagNotFound => new("tag_not_found", "Tag was not found."),
         GitHubError.TagInvalid => new("tag_invalid", "Tag name does not match the allowed pattern."),
         GitHubError.TagAlreadyExists => new("tag_already_exists", "Tag already exists."),

@@ -171,6 +171,14 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
         string repository, int number, string body, CancellationToken cancellationToken) =>
         RunAsync("github_pr_comment_create", repository, null, number, () => inner.CreatePullRequestCommentAsync(repository, number, body, cancellationToken));
 
+    public Task<GitHubResult<GitHubPullRequestReview>> ApprovePullRequestAsync(
+        string repository, int number, string? body, CancellationToken cancellationToken) =>
+        RunAsync("github_pr_review_approve", repository, null, number, () => inner.ApprovePullRequestAsync(repository, number, body, cancellationToken));
+
+    public Task<GitHubResult<GitHubPullRequestReview>> RequestPullRequestChangesAsync(
+        string repository, int number, string body, CancellationToken cancellationToken) =>
+        RunAsync("github_pr_review_request_changes", repository, null, number, () => inner.RequestPullRequestChangesAsync(repository, number, body, cancellationToken));
+
     public Task<GitHubResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(string repository, CancellationToken cancellationToken) =>
         RunAsync("github_tag_list", repository, null, null, () => inner.ListTagsAsync(repository, cancellationToken));
 

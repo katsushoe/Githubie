@@ -35,6 +35,8 @@ public sealed class GithubieMcpToolsTests
         "github_pr_reopen",
         "github_pr_comment_list",
         "github_pr_comment_create",
+        "github_pr_review_approve",
+        "github_pr_review_request_changes",
         "github_tag_list",
         "github_tag_get",
         "github_tag_create",

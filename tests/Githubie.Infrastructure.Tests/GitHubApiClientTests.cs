@@ -233,6 +233,30 @@ public sealed class GitHubApiClientTests
         result.Value.Should().ContainSingle().Which.Author.Should().Be("u");
     }
 
+    [Theory]
+    [InlineData(GitHubPullRequestReviewAction.Approve, "APPROVE", "APPROVED")]
+    [InlineData(GitHubPullRequestReviewAction.RequestChanges, "REQUEST_CHANGES", "CHANGES_REQUESTED")]
+    public async Task CreatePullRequestReviewAsync_UsesReviewEndpointAndMapsResponse(
+        GitHubPullRequestReviewAction action, string expectedEvent, string responseState)
+    {
+        string? path = null;
+        string? capturedBody = null;
+        var client = CreateCapturingClient((request, body) =>
+        {
+            path = request.RequestUri!.AbsolutePath;
+            capturedBody = body;
+            return Json(HttpStatusCode.OK,
+                $$"""{"id":91,"body":"review","user":{"login":"reviewer"},"state":"{{responseState}}","submitted_at":"2026-01-01T00:00:00Z","commit_id":"abc","html_url":"https://example.com/review/91"}""");
+        });
+
+        var result = await client.CreatePullRequestReviewAsync(
+            "repo-id", "owner", "repo", 7, action, "review", TestContext.Current.CancellationToken);
+
+        result.Value!.State.Should().Be(responseState);
+        path.Should().Be("/repos/owner/repo/pulls/7/reviews");
+        capturedBody.Should().Contain($"\"event\":\"{expectedEvent}\"");
+    }
+
     [Fact]
     public async Task GetTagAsync_MapsNotFoundToTagNotFound_NotTagInvalid()
     {

@@ -33,6 +33,7 @@ public enum GitHubError
     PullRequestRouteNotAllowed,
     PullRequestStateNotAllowed,
     PullRequestCommentInvalid,
+    PullRequestReviewInvalid,
 
     TagNotFound,
     TagInvalid,

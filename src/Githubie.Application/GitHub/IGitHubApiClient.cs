@@ -34,6 +34,10 @@ public interface IGitHubApiClient
     Task<GitHubResult<GitHubPullRequestComment>> CreatePullRequestCommentAsync(
         string repositoryId, string owner, string repo, int number, string body, CancellationToken cancellationToken);
 
+    Task<GitHubResult<GitHubPullRequestReview>> CreatePullRequestReviewAsync(
+        string repositoryId, string owner, string repo, int number, GitHubPullRequestReviewAction action,
+        string? body, CancellationToken cancellationToken);
+
     Task<GitHubResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubTagInfo>> GetTagAsync(string repositoryId, string owner, string repo, string tag, CancellationToken cancellationToken);

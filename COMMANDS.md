@@ -70,6 +70,8 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_pr_close` | `repository`, `pull_request_number` | Closes an open, unmerged pull request; already-closed requests are unchanged |
 | `github_pr_reopen` | `repository`, `pull_request_number` | Reopens a closed, unmerged pull request; already-open requests are unchanged |
 | `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | Adds a non-empty conversation comment to an existing pull request |
+| `github_pr_review_approve` | `repository`, `pull_request_number`, `body?` | Approves an open pull request with an optional review body |
+| `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | Requests changes on an open pull request with a required review body |
 | `github_tag_create` | `repository`, `tag`, `message?` | Creates an annotated tag matching `tag_pattern` at the configured target branch HEAD |
 
 ## Audit Log
