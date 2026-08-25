@@ -19,7 +19,7 @@ public sealed record GithubieToolResult<T>(bool Ok, string Operation, string Rep
 /// <summary>
 /// MCP Toolのエラーを表す固定コード + 人間可読メッセージです。
 /// </summary>
-public sealed record GithubieToolError(string Code, string Message);
+public sealed record GithubieToolError(string Code, string Message, bool Retryable = false, string? Recommendation = null);
 
 /// <summary>
 /// <see cref="GitGatewayError"/> / <see cref="GitHubError"/>をMCP Tool向けの固定エラーコードへ変換します。
@@ -124,6 +124,12 @@ public static class GithubieToolResultMapper
     {
         GitHubError.RepositoryNotFound => new("repository_not_found", "Repository is not registered."),
         GitHubError.RepositoryDescriptionInvalid => new("repository_description_invalid", "Repository description must be at most 350 characters."),
+        GitHubError.WorkflowNotAllowed => new("workflow_not_allowed", "Workflow is not allowed by repository policy."),
+        GitHubError.WorkflowRefNotAllowed => new("workflow_ref_not_allowed", "Workflow ref is not allowed by repository policy."),
+        GitHubError.WorkflowInputInvalid => new("workflow_input_invalid", "Workflow inputs do not match the configured schema."),
+        GitHubError.WorkflowConcurrencyLimit => new("workflow_concurrency_limit", "Workflow concurrency limit was reached.", true, "Wait for the active dispatch to finish, then retry."),
+        GitHubError.WorkflowRunNotFound => new("workflow_run_not_found", "Workflow run was not found."),
+        GitHubError.WorkflowRunCorrelationFailed => new("workflow_run_correlation_failed", "The dispatched workflow run could not be identified uniquely.", false, "List workflow runs and identify the run manually before dispatching again."),
         GitHubError.BranchNotFound => new("branch_not_found", "Branch was not found."),
         GitHubError.AuthenticationFailed => new("authentication_failed", "GitHub authentication failed."),
         GitHubError.PermissionDenied => new("permission_denied", "GitHub denied the operation."),

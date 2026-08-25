@@ -28,6 +28,11 @@
 
 | Error | Cause and recovery |
 | --- | --- |
+| `workflow_not_allowed` / `workflow_ref_not_allowed` | Use a workflow and ref declared in the repository `workflows` policy. |
+| `workflow_input_invalid` | Supply only configured keys with valid types, required values, and lengths. |
+| `workflow_concurrency_limit` | Wait for the active dispatch to finish, then retry. |
+| `workflow_run_not_found` | Verify the run ID and repository. |
+| `workflow_run_correlation_failed` | List runs and identify the result manually; do not dispatch again until ambiguity is resolved. |
 | `authentication_failed` | Replace an absent, revoked, or invalid token. |
 | `permission_denied` / `token_scope_missing` | Grant the fine-grained PAT the required repository permissions. |
 | `rate_limited` / `secondary_rate_limited` | Wait for reset or reduce request frequency. |

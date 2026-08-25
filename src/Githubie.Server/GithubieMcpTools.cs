@@ -53,11 +53,12 @@ public sealed class GithubieMcpTools(
         [Description("Release Tag対象Branch")] string tag_target_branch,
         [Description("許可するTag名の正規表現")] string tag_pattern,
         [Description("Push時にcleanな作業Treeを要求するか")] bool require_clean_working_tree = true,
+        [Description("起動を許可するworkflow別Policy。省略時は既存設定を維持")] IReadOnlyDictionary<string, Application.Configuration.WorkflowPolicyOptions>? workflows = null,
         CancellationToken cancellationToken = default)
     {
         var request = new RepositoryUpdateRequest(
             direct_push_branches, pull_branches, protected_branches,
-            tag_target_branch, tag_pattern, require_clean_working_tree);
+            tag_target_branch, tag_pattern, require_clean_working_tree, workflows);
         var result = await managementService.UpdateAsync(repository, request, cancellationToken);
         return GithubieToolResultMapper.Map("repository_update", repository, result);
     }
@@ -102,6 +103,47 @@ public sealed class GithubieMcpTools(
     {
         var result = await gitHubGateway.UpdateRepositoryDescriptionAsync(repository, description, cancellationToken);
         return GithubieToolResultMapper.Map("repository_description_update", repository, result);
+    }
+
+    [McpServerTool(Name = "github_workflow_dispatch", Destructive = true, UseStructuredContent = true)]
+    [Description("許可済みGitHub Actions workflowを許可ref・検証済みinputsで起動し、対応runを一意に特定します。")]
+    public async Task<GithubieToolResult<GitHubWorkflowDispatchInfo>> DispatchWorkflowAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("設定で許可されたworkflowファイル名またはID")] string workflow,
+        [Description("設定で許可されたGit ref")] string @ref,
+        [Description("workflowごとの許可スキーマに適合するinputs")] IReadOnlyDictionary<string, string> inputs,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.DispatchWorkflowAsync(
+            repository, new GitHubWorkflowDispatchRequest(workflow, @ref, inputs), cancellationToken);
+        return GithubieToolResultMapper.Map("workflow_dispatch", repository, result);
+    }
+
+    [McpServerTool(Name = "github_workflow_run_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("GitHub Actions workflow runをrun IDで取得します。log本文は返しません。")]
+    public async Task<GithubieToolResult<GitHubWorkflowRunInfo>> GetWorkflowRunAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Workflow run ID")] long run_id,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetWorkflowRunAsync(repository, run_id, cancellationToken);
+        return GithubieToolResultMapper.Map("workflow_run_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_workflow_run_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("GitHub Actions workflow run一覧を最大100件取得します。log本文は返しません。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitHubWorkflowRunInfo>>> ListWorkflowRunsAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("許可済みworkflow。省略時は全workflow")] string? workflow,
+        [Description("許可branchフィルタ")] string? branch,
+        [Description("Eventフィルタ")] string? event_name,
+        [Description("Statusフィルタ")] string? status,
+        [Description("取得上限。1から100")] int limit,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ListWorkflowRunsAsync(
+            repository, workflow, branch, event_name, status, limit, cancellationToken);
+        return GithubieToolResultMapper.Map("workflow_run_list", repository, result);
     }
 
     [McpServerTool(Name = "github_fetch", UseStructuredContent = true)]

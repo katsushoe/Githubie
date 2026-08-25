@@ -69,6 +69,10 @@ Repositoryの登録自体を止める場合:
 githubie.exe auth delete <repository>
 ```
 
+## Workflow起動
+
+対話承認付きRepository更新でworkflowファイル名／ID、許可ref、input schemaを設定する。`github_workflow_dispatch`が返したrun IDを保持し、`github_workflow_run_get`で完了まで確認する。関連付け失敗時は`github_workflow_run_list`で既存runを確認し、曖昧性が解消するまで再起動しない。
+
 ## MCP Endpointの疎通確認
 
 ```powershell

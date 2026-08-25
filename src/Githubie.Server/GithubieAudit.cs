@@ -143,6 +143,22 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
         RunAsync("github_repository_description_update", repository, null, null,
             () => inner.UpdateRepositoryDescriptionAsync(repository, description, cancellationToken));
 
+    public Task<GitHubResult<GitHubWorkflowDispatchInfo>> DispatchWorkflowAsync(
+        string repository, GitHubWorkflowDispatchRequest request, CancellationToken cancellationToken) =>
+        RunAsync("github_workflow_dispatch", repository, request.Ref, null,
+            () => inner.DispatchWorkflowAsync(repository, request, cancellationToken));
+
+    public Task<GitHubResult<GitHubWorkflowRunInfo>> GetWorkflowRunAsync(
+        string repository, long runId, CancellationToken cancellationToken) =>
+        RunAsync("github_workflow_run_get", repository, null, null,
+            () => inner.GetWorkflowRunAsync(repository, runId, cancellationToken));
+
+    public Task<GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>> ListWorkflowRunsAsync(
+        string repository, string? workflow, string? branch, string? eventName, string? status,
+        int limit, CancellationToken cancellationToken) =>
+        RunAsync("github_workflow_run_list", repository, branch, null,
+            () => inner.ListWorkflowRunsAsync(repository, workflow, branch, eventName, status, limit, cancellationToken));
+
     public Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repository, CancellationToken cancellationToken) =>
         RunAsync("github_branch_list", repository, null, null, () => inner.ListBranchesAsync(repository, cancellationToken));
 

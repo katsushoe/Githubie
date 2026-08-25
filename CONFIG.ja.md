@@ -42,6 +42,9 @@ Repository IDは`^[A-Za-z0-9._-]+$`、最大128文字（`Githubie.Application.Re
 | `tag_pattern` | 必須 | string | なし | Tag名を検証する有効な正規表現 |
 | `merge_method` | 必須 | string | なし | `merge`、`squash`、`rebase`のいずれか |
 | `require_clean_working_tree` | 必須 | boolean | なし | `true`なら未Commit変更があるPushを拒否する |
+| `workflows` | 任意 | object | `{}` | 起動可能workflowごとの許可ref、input schema、同時実行数、run関連付けtimeout |
+
+Workflow Policyは`allowed_refs`を必須とし、input型は`string`／`boolean`／`integer`、`max_length`は1～4096とする。`max_concurrent`は1～10、`correlation_timeout_seconds`は1～120。`github_repository_update`による変更は対話承認を必要とする。
 
 Pull Request経路（source→destination）は`develop_branch → main_branch`固定で、設定ファイルに個別項目はない。Agentや設定ファイルに自由な経路を指定させない設計上の判断による。
 
@@ -59,6 +62,7 @@ Pull Request経路（source→destination）は`develop_branch → main_branch`�
 - `develop_branch` / `main_branch`が空（`InvalidBranchName`）
 - `tag_pattern`が不正な正規表現（`InvalidTagPattern`）
 - `merge_method`が`merge` / `squash` / `rebase`以外（`InvalidMergeMethod`）
+- Workflow Policy、ref、input schema、同時実行数、timeoutが不正（`InvalidWorkflowPolicy`）
 
 `githubie.exe config check`はこれに加えて、`local_root`の実在と`.git`の実在をファイルシステム上で確認する。
 

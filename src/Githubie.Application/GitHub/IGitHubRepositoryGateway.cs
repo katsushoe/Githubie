@@ -11,6 +11,16 @@ public interface IGitHubRepositoryGateway
     Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
         string repository, string description, CancellationToken cancellationToken);
 
+    Task<GitHubResult<GitHubWorkflowDispatchInfo>> DispatchWorkflowAsync(
+        string repository, GitHubWorkflowDispatchRequest request, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubWorkflowRunInfo>> GetWorkflowRunAsync(
+        string repository, long runId, CancellationToken cancellationToken);
+
+    Task<GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>> ListWorkflowRunsAsync(
+        string repository, string? workflow, string? branch, string? eventName, string? status,
+        int limit, CancellationToken cancellationToken);
+
     Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repository, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repository, string branch, CancellationToken cancellationToken);

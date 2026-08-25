@@ -17,6 +17,12 @@ public enum GitHubError
 {
     RepositoryNotFound,
     RepositoryDescriptionInvalid,
+    WorkflowNotAllowed,
+    WorkflowRefNotAllowed,
+    WorkflowInputInvalid,
+    WorkflowConcurrencyLimit,
+    WorkflowRunNotFound,
+    WorkflowRunCorrelationFailed,
     BranchNotFound,
 
     AuthenticationFailed,

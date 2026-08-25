@@ -2,6 +2,24 @@ namespace Githubie.Application.GitHub;
 
 public sealed record GitHubRepositoryInfo(string Owner, string Repo, string DefaultBranch, string? Description);
 
+public sealed record GitHubWorkflowRunInfo(
+    long Id,
+    string Workflow,
+    string Ref,
+    string HeadSha,
+    string Event,
+    string Status,
+    string? Conclusion,
+    string Actor,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    string Url);
+
+public sealed record GitHubWorkflowDispatchRequest(string Workflow, string Ref, IReadOnlyDictionary<string, string> Inputs);
+
+public sealed record GitHubWorkflowDispatchInfo(
+    string Workflow, string Ref, DateTimeOffset DispatchedAt, GitHubWorkflowRunInfo Run);
+
 public sealed record GitHubBranchInfo(string Name, string HeadSha, bool Protected);
 
 public sealed record GitHubTagInfo(string Name, string TargetCommitSha, string? Message, string? Tagger, DateTimeOffset? Date);

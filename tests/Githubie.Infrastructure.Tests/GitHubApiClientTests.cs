@@ -99,6 +99,48 @@ public sealed class GitHubApiClientTests
     }
 
     [Fact]
+    public async Task DispatchWorkflowAsync_PostsRefAndInputsToFixedActionsEndpoint()
+    {
+        HttpMethod? method = null;
+        string? path = null;
+        string? capturedBody = null;
+        var client = CreateCapturingClient((request, body) =>
+        {
+            method = request.Method;
+            path = request.RequestUri!.PathAndQuery;
+            capturedBody = body;
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+
+        var result = await client.DispatchWorkflowAsync("repo-id", "owner", "repo",
+            new("release.yml", "main", new Dictionary<string, string> { ["version"] = "1.2.3" }),
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        method.Should().Be(HttpMethod.Post);
+        path.Should().Be("/repos/owner/repo/actions/workflows/release.yml/dispatches");
+        using var json = System.Text.Json.JsonDocument.Parse(capturedBody!);
+        json.RootElement.GetProperty("ref").GetString().Should().Be("main");
+        json.RootElement.GetProperty("inputs").GetProperty("version").GetString().Should().Be("1.2.3");
+    }
+
+    [Fact]
+    public async Task ListWorkflowRunsAsync_ReturnsMetadataWithoutLogs()
+    {
+        var client = CreateClient(_ => Json(HttpStatusCode.OK, """
+            {"workflow_runs":[{"id":42,"name":"Release","head_branch":"main","head_sha":"abc","event":"workflow_dispatch","status":"completed","conclusion":"success","actor":{"login":"user"},"created_at":"2026-08-25T00:00:00Z","updated_at":"2026-08-25T00:01:00Z","html_url":"https://github.com/o/r/actions/runs/42"}]}
+            """));
+
+        var result = await client.ListWorkflowRunsAsync(
+            "repo-id", "owner", "repo", "release.yml", "main", "workflow_dispatch", "completed", 10,
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().ContainSingle().Which.Id.Should().Be(42);
+        result.Value![0].Conclusion.Should().Be("success");
+    }
+
+    [Fact]
     public async Task GetBranchAsync_MapsNotFoundToBranchNotFound_NotRepositoryNotFound()
     {
         // 実データ検証で発見した回帰防止: 存在しないbranchの404が誤ってrepository_not_foundへ

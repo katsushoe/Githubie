@@ -12,7 +12,7 @@ Githubie never gives agents access to Personal Access Tokens, arbitrary remote U
 
 ## Credentials
 
-Use a fine-grained PAT restricted to the required repository with `Contents: Read and write` and `Pull requests: Read and write`. Repository Description updates additionally require `Administration: Read and write`. `githubie.exe auth set` encrypts tokens with DPAPI LocalMachine. The secrets directory ACL is limited to LocalSystem, Administrators, and the current user. Tokens are passed to Git through `GIT_ASKPASS`, never through command-line arguments or remote URLs.
+Use a fine-grained PAT restricted to the required repository with `Contents: Read and write` and `Pull requests: Read and write`. Repository Description updates additionally require `Administration: Read and write`; workflow dispatch and run reads require `Actions: Read and write`. `githubie.exe auth set` encrypts tokens with DPAPI LocalMachine. The secrets directory ACL is limited to LocalSystem, Administrators, and the current user. Tokens are passed to Git through `GIT_ASKPASS`, never through command-line arguments or remote URLs.
 
 ## Repository and Path Validation
 

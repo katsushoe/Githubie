@@ -50,6 +50,12 @@ public sealed class GithubieToolResultMapperTests
     {
         [GitHubError.RepositoryNotFound] = "repository_not_found",
         [GitHubError.RepositoryDescriptionInvalid] = "repository_description_invalid",
+        [GitHubError.WorkflowNotAllowed] = "workflow_not_allowed",
+        [GitHubError.WorkflowRefNotAllowed] = "workflow_ref_not_allowed",
+        [GitHubError.WorkflowInputInvalid] = "workflow_input_invalid",
+        [GitHubError.WorkflowConcurrencyLimit] = "workflow_concurrency_limit",
+        [GitHubError.WorkflowRunNotFound] = "workflow_run_not_found",
+        [GitHubError.WorkflowRunCorrelationFailed] = "workflow_run_correlation_failed",
         [GitHubError.BranchNotFound] = "branch_not_found",
         [GitHubError.AuthenticationFailed] = "authentication_failed",
         [GitHubError.PermissionDenied] = "permission_denied",

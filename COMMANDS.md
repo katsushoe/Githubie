@@ -51,6 +51,8 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | --- | --- | --- |
 | `github_repository_status` | `repository` | Local/remote HEAD, ahead/behind, and working-tree state from Git |
 | `github_repository_description_get` | `repository` | Repository description from GitHub |
+| `github_workflow_run_get` | `repository`, `run_id` | Workflow run status and metadata without logs |
+| `github_workflow_run_list` | `repository`, optional filters, `limit` | Up to 100 workflow runs without logs |
 | `github_branch_list` | `repository` | Remote branches visible to the stored token |
 | `github_branch_get` | `repository`, `branch` | The named remote branch and HEAD SHA; fails if absent |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull requests matching the optional filters |
@@ -72,6 +74,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_repository_unregister` | `repository` | Removes the entry from Githubie configuration and the live allowlist without deleting GitHub or local data |
 | `github_repository_rename` | `old_repository`, `new_repository` | Migrates configuration and encrypted token together; keeps the old ID usable if migration fails |
 | `github_repository_description_update` | `repository`, `description` | Patches only `description`; empty string removes it; maximum 350 characters |
+| `github_workflow_dispatch` | `repository`, `workflow`, `ref`, `inputs` | Dispatches only configured workflows and correlates exactly one new run |
 | `github_fetch` | `repository` | Updates remote-tracking refs |
 | `github_pull` | `repository`, `branch` | Fast-forwards an allowed branch; rejects divergent history |
 | `github_push` | `repository` | Pushes the current allowed branch; rejects protected branches, dirty trees when configured, and no-op pushes |

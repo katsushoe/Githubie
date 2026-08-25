@@ -33,6 +33,10 @@ Install the service first with `githubie.exe service install` when using a porta
 
 Replace a token with `githubie.exe auth set <repository>` and revoke the previous token on GitHub. Remove a stored token with `githubie.exe auth delete <repository>`.
 
+## Workflow Dispatch
+
+Configure the workflow filename/ID, allowed refs, and input schema through the approved repository update boundary. Call `github_workflow_dispatch`, retain the returned run ID, then poll `github_workflow_run_get`. If correlation fails, inspect `github_workflow_run_list` and do not dispatch again until the existing run is identified.
+
 ## Configuration Changes
 
 After manually editing `githubie.json`, run `githubie.exe config check` and `githubie.exe restart`. Manual edits are loaded at startup; entries added through `github_repository_register` are applied immediately.

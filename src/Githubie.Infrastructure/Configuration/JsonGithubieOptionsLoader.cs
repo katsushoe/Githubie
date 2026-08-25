@@ -102,6 +102,22 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
             {
                 errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidMergeMethod, $"{path}.merge_method", "merge_method must be one of: merge, squash, rebase."));
             }
+
+            foreach (var (workflow, policy) in repository.Workflows)
+            {
+                var workflowPath = $"{path}.workflows.{workflow}";
+                if (string.IsNullOrWhiteSpace(workflow) || policy.AllowedRefs.Count == 0
+                    || policy.MaxConcurrent is < 1 or > 10
+                    || policy.CorrelationTimeoutSeconds is < 1 or > 120
+                    || policy.AllowedRefs.Any(string.IsNullOrWhiteSpace)
+                    || policy.Inputs.Any(input => string.IsNullOrWhiteSpace(input.Key)
+                        || input.Value.Type is not ("string" or "boolean" or "integer")
+                        || input.Value.MaxLength is < 1 or > 4096))
+                {
+                    errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidWorkflowPolicy, workflowPath,
+                        "workflow policy, refs, concurrency, timeout, or input schema is invalid."));
+                }
+            }
         }
 
         return errors;

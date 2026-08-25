@@ -68,6 +68,54 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         return GitHubResult<GitHubRepositoryInfo>.Success(new GitHubRepositoryInfo(owner, repo, body.DefaultBranch, body.Description));
     }
 
+    public async Task<GitHubResult<bool>> DispatchWorkflowAsync(
+        string repositoryId, string owner, string repo, GitHubWorkflowDispatchRequest request, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Post,
+            $"repos/{owner}/{repo}/actions/workflows/{Uri.EscapeDataString(request.Workflow)}/dispatches",
+            null, cancellationToken, jsonBody: new WorkflowDispatchBody(request.Ref, request.Inputs),
+            notFoundError: GitHubError.WorkflowNotAllowed,
+            unprocessableError: GitHubError.WorkflowInputInvalid);
+        if (!response.IsSuccess) return GitHubResult<bool>.Failure(response.Error!.Value);
+        response.Value!.Dispose();
+        return GitHubResult<bool>.Success(true);
+    }
+
+    public async Task<GitHubResult<GitHubWorkflowRunInfo>> GetWorkflowRunAsync(
+        string repositoryId, string owner, string repo, long runId, CancellationToken cancellationToken)
+    {
+        if (runId <= 0) return GitHubResult<GitHubWorkflowRunInfo>.Failure(GitHubError.WorkflowRunNotFound);
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/actions/runs/{runId}", null, cancellationToken,
+            notFoundError: GitHubError.WorkflowRunNotFound);
+        if (!response.IsSuccess) return GitHubResult<GitHubWorkflowRunInfo>.Failure(response.Error!.Value);
+        var body = await ReadAsync<WorkflowRunResponse>(response.Value!, cancellationToken);
+        return body is null || !IsValidWorkflowRun(body)
+            ? GitHubResult<GitHubWorkflowRunInfo>.Failure(GitHubError.InvalidResponse)
+            : GitHubResult<GitHubWorkflowRunInfo>.Success(ToWorkflowRunInfo(body));
+    }
+
+    public async Task<GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>> ListWorkflowRunsAsync(
+        string repositoryId, string owner, string repo, string? workflow, string? branch,
+        string? eventName, string? status, int limit, CancellationToken cancellationToken)
+    {
+        var path = workflow is null
+            ? $"repos/{owner}/{repo}/actions/runs"
+            : $"repos/{owner}/{repo}/actions/workflows/{Uri.EscapeDataString(workflow)}/runs";
+        var query = new List<string> { $"per_page={Math.Clamp(limit, 1, 100)}" };
+        if (branch is not null) query.Add($"branch={Uri.EscapeDataString(branch)}");
+        if (eventName is not null) query.Add($"event={Uri.EscapeDataString(eventName)}");
+        if (status is not null) query.Add($"status={Uri.EscapeDataString(status)}");
+        var response = await SendAsync(repositoryId, HttpMethod.Get, $"{path}?{string.Join('&', query)}", null, cancellationToken,
+            notFoundError: GitHubError.WorkflowNotAllowed);
+        if (!response.IsSuccess) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(response.Error!.Value);
+        var body = await ReadAsync<WorkflowRunsResponse>(response.Value!, cancellationToken);
+        if (body?.WorkflowRuns is null) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(GitHubError.InvalidResponse);
+        var runs = body.WorkflowRuns.Where(IsValidWorkflowRun).Take(limit).Select(ToWorkflowRunInfo).ToArray();
+        return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Success(runs);
+    }
+
     public async Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken)
     {
         var page = await GetAllPagesAsync<BranchResponse>(repositoryId, $"repos/{owner}/{repo}/branches", cancellationToken);
@@ -760,6 +808,16 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private static bool IsValidBranch(BranchResponse branch) =>
         !string.IsNullOrEmpty(branch.Name) && !string.IsNullOrEmpty(branch.Commit?.Sha);
 
+    private static bool IsValidWorkflowRun(WorkflowRunResponse run) =>
+        run.Id > 0 && !string.IsNullOrEmpty(run.Name) && !string.IsNullOrEmpty(run.HeadBranch)
+        && !string.IsNullOrEmpty(run.HeadSha) && !string.IsNullOrEmpty(run.Event)
+        && !string.IsNullOrEmpty(run.Status) && !string.IsNullOrEmpty(run.Actor?.Login)
+        && !string.IsNullOrEmpty(run.HtmlUrl);
+
+    private static GitHubWorkflowRunInfo ToWorkflowRunInfo(WorkflowRunResponse run) => new(
+        run.Id, run.Name!, run.HeadBranch!, run.HeadSha!, run.Event!, run.Status!, run.Conclusion,
+        run.Actor!.Login!, run.CreatedAt, run.UpdatedAt, run.HtmlUrl!);
+
     private static bool IsValidPullRequest(PullRequestResponse pr) =>
         pr.Number > 0
         && !string.IsNullOrEmpty(pr.Title)
@@ -816,6 +874,24 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         string? Description);
 
     private sealed record RepositoryDescriptionUpdate(string Description);
+
+    private sealed record WorkflowDispatchBody(string Ref, IReadOnlyDictionary<string, string> Inputs);
+
+    private sealed record WorkflowRunsResponse(
+        [property: JsonPropertyName("workflow_runs")] IReadOnlyList<WorkflowRunResponse>? WorkflowRuns);
+
+    private sealed record WorkflowRunResponse(
+        long Id,
+        string? Name,
+        [property: JsonPropertyName("head_branch")] string? HeadBranch,
+        [property: JsonPropertyName("head_sha")] string? HeadSha,
+        string? Event,
+        string? Status,
+        string? Conclusion,
+        UserRef? Actor,
+        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+        [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
+        [property: JsonPropertyName("html_url")] string? HtmlUrl);
 
     private sealed record BranchResponse(string? Name, CommitRef? Commit, bool Protected);
 

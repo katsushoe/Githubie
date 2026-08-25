@@ -18,6 +18,9 @@ public sealed class GithubieMcpToolsTests
         "github_repository_status",
         "github_repository_description_get",
         "github_repository_description_update",
+        "github_workflow_dispatch",
+        "github_workflow_run_get",
+        "github_workflow_run_list",
         "github_repository_register",
         "github_repository_unregister",
             "github_repository_update",
@@ -55,6 +58,8 @@ public sealed class GithubieMcpToolsTests
     [
         "github_repository_status",
         "github_repository_description_get",
+        "github_workflow_run_get",
+        "github_workflow_run_list",
         "github_branch_list",
         "github_branch_get",
         "github_pr_list",

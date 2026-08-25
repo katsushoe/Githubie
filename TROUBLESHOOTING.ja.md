@@ -52,6 +52,11 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | --- | --- | --- |
 | `branch_not_found` | `github_branch_get`等で指定したBranchがGitHub上に存在しない | Branch名を確認する（`github_branch_list`） |
 | `authentication_failed` | Personal Access Tokenが未登録、または無効（GitHub側でRevoke済み等） | `githubie.exe auth set <repository>`で再登録し、`auth test`で確認する |
+| `workflow_not_allowed` / `workflow_ref_not_allowed` | WorkflowまたはrefがRepository Policyの許可外 | `workflows`設定を確認し、Policy変更が必要なら対話承認付き更新を行う |
+| `workflow_input_invalid` | 未定義key、型、必須値、文字数がschema不適合 | Workflowごとのinput schemaへ合わせる |
+| `workflow_concurrency_limit` | 設定済み同時実行上限へ到達 | 実行中の起動処理完了後に再試行する |
+| `workflow_run_not_found` | Run IDが対象Repositoryに存在しない | RepositoryとRun IDを確認する |
+| `workflow_run_correlation_failed` | 起動runを一意に特定できない | run一覧で手動確認し、曖昧性解消まで再起動しない |
 | `permission_denied` | Tokenは有効だが対象操作の権限が不足 | Fine-grained PATの`Contents` / `Pull requests`権限を`Read and write`に見直す（[SECURITY.md](SECURITY.md)） |
 | `token_scope_missing` | 必要なScope/Permissionが不足 | `permission_denied`と同様にToken発行時の権限を見直す |
 | `github_api_error` | 上記以外のGitHub API側エラー、または応答が想定外の形式 | ログの`error_code`とGitHub側のステータスを照合する。GitHub側の障害情報も確認する |

@@ -1,4 +1,5 @@
 using Githubie.Application.Repositories;
+using System.Collections.Concurrent;
 
 namespace Githubie.Application.GitHub;
 
@@ -8,6 +9,7 @@ namespace Githubie.Application.GitHub;
 /// </summary>
 public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitHubApiClient apiClient) : IGitHubRepositoryGateway
 {
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> WorkflowLocks = new(StringComparer.Ordinal);
     private readonly RepositoryAllowlist _allowlist = allowlist;
     private readonly IGitHubApiClient _apiClient = apiClient;
 
@@ -30,6 +32,97 @@ public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitH
         var options = resolved.Options!;
         return await _apiClient.UpdateRepositoryDescriptionAsync(
             repository, options.GitHubOwner, options.GitHubRepo, description, cancellationToken);
+    }
+
+    public async Task<GitHubResult<GitHubWorkflowDispatchInfo>> DispatchWorkflowAsync(
+        string repository, GitHubWorkflowDispatchRequest request, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        if (!options.Workflows.TryGetValue(request.Workflow, out var policy))
+            return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(GitHubError.WorkflowNotAllowed);
+        if (!policy.AllowedRefs.Contains(request.Ref, StringComparer.Ordinal))
+            return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(GitHubError.WorkflowRefNotAllowed);
+        if (!ValidateWorkflowInputs(request.Inputs, policy.Inputs))
+            return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(GitHubError.WorkflowInputInvalid);
+
+        var gate = WorkflowLocks.GetOrAdd($"{repository}\n{request.Workflow}", _ => new SemaphoreSlim(Math.Max(1, policy.MaxConcurrent)));
+        if (!await gate.WaitAsync(0, cancellationToken))
+            return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(GitHubError.WorkflowConcurrencyLimit);
+        try
+        {
+            var before = await _apiClient.ListWorkflowRunsAsync(
+                repository, options.GitHubOwner, options.GitHubRepo, request.Workflow, request.Ref,
+                "workflow_dispatch", null, 20, cancellationToken);
+            if (!before.IsSuccess) return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(before.Error!.Value);
+            var previousIds = before.Value!.Select(x => x.Id).ToHashSet();
+            var dispatchedAt = DateTimeOffset.UtcNow;
+            var dispatched = await _apiClient.DispatchWorkflowAsync(
+                repository, options.GitHubOwner, options.GitHubRepo, request, cancellationToken);
+            if (!dispatched.IsSuccess) return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(dispatched.Error!.Value);
+
+            var timeout = TimeSpan.FromSeconds(Math.Clamp(policy.CorrelationTimeoutSeconds, 1, 120));
+            var deadline = DateTimeOffset.UtcNow + timeout;
+            do
+            {
+                var after = await _apiClient.ListWorkflowRunsAsync(
+                    repository, options.GitHubOwner, options.GitHubRepo, request.Workflow, request.Ref,
+                    "workflow_dispatch", null, 20, cancellationToken);
+                if (!after.IsSuccess) return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(after.Error!.Value);
+                var candidates = after.Value!.Where(x => !previousIds.Contains(x.Id) && x.CreatedAt >= dispatchedAt.AddSeconds(-2)).ToArray();
+                if (candidates.Length == 1)
+                    return GitHubResult<GitHubWorkflowDispatchInfo>.Success(
+                        new(request.Workflow, request.Ref, dispatchedAt, candidates[0]));
+                if (candidates.Length > 1)
+                    return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(GitHubError.WorkflowRunCorrelationFailed);
+                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+            } while (DateTimeOffset.UtcNow < deadline);
+            return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(GitHubError.WorkflowRunCorrelationFailed);
+        }
+        finally { gate.Release(); }
+    }
+
+    public async Task<GitHubResult<GitHubWorkflowRunInfo>> GetWorkflowRunAsync(
+        string repository, long runId, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubWorkflowRunInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        return await _apiClient.GetWorkflowRunAsync(repository, options.GitHubOwner, options.GitHubRepo, runId, cancellationToken);
+    }
+
+    public async Task<GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>> ListWorkflowRunsAsync(
+        string repository, string? workflow, string? branch, string? eventName, string? status,
+        int limit, CancellationToken cancellationToken)
+    {
+        if (limit is < 1 or > 100) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(GitHubError.WorkflowInputInvalid);
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        if (workflow is not null && !options.Workflows.ContainsKey(workflow))
+            return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(GitHubError.WorkflowNotAllowed);
+        var safeBranch = branch is null || options.PullBranches.Contains(branch, StringComparer.Ordinal);
+        if (!safeBranch) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(GitHubError.WorkflowRefNotAllowed);
+        return await _apiClient.ListWorkflowRunsAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, workflow, branch, eventName, status, limit, cancellationToken);
+    }
+
+    private static bool ValidateWorkflowInputs(
+        IReadOnlyDictionary<string, string> values,
+        IReadOnlyDictionary<string, Configuration.WorkflowInputPolicyOptions> schema)
+    {
+        if (values.Keys.Any(key => !schema.ContainsKey(key))) return false;
+        foreach (var (key, rule) in schema)
+        {
+            if (rule.Required && (!values.TryGetValue(key, out var requiredValue) || string.IsNullOrEmpty(requiredValue))) return false;
+            if (!values.TryGetValue(key, out var value)) continue;
+            if (value.EnumerateRunes().Count() > rule.MaxLength || rule.MaxLength is < 1 or > 4096) return false;
+            if (rule.Type == "boolean" && !bool.TryParse(value, out _)) return false;
+            if (rule.Type == "integer" && !long.TryParse(value, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out _)) return false;
+            if (rule.Type is not ("string" or "boolean" or "integer")) return false;
+        }
+        return true;
     }
 
     public async Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repository, CancellationToken cancellationToken)

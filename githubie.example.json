@@ -15,7 +15,17 @@
       "tag_target_branch": "main",
       "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+.*$",
       "merge_method": "merge",
-      "require_clean_working_tree": true
+      "require_clean_working_tree": true,
+      "workflows": {
+        "release.yml": {
+          "allowed_refs": ["main"],
+          "inputs": {
+            "version": { "type": "string", "required": true, "max_length": 32, "secret": false }
+          },
+          "max_concurrent": 1,
+          "correlation_timeout_seconds": 15
+        }
+      }
     }
   }
 }
