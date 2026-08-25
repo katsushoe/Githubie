@@ -16,6 +16,7 @@ public sealed record GitHubResult<T>(bool IsSuccess, T? Value, GitHubError? Erro
 public enum GitHubError
 {
     RepositoryNotFound,
+    RepositoryDescriptionInvalid,
     BranchNotFound,
 
     AuthenticationFailed,

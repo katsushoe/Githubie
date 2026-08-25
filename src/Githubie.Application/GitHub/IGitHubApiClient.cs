@@ -8,6 +8,9 @@ public interface IGitHubApiClient
 {
     Task<GitHubResult<GitHubRepositoryInfo>> GetRepositoryAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken);
 
+    Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        string repositoryId, string owner, string repo, string description, CancellationToken cancellationToken);
+
     Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repositoryId, string owner, string repo, string branch, CancellationToken cancellationToken);

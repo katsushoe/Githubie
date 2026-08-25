@@ -11,6 +11,27 @@ public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitH
     private readonly RepositoryAllowlist _allowlist = allowlist;
     private readonly IGitHubApiClient _apiClient = apiClient;
 
+    public async Task<GitHubResult<GitHubRepositoryInfo>> GetRepositoryAsync(string repository, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubRepositoryInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        return await _apiClient.GetRepositoryAsync(repository, options.GitHubOwner, options.GitHubRepo, cancellationToken);
+    }
+
+    public async Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        string repository, string description, CancellationToken cancellationToken)
+    {
+        if (description.EnumerateRunes().Count() > 350)
+            return GitHubResult<GitHubRepositoryInfo>.Failure(GitHubError.RepositoryDescriptionInvalid);
+
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubRepositoryInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        return await _apiClient.UpdateRepositoryDescriptionAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, description, cancellationToken);
+    }
+
     public async Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repository, CancellationToken cancellationToken)
     {
         var resolved = Resolve(repository);

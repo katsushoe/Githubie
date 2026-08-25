@@ -45,7 +45,27 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             return GitHubResult<GitHubRepositoryInfo>.Failure(GitHubError.InvalidResponse);
         }
 
-        return GitHubResult<GitHubRepositoryInfo>.Success(new GitHubRepositoryInfo(owner, repo, body.DefaultBranch));
+        return GitHubResult<GitHubRepositoryInfo>.Success(new GitHubRepositoryInfo(owner, repo, body.DefaultBranch, body.Description));
+    }
+
+    public async Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        string repositoryId, string owner, string repo, string description, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Patch, $"repos/{owner}/{repo}", null, cancellationToken,
+            jsonBody: new RepositoryDescriptionUpdate(description),
+            unprocessableError: GitHubError.RepositoryDescriptionInvalid);
+        if (!response.IsSuccess)
+        {
+            var error = response.Error == GitHubError.PermissionDenied ? GitHubError.TokenScopeMissing : response.Error!.Value;
+            return GitHubResult<GitHubRepositoryInfo>.Failure(error);
+        }
+
+        var body = await ReadAsync<RepositoryResponse>(response.Value!, cancellationToken);
+        if (body is null || string.IsNullOrEmpty(body.DefaultBranch))
+            return GitHubResult<GitHubRepositoryInfo>.Failure(GitHubError.InvalidResponse);
+
+        return GitHubResult<GitHubRepositoryInfo>.Success(new GitHubRepositoryInfo(owner, repo, body.DefaultBranch, body.Description));
     }
 
     public async Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken)
@@ -791,7 +811,11 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         review.Id, review.Body, review.User!.Login!, review.State!, review.SubmittedAt!.Value,
         review.CommitId!, review.HtmlUrl!);
 
-    private sealed record RepositoryResponse([property: JsonPropertyName("default_branch")] string? DefaultBranch);
+    private sealed record RepositoryResponse(
+        [property: JsonPropertyName("default_branch")] string? DefaultBranch,
+        string? Description);
+
+    private sealed record RepositoryDescriptionUpdate(string Description);
 
     private sealed record BranchResponse(string? Name, CommitRef? Commit, bool Protected);
 

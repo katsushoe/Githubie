@@ -1,6 +1,6 @@
 namespace Githubie.Application.GitHub;
 
-public sealed record GitHubRepositoryInfo(string Owner, string Repo, string DefaultBranch);
+public sealed record GitHubRepositoryInfo(string Owner, string Repo, string DefaultBranch, string? Description);
 
 public sealed record GitHubBranchInfo(string Name, string HeadSha, bool Protected);
 

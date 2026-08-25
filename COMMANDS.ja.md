@@ -33,6 +33,8 @@
 | --- | --- |
 | `githubie repo list` | 設定済みRepository ID一覧を表示する |
 | `githubie repo status <repository>` | 指定Repositoryの`local_branch` / `local_head` / `ahead` / `behind` / `working_tree_clean`を実Gitコマンド経由で取得する |
+| `githubie repo description get <repository>` | Repository Descriptionを取得する |
+| `githubie repo description update <repository> <description>` | Descriptionを更新する。空文字列で削除する |
 | `githubie repo rename <old> <new>` | Repository設定と暗号化Tokenを新IDへ一括移行する |
 
 ### 認証
@@ -81,6 +83,7 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | Tool | パラメータ | 説明 |
 | --- | --- | --- |
 | `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得 |
+| `github_repository_description_get` | `repository` | Repository Descriptionを取得 |
 | `github_branch_list` | `repository` | Remote Branch一覧を取得 |
 | `github_branch_get` | `repository`, `branch` | 指定Branchのhead commit sha等を取得 |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull Request一覧を取得 |
@@ -101,6 +104,7 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_repository_update` | `repository`、Branch Policy項目 | 対話Desktop承認後にBranch Policyだけを更新。識別情報とPathは変更しない |
 | `github_repository_unregister` | `repository` | Githubie設定と実行中Allowlistから登録解除。GitHub／Localのデータは削除しない |
 | `github_repository_rename` | `old_repository`、`new_repository` | 設定と暗号化Tokenを一括移行し、失敗時は旧IDを維持する |
+| `github_repository_description_update` | `repository`, `description` | Descriptionだけを更新。空文字列で削除、最大350文字 |
 | `github_push` | `repository` | develop等へのGit push。Protected Branchへの直接Pushは`protected_branch`で拒否 |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | develop→mainのPRを作成（Source/Destinationは設定固定） |
 | `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | PRをmerge。State==open、Source/Destinationが許可経路であることを検証 |

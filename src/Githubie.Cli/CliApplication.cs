@@ -36,6 +36,8 @@ public static class CliApplication
 
             ["repo", "list"] => await RepoListAsync(effectiveConfigPath, binDirectory, output, error, cancellationToken),
             ["repo", "status", var repo] => await RepoStatusAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
+            ["repo", "description", "get", var repo] => await RepoDescriptionGetAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
+            ["repo", "description", "update", var repo, var description] => await RepoDescriptionUpdateAsync(effectiveConfigPath, binDirectory, repo, description, output, error, cancellationToken),
             ["repo", "rename", var oldRepo, var newRepo] => await RepoRenameAsync(
                 effectiveConfigPath, binDirectory, oldRepo, newRepo, output, error, cancellationToken),
 
@@ -97,6 +99,8 @@ public static class CliApplication
 
               repo list
               repo status <repository>
+              repo description get <repository>
+              repo description update <repository> <description>
               repo rename <old-repository> <new-repository>
 
               auth test <repository>
@@ -270,6 +274,31 @@ public static class CliApplication
         var result = await service.RenameAsync(oldRepository, newRepository, cancellationToken);
         output.WriteLine(result.IsSuccess ? $"[OK] renamed: {oldRepository} -> {newRepository}" : $"[NG] {result.Error}");
         return result.IsSuccess ? 0 : 1;
+    }
+
+    private static async Task<int> RepoDescriptionGetAsync(
+        string configPath, string binDirectory, string repository, TextWriter output, TextWriter error, CancellationToken cancellationToken)
+    {
+        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
+        if (!composition.IsSuccess) { foreach (var item in composition.Errors) error.WriteLine(item); return 1; }
+        var gateway = (IGitHubRepositoryGateway)composition.Services!.GetService(typeof(IGitHubRepositoryGateway))!;
+        var result = await gateway.GetRepositoryAsync(repository, cancellationToken);
+        if (!result.IsSuccess) { error.WriteLine($"[NG] {result.Error}"); return 1; }
+        output.WriteLine(result.Value!.Description ?? string.Empty);
+        return 0;
+    }
+
+    private static async Task<int> RepoDescriptionUpdateAsync(
+        string configPath, string binDirectory, string repository, string description,
+        TextWriter output, TextWriter error, CancellationToken cancellationToken)
+    {
+        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
+        if (!composition.IsSuccess) { foreach (var item in composition.Errors) error.WriteLine(item); return 1; }
+        var gateway = (IGitHubRepositoryGateway)composition.Services!.GetService(typeof(IGitHubRepositoryGateway))!;
+        var result = await gateway.UpdateRepositoryDescriptionAsync(repository, description, cancellationToken);
+        if (!result.IsSuccess) { error.WriteLine($"[NG] {result.Error}"); return 1; }
+        output.WriteLine(result.Value!.Description ?? string.Empty);
+        return 0;
     }
 
     private static async Task<int> AuthTestAsync(string configPath, string binDirectory, string repository, TextWriter output, TextWriter error, CancellationToken cancellationToken)

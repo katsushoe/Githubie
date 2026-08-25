@@ -135,6 +135,14 @@ public sealed class AuditedRepositoryManagementService(
 /// </summary>
 public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inner, IGithubieAuditLogger audit) : IGitHubRepositoryGateway
 {
+    public Task<GitHubResult<GitHubRepositoryInfo>> GetRepositoryAsync(string repository, CancellationToken cancellationToken) =>
+        RunAsync("github_repository_description_get", repository, null, null, () => inner.GetRepositoryAsync(repository, cancellationToken));
+
+    public Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        string repository, string description, CancellationToken cancellationToken) =>
+        RunAsync("github_repository_description_update", repository, null, null,
+            () => inner.UpdateRepositoryDescriptionAsync(repository, description, cancellationToken));
+
     public Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repository, CancellationToken cancellationToken) =>
         RunAsync("github_branch_list", repository, null, null, () => inner.ListBranchesAsync(repository, cancellationToken));
 

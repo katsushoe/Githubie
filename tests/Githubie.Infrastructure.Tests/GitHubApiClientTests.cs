@@ -48,6 +48,57 @@ public sealed class GitHubApiClientTests
     }
 
     [Fact]
+    public async Task GetRepositoryAsync_ReturnsDescription()
+    {
+        var client = CreateClient(_ => Json(HttpStatusCode.OK,
+            """{"default_branch":"main","description":"sample description"}"""));
+
+        var result = await client.GetRepositoryAsync("repo-id", "owner", "repo", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Description.Should().Be("sample description");
+    }
+
+    [Fact]
+    public async Task UpdateRepositoryDescriptionAsync_PatchesOnlyDescription()
+    {
+        HttpMethod? method = null;
+        string? path = null;
+        string? capturedBody = null;
+        var client = CreateCapturingClient((request, body) =>
+        {
+            method = request.Method;
+            path = request.RequestUri!.PathAndQuery;
+            capturedBody = body;
+            return Json(HttpStatusCode.OK, """{"default_branch":"main","description":"説明"}""");
+        });
+
+        var result = await client.UpdateRepositoryDescriptionAsync(
+            "repo-id", "owner", "repo", "説明", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        method.Should().Be(HttpMethod.Patch);
+        path.Should().Be("/repos/owner/repo");
+        using var json = System.Text.Json.JsonDocument.Parse(capturedBody!);
+        json.RootElement.EnumerateObject().Should().ContainSingle();
+        json.RootElement.GetProperty("description").GetString().Should().Be("説明");
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden, GitHubError.TokenScopeMissing)]
+    [InlineData(HttpStatusCode.NotFound, GitHubError.RepositoryNotFound)]
+    [InlineData(HttpStatusCode.UnprocessableEntity, GitHubError.RepositoryDescriptionInvalid)]
+    public async Task UpdateRepositoryDescriptionAsync_ClassifiesErrors(HttpStatusCode status, GitHubError expected)
+    {
+        var client = CreateClient(_ => new HttpResponseMessage(status));
+
+        var result = await client.UpdateRepositoryDescriptionAsync(
+            "repo-id", "owner", "repo", string.Empty, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(expected);
+    }
+
+    [Fact]
     public async Task GetBranchAsync_MapsNotFoundToBranchNotFound_NotRepositoryNotFound()
     {
         // 実データ検証で発見した回帰防止: 存在しないbranchの404が誤ってrepository_not_foundへ

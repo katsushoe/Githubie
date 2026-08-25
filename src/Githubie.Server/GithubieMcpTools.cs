@@ -83,6 +83,27 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("repository_status", repository, result);
     }
 
+    [McpServerTool(Name = "github_repository_description_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("登録済みリポジトリのDescriptionを取得します。")]
+    public async Task<GithubieToolResult<GitHubRepositoryInfo>> GetRepositoryDescriptionAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetRepositoryAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_description_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_description_update", Destructive = true, UseStructuredContent = true)]
+    [Description("登録済みリポジトリのDescriptionを更新します。空文字列で削除します。")]
+    public async Task<GithubieToolResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("新しいDescription。空文字列で削除")] string description,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.UpdateRepositoryDescriptionAsync(repository, description, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_description_update", repository, result);
+    }
+
     [McpServerTool(Name = "github_fetch", UseStructuredContent = true)]
     [Description("設定済みRemoteからgit fetch相当を行います。")]
     public async Task<GithubieToolResult<Unit>> FetchAsync(

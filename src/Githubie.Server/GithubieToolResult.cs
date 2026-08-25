@@ -123,6 +123,7 @@ public static class GithubieToolResultMapper
     private static GithubieToolError MapGitHubError(GitHubError error) => error switch
     {
         GitHubError.RepositoryNotFound => new("repository_not_found", "Repository is not registered."),
+        GitHubError.RepositoryDescriptionInvalid => new("repository_description_invalid", "Repository description must be at most 350 characters."),
         GitHubError.BranchNotFound => new("branch_not_found", "Branch was not found."),
         GitHubError.AuthenticationFailed => new("authentication_failed", "GitHub authentication failed."),
         GitHubError.PermissionDenied => new("permission_denied", "GitHub denied the operation."),

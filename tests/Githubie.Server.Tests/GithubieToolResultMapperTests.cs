@@ -49,6 +49,7 @@ public sealed class GithubieToolResultMapperTests
     private static readonly IReadOnlyDictionary<GitHubError, string> ExpectedGitHubCodes = new Dictionary<GitHubError, string>
     {
         [GitHubError.RepositoryNotFound] = "repository_not_found",
+        [GitHubError.RepositoryDescriptionInvalid] = "repository_description_invalid",
         [GitHubError.BranchNotFound] = "branch_not_found",
         [GitHubError.AuthenticationFailed] = "authentication_failed",
         [GitHubError.PermissionDenied] = "permission_denied",

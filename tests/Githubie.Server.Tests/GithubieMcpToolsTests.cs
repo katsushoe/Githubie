@@ -16,6 +16,8 @@ public sealed class GithubieMcpToolsTests
     private static readonly string[] ExpectedToolNames =
     [
         "github_repository_status",
+        "github_repository_description_get",
+        "github_repository_description_update",
         "github_repository_register",
         "github_repository_unregister",
             "github_repository_update",
@@ -52,6 +54,7 @@ public sealed class GithubieMcpToolsTests
     private static readonly string[] ExpectedReadOnlyTools =
     [
         "github_repository_status",
+        "github_repository_description_get",
         "github_branch_list",
         "github_branch_get",
         "github_pr_list",

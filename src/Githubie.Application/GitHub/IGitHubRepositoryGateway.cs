@@ -6,6 +6,11 @@ namespace Githubie.Application.GitHub;
 /// </summary>
 public interface IGitHubRepositoryGateway
 {
+    Task<GitHubResult<GitHubRepositoryInfo>> GetRepositoryAsync(string repository, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        string repository, string description, CancellationToken cancellationToken);
+
     Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repository, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repository, string branch, CancellationToken cancellationToken);
