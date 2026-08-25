@@ -15,7 +15,7 @@ githubie.exe start
 githubie.exe doctor
 ```
 
-MCP Clientへ`http://127.0.0.1:45460/mcp`を登録します。Client別の手順は[MCPセットアップ](MCP_SETUP.ja.md)を参照してください。
+MCP Clientへ`http://127.0.0.1:45460/mcp`を登録します。接続時のServer Instructionsが、Githubieの目的、安全条件、推奨するTool選択をAgentへ通知します。Client別の手順は[MCPセットアップ](MCP_SETUP.ja.md)を参照してください。
 
 ## インストール
 
@@ -35,6 +35,8 @@ dotnet test Githubie.slnx
 ## 使用方法
 
 設定、認証情報、診断、Windows Service管理には`githubie.exe`を使います。MCP Clientには承認付きRepository登録、Repository Status／Description、GitHub Actions workflow起動・run取得、fetch／pull／push、承認付き履歴訂正、Branch、Pull Request、Tag、Release、Version取得の37個の型付きToolを公開します。詳細は[コマンド](COMMANDS.ja.md)を参照してください。
+
+MCP Prompt `githubie_usage`は、Githubieを使用する目的、Repository IDの指定、状態確認から同期・変更へ進む基本手順、保護Branch、認証情報、履歴訂正の安全条件をAgent向けに返します。Promptに対応するMCP Clientでは、作業開始時の利用ガイドとして選択できます。
 
 `github_repository_register`は既存Local Repositoryのremote URLからGitHub Owner／Repositoryを導出し、対話Desktopでの承認後に設定を保存して、Service再起動なしで実行中Allowlistへ反映します。
 

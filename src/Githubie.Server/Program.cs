@@ -53,9 +53,10 @@ builder.Services.AddSingleton<IRepositoryManagementService>(sp =>
 builder.Services.AddSingleton<GithubieMcpTools>();
 
 builder.Services
-    .AddMcpServer()
+    .AddMcpServer(options => options.ServerInstructions = GithubieMcpPrompts.ServerInstructions)
     .WithHttpTransport(transport => transport.Stateless = true)
-    .WithTools<GithubieMcpTools>(GithubieMcpJson.CreateOptions());
+    .WithTools<GithubieMcpTools>(GithubieMcpJson.CreateOptions())
+    .WithPrompts<GithubieMcpPrompts>(GithubieMcpJson.CreateOptions());
 
 var app = builder.Build();
 

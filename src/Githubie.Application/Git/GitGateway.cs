@@ -146,16 +146,28 @@ public sealed class GitGateway(
             return GitGatewayResult<Unit>.Failure(MapPolicyError(policyResult.ErrorCode!.Value));
         }
 
-        var aheadBehind = await _commandClient.GetAheadBehindAsync(root, options.Remote, branch.StandardOutput, cancellationToken);
-        if (!aheadBehind.IsSuccess)
+        var remoteRef = await _commandClient.GetRemoteRefAsync(
+            root, repository, options.Remote, $"refs/heads/{branch.StandardOutput}", cancellationToken);
+        if (!remoteRef.IsSuccess)
         {
-            return GitGatewayResult<Unit>.Failure(MapCommandFailure(aheadBehind.Failure!.Value));
+            return remoteRef.Failure == GitCommandFailure.Failed
+                ? GitGatewayResult<Unit>.Failure(ClassifyGitFailure(remoteRef.StandardError))
+                : GitGatewayResult<Unit>.Failure(MapCommandFailure(remoteRef.Failure!.Value));
         }
 
-        var (ahead, _) = ParseAheadBehind(aheadBehind.StandardOutput);
-        if (ahead == 0)
+        if (!string.IsNullOrWhiteSpace(remoteRef.StandardOutput))
         {
-            return GitGatewayResult<Unit>.Failure(GitGatewayError.NothingToPush);
+            var aheadBehind = await _commandClient.GetAheadBehindAsync(root, options.Remote, branch.StandardOutput, cancellationToken);
+            if (!aheadBehind.IsSuccess)
+            {
+                return GitGatewayResult<Unit>.Failure(MapCommandFailure(aheadBehind.Failure!.Value));
+            }
+
+            var (ahead, _) = ParseAheadBehind(aheadBehind.StandardOutput);
+            if (ahead == 0)
+            {
+                return GitGatewayResult<Unit>.Failure(GitGatewayError.NothingToPush);
+            }
         }
 
         var result = await _commandClient.PushAsync(root, repository, options.Remote, branch.StandardOutput, cancellationToken);

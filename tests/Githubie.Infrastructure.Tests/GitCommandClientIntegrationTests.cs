@@ -34,16 +34,39 @@ public sealed class GitCommandClientIntegrationTests
     }
 
     [Fact]
-    public async Task PushAsync_RealGit_FastForwardUpdatesRemoteAndLeavesNoAheadCommits()
+    public async Task PushAsync_RealGit_InitialPushCreatesRemoteBranchAndLeavesNoAheadCommits()
     {
         using var repository = await TemporaryGitRepository.CreateWithBareRemoteAsync();
         var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
 
+        var before = await client.GetRemoteRefAsync(
+            repository.Root, "sample", "origin", "refs/heads/develop", TestContext.Current.CancellationToken);
         var push = await client.PushAsync(repository.Root, "sample", "origin", "develop", TestContext.Current.CancellationToken);
         var aheadBehind = await client.GetAheadBehindAsync(repository.Root, "origin", "develop", TestContext.Current.CancellationToken);
 
+        before.IsSuccess.Should().BeTrue(before.StandardError);
+        before.StandardOutput.Should().BeEmpty();
         push.IsSuccess.Should().BeTrue(push.StandardError);
         aheadBehind.IsSuccess.Should().BeTrue(aheadBehind.StandardError);
+        aheadBehind.StandardOutput.Should().Be("0\t0");
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.RemoteRoot, "rev-parse", "refs/heads/develop"))
+            .Should().Be(await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "rev-parse", "HEAD"));
+    }
+
+    [Fact]
+    public async Task PushAsync_RealGit_FastForwardUpdatesExistingRemoteBranch()
+    {
+        using var repository = await TemporaryGitRepository.CreateWithBareRemoteAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        (await client.PushAsync(repository.Root, "sample", "origin", "develop", TestContext.Current.CancellationToken))
+            .IsSuccess.Should().BeTrue();
+        await repository.CommitAsync("second commit");
+
+        var push = await client.PushAsync(repository.Root, "sample", "origin", "develop", TestContext.Current.CancellationToken);
+        var aheadBehind = await client.GetAheadBehindAsync(
+            repository.Root, "origin", "develop", TestContext.Current.CancellationToken);
+
+        push.IsSuccess.Should().BeTrue(push.StandardError);
         aheadBehind.StandardOutput.Should().Be("0\t0");
         (await TemporaryGitRepository.RunGitForOutputAsync(repository.RemoteRoot, "rev-parse", "refs/heads/develop"))
             .Should().Be(await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "rev-parse", "HEAD"));

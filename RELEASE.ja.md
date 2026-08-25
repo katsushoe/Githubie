@@ -19,7 +19,7 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。
 
-現在のDisplay Versionは`1.5.0.0`です（2026-08-26、Repository Description、GitHub Actions workflow起動、一般ユーザーログACL対応）。
+現在のDisplay Versionは`1.6.0.0`です（2026-08-26、Githubieの目的・利用手順・安全条件を通知するServer InstructionsとMCP Prompt対応、許可済みBranchの初回push対応）。
 
 ## Gitタグ
 

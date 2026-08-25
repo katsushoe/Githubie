@@ -58,6 +58,8 @@ public sealed class GitGatewayTests
             .Returns(GitCommandResult.Success(remoteUrl));
         _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
             .Returns(GitCommandResult.Success(workingTreeClean ? string.Empty : " M file.txt"));
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", $"refs/heads/{currentBranch}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success($"{OldSha}\trefs/heads/{currentBranch}"));
         _commandClient.GetAheadBehindAsync(LocalRoot, "origin", currentBranch, Arg.Any<CancellationToken>())
             .Returns(GitCommandResult.Success($"{ahead} {behind}"));
     }
@@ -190,6 +192,41 @@ public sealed class GitGatewayTests
 
         result.IsSuccess.Should().BeTrue();
         await _commandClient.Received(1).PushAsync(LocalRoot, RepositoryId, "origin", "develop", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PushAsync_WhenRemoteBranchDoesNotExist_CreatesBranchWithoutAheadCheck()
+    {
+        SetUpPushPreconditions("develop", workingTreeClean: true);
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", "refs/heads/develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.PushAsync(LocalRoot, RepositoryId, "origin", "develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await _gateway.PushAsync(RepositoryId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        await _commandClient.DidNotReceive().GetAheadBehindAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _commandClient.Received(1).PushAsync(
+            LocalRoot, RepositoryId, "origin", "develop", Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("fatal: Authentication failed", GitGatewayError.AuthenticationFailed)]
+    [InlineData("remote: Write access to repository not granted", GitGatewayError.PermissionDenied)]
+    public async Task PushAsync_WhenRemoteBranchLookupFails_ReturnsSpecificError(
+        string standardError, GitGatewayError expected)
+    {
+        SetUpPushPreconditions("develop", workingTreeClean: true);
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", "refs/heads/develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: standardError));
+
+        var result = await _gateway.PushAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(expected);
+        await _commandClient.DidNotReceive().PushAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
