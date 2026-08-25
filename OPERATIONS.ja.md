@@ -31,7 +31,7 @@ githubie.exe status
 githubie.exe logs
 ```
 
-でログディレクトリのパスを表示する。ファイルは`<install-root>\logs\githubie-yyyyMMdd.log`に日次ローテーションされる。監査ログ（Tool呼び出し結果）とアプリケーションの警告・エラーのみを記録し、ASP.NET Core内部の詳細診断ログ（Information以下）は既定で抑制している。
+でログディレクトリのパスを表示する。ファイルは`<install-root>\logs\githubie-yyyyMMdd.log`に日次ローテーションされ、MSI環境では一般ユーザーも追記できる。ACL、ディスク、または一時的I/OエラーでLoggerが書き込めない場合も、CLI／MCP本処理は未処理例外で終了せず継続する。監査ログ（Tool呼び出し結果）とアプリケーションの警告・エラーのみを記録し、ASP.NET Core内部の詳細診断ログ（Information以下）は既定で抑制している。
 
 監査ログの行フォーマット:
 

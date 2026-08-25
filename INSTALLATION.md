@@ -6,7 +6,7 @@ Githubie supports an x64 MSI, a portable ZIP, and source builds. Windows 10/11 o
 
 ## MSI Installation
 
-Use the versioned `Githubie-<version>-win-x64.msi` package. It installs Githubie under `%ProgramFiles%\Githubie`, creates the required runtime directories and ACLs, and registers the Windows Service. After installation:
+Use the versioned `Githubie-<version>-win-x64.msi` package. It installs Githubie under `%ProgramFiles%\Githubie`, creates the required runtime directories and ACLs, and registers the Windows Service. The `logs` directory grants built-in Users read, write, and traverse access so the management CLI can append audit records without elevation; secrets remain restricted separately. After installation:
 
 ```powershell
 Copy-Item githubie.example.json "$env:ProgramFiles\Githubie\config\githubie.json"

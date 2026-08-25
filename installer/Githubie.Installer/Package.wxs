@@ -86,6 +86,7 @@
         <CreateFolder>
           <util:PermissionEx User="Administrators" GenericAll="yes" />
           <util:PermissionEx User="SYSTEM" GenericAll="yes" />
+          <util:PermissionEx User="Users" GenericRead="yes" GenericWrite="yes" GenericExecute="yes" />
         </CreateFolder>
       </Component>
       <Component Id="DataDirectoryComponent" Directory="DATADIR" Guid="9185AE45-70E4-4E55-AD9D-F14534949F48" Permanent="yes">

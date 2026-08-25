@@ -27,7 +27,7 @@ Install the service first with `githubie.exe service install` when using a porta
 
 ## Logs and Diagnostics
 
-`githubie.exe logs` prints the log directory. Daily files use `<install-root>\logs\githubie-yyyyMMdd.log`. Run `githubie.exe doctor`, followed by `config check`, `repo status`, or `auth test` to isolate failures.
+`githubie.exe logs` prints the log directory. Daily files use `<install-root>\logs\githubie-yyyyMMdd.log`. MSI installations allow standard users to append logs. If logging fails because of ACL, disk, or transient I/O errors, the requested CLI/MCP operation continues rather than terminating with an unhandled exception. Run `githubie.exe doctor`, followed by `config check`, `repo status`, or `auth test` to isolate failures.
 
 ## Token Rotation
 

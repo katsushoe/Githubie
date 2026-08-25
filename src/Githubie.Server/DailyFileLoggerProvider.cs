@@ -19,12 +19,20 @@ public sealed class DailyFileLoggerProvider(string logsDirectory) : ILoggerProvi
 
     internal void Write(string line)
     {
-        Directory.CreateDirectory(_logsDirectory);
-        var path = Path.Combine(_logsDirectory, $"githubie-{DateTime.UtcNow:yyyyMMdd}.log");
-
-        lock (_writeLock)
+        try
         {
-            File.AppendAllText(path, line + Environment.NewLine);
+            Directory.CreateDirectory(_logsDirectory);
+            var path = Path.Combine(_logsDirectory, $"githubie-{DateTime.UtcNow:yyyyMMdd}.log");
+
+            lock (_writeLock)
+            {
+                File.AppendAllText(path, line + Environment.NewLine);
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            // Logging is best-effort: ACL, disk, or transient I/O failures must not abort the CLI/MCP operation.
+            // Audit content is not redirected because it must remain within the configured log boundary.
         }
     }
 

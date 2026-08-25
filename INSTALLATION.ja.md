@@ -2,7 +2,7 @@
 
 [English](INSTALLATION.md) | [日本語](INSTALLATION.ja.md)
 
-Version `1.0.0.0`ではx64 MSI、Portable ZIP、ソースからのBuildを利用できます。推奨する配布形式はMSIです。MSIのInstall／Major Upgrade／UninstallはWindows実機で検証済みです。
+Version `1.0.0.0`ではx64 MSI、Portable ZIP、ソースからのBuildを利用できます。推奨する配布形式はMSIです。MSIのInstall／Major Upgrade／UninstallはWindows実機で検証済みです。`logs`には組み込みUsersの読み取り・書き込み・走査権限を付与し、一般ユーザーの管理CLIが昇格なしで監査ログを追記できるようにする。Secret ACLは別に制限する。
 
 ## 前提
 
