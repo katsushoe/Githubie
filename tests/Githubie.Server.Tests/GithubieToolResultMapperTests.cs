@@ -69,6 +69,9 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.PullRequestNotFound] = "pull_request_not_found",
         [GitHubError.PullRequestNotOpen] = "pull_request_not_open",
         [GitHubError.PullRequestNotMergeable] = "pull_request_not_mergeable",
+        [GitHubError.MergeabilityCalculating] = "mergeability_calculating",
+        [GitHubError.MergeabilityUnknownRetryable] = "mergeability_unknown",
+        [GitHubError.PullRequestBlocked] = "pull_request_blocked",
         [GitHubError.PullRequestRouteNotAllowed] = "pull_request_route_not_allowed",
         [GitHubError.PullRequestStateNotAllowed] = "pull_request_state_not_allowed",
         [GitHubError.PullRequestCommentInvalid] = "pull_request_comment_invalid",
@@ -125,6 +128,18 @@ public sealed class GithubieToolResultMapperTests
 
         mapped.Ok.Should().BeFalse();
         mapped.Error!.Code.Should().Be(ExpectedGitHubCodes[error]);
+    }
+
+    [Fact]
+    public void Map_MergeabilityCalculating_ProducesRetryableStatusAndDelay()
+    {
+        var mapped = GithubieToolResultMapper.Map(
+            "github_pr_merge", "repo", GitHubResult<string>.Failure(GitHubError.MergeabilityCalculating));
+
+        mapped.Error!.Code.Should().Be("mergeability_calculating");
+        mapped.Error.Status.Should().Be(GitHubMergeabilityStatus.CalculatingRetryable);
+        mapped.Error.Retryable.Should().BeTrue();
+        mapped.Error.RetryAfterSeconds.Should().Be(2);
     }
 
     [Fact]

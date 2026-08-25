@@ -7,11 +7,18 @@ namespace Githubie.Application.GitHub;
 /// Repository Allowlistの解決とRepository Policyの適用を行ったうえで<see cref="IGitHubApiClient"/>を呼び出します。
 /// PRのsource/destinationおよびTagの対象branchはAgentに自由指定させず、設定から決定します。
 /// </summary>
-public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitHubApiClient apiClient) : IGitHubRepositoryGateway
+public sealed class GitHubRepositoryGateway(
+    RepositoryAllowlist allowlist,
+    IGitHubApiClient apiClient,
+    TimeProvider? timeProvider = null,
+    TimeSpan? mergeabilityPollInterval = null) : IGitHubRepositoryGateway
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> WorkflowLocks = new(StringComparer.Ordinal);
     private readonly RepositoryAllowlist _allowlist = allowlist;
     private readonly IGitHubApiClient _apiClient = apiClient;
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+    private readonly TimeSpan _mergeabilityPollInterval = mergeabilityPollInterval ?? TimeSpan.FromSeconds(2);
+    private const int MergeabilityPollAttempts = 3;
 
     public async Task<GitHubResult<GitHubRepositoryInfo>> GetRepositoryAsync(string repository, CancellationToken cancellationToken)
     {
@@ -213,7 +220,8 @@ public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitH
 
         var options = resolved.Options!;
 
-        var current = await _apiClient.GetPullRequestAsync(repository, options.GitHubOwner, options.GitHubRepo, request.Number, cancellationToken);
+        var current = await GetStableMergeabilityAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, request.Number, cancellationToken);
         if (!current.IsSuccess)
         {
             return current;
@@ -224,6 +232,12 @@ public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitH
             return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestNotOpen);
         }
 
+        var mergeabilityError = MapMergeabilityError(current.Value.MergeabilityStatus);
+        if (mergeabilityError is not null)
+        {
+            return GitHubResult<GitHubPullRequestInfo>.Failure(mergeabilityError.Value);
+        }
+
         var policy = options.ToPolicy(repository);
         var routeResult = policy.ValidatePullRequest(current.Value.Source, current.Value.Destination);
         if (!routeResult.IsAllowed)
@@ -231,8 +245,53 @@ public sealed class GitHubRepositoryGateway(RepositoryAllowlist allowlist, IGitH
             return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestRouteNotAllowed);
         }
 
-        return await _apiClient.MergePullRequestAsync(repository, options.GitHubOwner, options.GitHubRepo, request, cancellationToken);
+        var merged = await _apiClient.MergePullRequestAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, request, cancellationToken);
+        if (merged.Error != GitHubError.PullRequestNotMergeable)
+        {
+            return merged;
+        }
+
+        var refreshed = await _apiClient.GetPullRequestAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, request.Number, cancellationToken);
+        if (!refreshed.IsSuccess)
+        {
+            return refreshed;
+        }
+
+        var refreshedError = MapMergeabilityError(refreshed.Value!.MergeabilityStatus);
+        return GitHubResult<GitHubPullRequestInfo>.Failure(
+            refreshedError ?? GitHubError.MergeabilityUnknownRetryable);
     }
+
+    private async Task<GitHubResult<GitHubPullRequestInfo>> GetStableMergeabilityAsync(
+        string repository, string owner, string repo, int number, CancellationToken cancellationToken)
+    {
+        GitHubResult<GitHubPullRequestInfo>? current = null;
+        for (var attempt = 0; attempt < MergeabilityPollAttempts; attempt++)
+        {
+            current = await _apiClient.GetPullRequestAsync(repository, owner, repo, number, cancellationToken);
+            if (!current.IsSuccess || current.Value!.MergeabilityStatus is not
+                (GitHubMergeabilityStatus.CalculatingRetryable or GitHubMergeabilityStatus.UnknownRetryable))
+            {
+                return current;
+            }
+            if (attempt < MergeabilityPollAttempts - 1)
+            {
+                await Task.Delay(_mergeabilityPollInterval, _timeProvider, cancellationToken);
+            }
+        }
+        return current!;
+    }
+
+    private static GitHubError? MapMergeabilityError(string status) => status switch
+    {
+        GitHubMergeabilityStatus.CalculatingRetryable => GitHubError.MergeabilityCalculating,
+        GitHubMergeabilityStatus.UnknownRetryable => GitHubError.MergeabilityUnknownRetryable,
+        GitHubMergeabilityStatus.Conflicting => GitHubError.PullRequestNotMergeable,
+        GitHubMergeabilityStatus.Blocked => GitHubError.PullRequestBlocked,
+        _ => null,
+    };
 
     public Task<GitHubResult<GitHubPullRequestInfo>> ClosePullRequestAsync(
         string repository, int number, CancellationToken cancellationToken) =>

@@ -839,7 +839,29 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         pr.Mergeable,
         pr.CreatedAt,
         pr.UpdatedAt,
-        pr.HtmlUrl!);
+        pr.HtmlUrl!,
+        ClassifyMergeability(pr.Mergeable, pr.MergeableState),
+        IsRetryableMergeability(pr.Mergeable, pr.MergeableState) ? 2 : null);
+
+    private static string ClassifyMergeability(bool? mergeable, string? state)
+    {
+        if (mergeable is null || string.Equals(state, "unknown", StringComparison.OrdinalIgnoreCase))
+            return GitHubMergeabilityStatus.CalculatingRetryable;
+        if (string.Equals(state, "dirty", StringComparison.OrdinalIgnoreCase))
+            return GitHubMergeabilityStatus.Conflicting;
+        if (state is not null && (state.Equals("blocked", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("behind", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("unstable", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("draft", StringComparison.OrdinalIgnoreCase)))
+            return GitHubMergeabilityStatus.Blocked;
+        if (mergeable == true)
+            return GitHubMergeabilityStatus.Mergeable;
+        return GitHubMergeabilityStatus.UnknownRetryable;
+    }
+
+    private static bool IsRetryableMergeability(bool? mergeable, string? state) =>
+        ClassifyMergeability(mergeable, state) is
+            GitHubMergeabilityStatus.CalculatingRetryable or GitHubMergeabilityStatus.UnknownRetryable;
 
     private static string MapStateQuery(GitHubPullRequestState state) => state switch
     {
@@ -908,6 +930,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         UserRef? User,
         [property: JsonPropertyName("merge_commit_sha")] string? MergeCommitSha,
         bool? Mergeable,
+        [property: JsonPropertyName("mergeable_state")] string? MergeableState,
         [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
         [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
         [property: JsonPropertyName("html_url")] string? HtmlUrl,

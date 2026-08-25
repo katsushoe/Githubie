@@ -164,6 +164,28 @@ public sealed class GitHubApiClientTests
         result.Error.Should().Be(GitHubError.PullRequestNotFound);
     }
 
+    [Theory]
+    [InlineData(null, "unknown", GitHubMergeabilityStatus.CalculatingRetryable, 2)]
+    [InlineData(true, "clean", GitHubMergeabilityStatus.Mergeable, null)]
+    [InlineData(false, "dirty", GitHubMergeabilityStatus.Conflicting, null)]
+    [InlineData(false, "blocked", GitHubMergeabilityStatus.Blocked, null)]
+    [InlineData(true, "blocked", GitHubMergeabilityStatus.Blocked, null)]
+    [InlineData(false, "mystery", GitHubMergeabilityStatus.UnknownRetryable, 2)]
+    public async Task GetPullRequestAsync_ClassifiesMergeability(
+        bool? mergeable, string mergeableState, string expectedStatus, int? expectedRetryAfter)
+    {
+        var mergeableJson = mergeable is null ? "null" : mergeable.Value.ToString().ToLowerInvariant();
+        var client = CreateClient(_ => Json(HttpStatusCode.OK, $$"""
+            {"number":1,"title":"t","state":"open","merged":false,"head":{"ref":"develop"},"base":{"ref":"main"},"user":{"login":"u"},"mergeable":{{mergeableJson}},"mergeable_state":"{{mergeableState}}","html_url":"https://example.com","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}
+            """));
+
+        var result = await client.GetPullRequestAsync(
+            "repo-id", "owner", "repo", 1, TestContext.Current.CancellationToken);
+
+        result.Value!.MergeabilityStatus.Should().Be(expectedStatus);
+        result.Value.RetryAfterSeconds.Should().Be(expectedRetryAfter);
+    }
+
     [Fact]
     public async Task GetBranchAsync_MapsUnauthorizedToAuthenticationFailed()
     {

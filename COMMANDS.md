@@ -79,7 +79,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_pull` | `repository`, `branch` | Fast-forwards an allowed branch; rejects divergent history |
 | `github_push` | `repository` | Pushes the current allowed branch, creating it on the remote when absent and requiring fast-forward updates when present; rejects protected branches, dirty trees when configured, and no-op pushes |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | Creates only the configured `develop` to `main` route |
-| `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | Merges an open, mergeable pull request on the allowed route |
+| `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | Polls mergeability at most 3 times at 2-second intervals, then merges an open, mergeable pull request on the allowed route |
 | `github_pr_close` | `repository`, `pull_request_number` | Closes an open, unmerged pull request; already-closed requests are unchanged |
 | `github_pr_reopen` | `repository`, `pull_request_number` | Reopens a closed, unmerged pull request; already-open requests are unchanged |
 | `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | Adds a non-empty conversation comment to an existing pull request |

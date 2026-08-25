@@ -110,7 +110,7 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_workflow_dispatch` | `repository`, `workflow`, `ref`, `inputs` | 許可済みworkflowだけを起動し、新規runを一意に関連付ける |
 | `github_push` | `repository` | develop等へのGit push。許可BranchがRemoteに未作成なら初回pushで作成し、既存BranchはFast-forward時だけ更新。Protected Branchへの直接Pushは`protected_branch`で拒否 |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | develop→mainのPRを作成（Source/Destinationは設定固定） |
-| `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | PRをmerge。State==open、Source/Destinationが許可経路であることを検証 |
+| `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | 2秒間隔・最大3回でmerge可能性を確認後、Stateと許可経路を検証してPRをmerge |
 | `github_pr_close` | `repository`, `pull_request_number` | 未マージのPRをクローズ。クローズ済みの場合は状態を維持 |
 | `github_pr_reopen` | `repository`, `pull_request_number` | 未マージのPRを再オープン。オープン済みの場合は状態を維持 |
 | `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | PR全体へ空でない会話コメントを追加 |

@@ -45,7 +45,19 @@ public sealed record GitHubPullRequestInfo(
     bool? Mergeable,
     DateTimeOffset Created,
     DateTimeOffset Updated,
-    string Url);
+    string Url,
+    string MergeabilityStatus = GitHubMergeabilityStatus.UnknownRetryable,
+    int? RetryAfterSeconds = null);
+
+/// <summary>Pull Requestのマージ可能性を表す安定した外部状態名です。</summary>
+public static class GitHubMergeabilityStatus
+{
+    public const string CalculatingRetryable = "calculating_retryable";
+    public const string Mergeable = "mergeable";
+    public const string Conflicting = "conflicting";
+    public const string Blocked = "blocked";
+    public const string UnknownRetryable = "unknown_retryable";
+}
 
 public sealed record GitHubPullRequestCreate(string Title, string? Description, bool Draft);
 

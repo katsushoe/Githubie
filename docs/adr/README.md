@@ -19,5 +19,6 @@
 | [0015](0015-draft-first-github-release-publication.md) | Draft-first GitHub Release publication with bounded local assets |
 | [0016](0016-approved-mcp-repository-registration.md) | Out-of-band approved MCP registration with GitHub identity derived from the local remote |
 | [0023](0023-retry-safe-release-and-tag-management.md) | Retry-safe Release asset management and policy-bound Tag deletion |
+| [0024](0024-bounded-pull-request-mergeability-polling.md) | Bounded retry-aware pull-request mergeability classification |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

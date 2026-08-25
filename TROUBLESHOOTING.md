@@ -41,7 +41,10 @@
 | `permission_denied` / `token_scope_missing` | Grant the fine-grained PAT the required repository permissions. |
 | `rate_limited` / `secondary_rate_limited` | Wait for reset or reduce request frequency. |
 | `branch_not_found` / `pull_request_not_found` / `tag_not_found` | Verify the requested identifier with the corresponding list tool. |
-| `pull_request_not_open` / `pull_request_not_mergeable` | Verify state and resolve conflicts before merging. |
+| `pull_request_not_open` / `pull_request_not_mergeable` | Verify state and resolve conflicts before merging. `pull_request_not_mergeable` is returned only for confirmed conflicts. |
+| `mergeability_calculating` | Status is `calculating_retryable`; wait `retry_after_seconds` and call `github_pr_get` or merge again. |
+| `mergeability_unknown` | Status is `unknown_retryable`; wait `retry_after_seconds` and recheck because GitHub could not yet classify the result. |
+| `pull_request_blocked` | Required reviews, checks, draft state, branch rules, or update requirements block merging; satisfy them before retrying. |
 | `pull_request_route_not_allowed` | Use the configured `develop_branch` to `main_branch` route. |
 | `pull_request_state_not_allowed` | A merged pull request cannot be closed or reopened. Verify its current state. |
 | `pull_request_comment_invalid` | Supply a non-empty comment body of at most 65,536 characters. |

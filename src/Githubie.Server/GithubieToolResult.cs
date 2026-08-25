@@ -26,6 +26,10 @@ public sealed record GithubieToolError(string Code, string Message, bool Retryab
     public string SuggestedAction => Recommendation ?? "Use the correlation ID to inspect the matching audit log entry.";
 
     public string CorrelationId { get; init; } = Guid.NewGuid().ToString("N");
+
+    public string? Status { get; init; }
+
+    public int? RetryAfterSeconds { get; init; }
 }
 
 /// <summary>
@@ -156,6 +160,20 @@ public static class GithubieToolResultMapper
         GitHubError.PullRequestNotFound => new("pull_request_not_found", "Pull request was not found."),
         GitHubError.PullRequestNotOpen => new("pull_request_not_open", "Pull request is not open."),
         GitHubError.PullRequestNotMergeable => new("pull_request_not_mergeable", "Pull request is not mergeable."),
+        GitHubError.MergeabilityCalculating => new("mergeability_calculating", "GitHub is still calculating pull request mergeability.", true, "Wait briefly, then get the pull request again.")
+        {
+            Status = GitHubMergeabilityStatus.CalculatingRetryable,
+            RetryAfterSeconds = 2,
+        },
+        GitHubError.MergeabilityUnknownRetryable => new("mergeability_unknown", "Pull request mergeability is temporarily unknown.", true, "Wait briefly, then get the pull request again.")
+        {
+            Status = GitHubMergeabilityStatus.UnknownRetryable,
+            RetryAfterSeconds = 2,
+        },
+        GitHubError.PullRequestBlocked => new("pull_request_blocked", "Pull request merge is blocked by repository requirements.")
+        {
+            Status = GitHubMergeabilityStatus.Blocked,
+        },
         GitHubError.PullRequestRouteNotAllowed => new("pull_request_route_not_allowed", "Pull request route is not allowed."),
         GitHubError.PullRequestStateNotAllowed => new("pull_request_state_not_allowed", "A merged pull request cannot be closed or reopened."),
         GitHubError.PullRequestCommentInvalid => new("pull_request_comment_invalid", "Pull request comment body is invalid."),

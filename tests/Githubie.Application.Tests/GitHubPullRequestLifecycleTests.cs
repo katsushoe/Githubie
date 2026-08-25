@@ -19,7 +19,7 @@ public sealed class GitHubPullRequestLifecycleTests
             ["sample"] = new("owner", "repo", "C:\\repo", "origin", "develop", "main",
                 ["develop"], ["develop", "main"], ["main"], "main", "^v", "merge", true),
         });
-        _gateway = new GitHubRepositoryGateway(allowlist, _api);
+        _gateway = new GitHubRepositoryGateway(allowlist, _api, mergeabilityPollInterval: TimeSpan.Zero);
     }
 
     [Fact]
@@ -101,9 +101,72 @@ public sealed class GitHubPullRequestLifecycleTests
         result.Error.Should().Be(GitHubError.PullRequestNotOpen);
     }
 
-    private static GitHubPullRequestInfo PullRequest(GitHubPullRequestState state) => new(
-        1, "title", null, state, "develop", "main", "user", null, true,
-        DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, "https://example.com/pr/1");
+    [Fact]
+    public async Task MergePullRequestAsync_CalculatingThenMergeable_PollsAndMerges()
+    {
+        _api.GetPullRequestAsync("sample", "owner", "repo", 1, Arg.Any<CancellationToken>())
+            .Returns(
+                GitHubResult<GitHubPullRequestInfo>.Success(PullRequest(
+                    GitHubPullRequestState.Open, GitHubMergeabilityStatus.CalculatingRetryable, null)),
+                GitHubResult<GitHubPullRequestInfo>.Success(PullRequest(
+                    GitHubPullRequestState.Open, GitHubMergeabilityStatus.Mergeable, true)));
+        _api.MergePullRequestAsync("sample", "owner", "repo", Arg.Any<GitHubPullRequestMerge>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Success(PullRequest(
+                GitHubPullRequestState.Merged, GitHubMergeabilityStatus.Mergeable, true)));
+
+        var result = await _gateway.MergePullRequestAsync(
+            "sample", new GitHubPullRequestMerge(1, null, null), TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        await _api.Received(2).GetPullRequestAsync(
+            "sample", "owner", "repo", 1, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(GitHubMergeabilityStatus.Conflicting, GitHubError.PullRequestNotMergeable)]
+    [InlineData(GitHubMergeabilityStatus.Blocked, GitHubError.PullRequestBlocked)]
+    [InlineData(GitHubMergeabilityStatus.CalculatingRetryable, GitHubError.MergeabilityCalculating)]
+    [InlineData(GitHubMergeabilityStatus.UnknownRetryable, GitHubError.MergeabilityUnknownRetryable)]
+    public async Task MergePullRequestAsync_MergeabilityState_ReturnsMatchingError(string status, GitHubError expected)
+    {
+        _api.GetPullRequestAsync("sample", "owner", "repo", 1, Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Success(PullRequest(
+                GitHubPullRequestState.Open, status, status == GitHubMergeabilityStatus.Mergeable)));
+
+        var result = await _gateway.MergePullRequestAsync(
+            "sample", new GitHubPullRequestMerge(1, null, null), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(expected);
+        await _api.DidNotReceive().MergePullRequestAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<GitHubPullRequestMerge>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task MergePullRequestAsync_ApiTemporaryFailure_RefreshesAndReturnsCalculating()
+    {
+        _api.GetPullRequestAsync("sample", "owner", "repo", 1, Arg.Any<CancellationToken>())
+            .Returns(
+                GitHubResult<GitHubPullRequestInfo>.Success(PullRequest(
+                    GitHubPullRequestState.Open, GitHubMergeabilityStatus.Mergeable, true)),
+                GitHubResult<GitHubPullRequestInfo>.Success(PullRequest(
+                    GitHubPullRequestState.Open, GitHubMergeabilityStatus.CalculatingRetryable, null)));
+        _api.MergePullRequestAsync("sample", "owner", "repo", Arg.Any<GitHubPullRequestMerge>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestNotMergeable));
+
+        var result = await _gateway.MergePullRequestAsync(
+            "sample", new GitHubPullRequestMerge(1, null, null), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.MergeabilityCalculating);
+    }
+
+    private static GitHubPullRequestInfo PullRequest(
+        GitHubPullRequestState state,
+        string mergeabilityStatus = GitHubMergeabilityStatus.Mergeable,
+        bool? mergeable = true) => new(
+        1, "title", null, state, "develop", "main", "user", null, mergeable,
+        DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, "https://example.com/pr/1",
+        mergeabilityStatus, mergeabilityStatus.EndsWith("_retryable", StringComparison.Ordinal) ? 2 : null);
 
     private static GitHubPullRequestReview Review(string state) => new(
         10, "body", "reviewer", state, DateTimeOffset.UnixEpoch, "abc", "https://example.com/review/10");

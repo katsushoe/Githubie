@@ -68,7 +68,10 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `secondary_rate_limited` | Secondary Rate Limit（Abuse Detection）に抵触 | しばらく間隔を空けてから再実行する |
 | `pull_request_not_found` | 指定した`pull_request_number`が存在しない | PR番号を確認する（`github_pr_list`） |
 | `pull_request_not_open` | Mergeしようとした PR が既にclosed/merged | 対象PRの状態を確認する |
-| `pull_request_not_mergeable` | GitHub側でConflict等によりmerge不可 | GitHub UI/CLIでConflictを解消してから再実行する |
+| `pull_request_not_mergeable` | Conflictを確認済み | Conflictを解消してから再実行する |
+| `mergeability_calculating` | `calculating_retryable`。GitHubが計算中または反映待ち | `retry_after_seconds`秒待って`github_pr_get`またはmergeを再実行する |
+| `mergeability_unknown` | `unknown_retryable`。一時的に分類不能 | `retry_after_seconds`秒待って再確認する |
+| `pull_request_blocked` | 必須review・check・draft・branch規則等で拒否 | 必須条件を満たしてから再実行する |
 | `pull_request_route_not_allowed` | Source/Destinationが`develop_branch → main_branch`以外 | 許可経路のPRのみ操作対象にする。経路自体を変えたい場合は設定の`develop_branch`/`main_branch`を見直す |
 | `pull_request_state_not_allowed` | マージ済みPRをクローズまたは再オープンしようとした | 対象PRの現在状態を確認する |
 | `pull_request_comment_invalid` | コメント本文が空、または65,536文字を超えている | 有効な長さの本文を指定する |
