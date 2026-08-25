@@ -11,7 +11,11 @@
 | `reparse_point_detected` | Configure the physical path without a symlink or junction. |
 | `remote_mismatch` | Make the Git remote match the configured GitHub owner and repository. |
 | `remote_https_required` | Change the Git remote to `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are not accepted. |
-| `git_not_found` / `git_failed` | Install Git for Windows, check `PATH`, and inspect `repo status`. |
+| `git_not_found` / `git_failed` | Install Git for Windows, check `PATH`, inspect `repo status`, and use `correlationId` to locate the audit event. |
+| `authentication_failed` / `permission_denied` | Refresh the configured credential or grant the required repository permission. |
+| `network_error` | Check DNS, proxy, TLS, and network connectivity, then retry. |
+| `remote_unavailable` | Verify the configured repository, remote, and ref. |
+| `non_fast_forward` | Fetch and reconcile remote changes before retrying. |
 | `working_tree_dirty` | Commit or stash changes when clean-tree enforcement is enabled. |
 | `branch_protection_denied` | GitHub branch protection or a repository ruleset rejected the rewrite. Review the target ref's rules and force-push policy. |
 | `token_permission_denied` | The configured token lacks repository write permission. Reissue or update the token, then run `auth test`. |

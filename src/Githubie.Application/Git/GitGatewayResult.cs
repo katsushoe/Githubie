@@ -31,6 +31,8 @@ public sealed record GitHistoryRewriteResult(
 /// </summary>
 public sealed record GitGatewayResult<T>(bool IsSuccess, T? Value, GitGatewayError? Error)
 {
+    public string? CorrelationId { get; init; }
+
     public static GitGatewayResult<T> Success(T value) => new(true, value, null);
 
     public static GitGatewayResult<T> Failure(GitGatewayError error) => new(false, default, error);
@@ -55,6 +57,8 @@ public enum GitGatewayError
     GitFailed,
     GitTimedOut,
     GitCancelled,
+    NetworkError,
+    RemoteUnavailable,
     AuthenticationFailed,
 
     WorkingTreeDirty,

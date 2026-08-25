@@ -19,7 +19,14 @@ public sealed record GithubieToolResult<T>(bool Ok, string Operation, string Rep
 /// <summary>
 /// MCP Toolのエラーを表す固定コード + 人間可読メッセージです。
 /// </summary>
-public sealed record GithubieToolError(string Code, string Message, bool Retryable = false, string? Recommendation = null);
+public sealed record GithubieToolError(string Code, string Message, bool Retryable = false, string? Recommendation = null)
+{
+    public string Summary => Message;
+
+    public string SuggestedAction => Recommendation ?? "Use the correlation ID to inspect the matching audit log entry.";
+
+    public string CorrelationId { get; init; } = Guid.NewGuid().ToString("N");
+}
 
 /// <summary>
 /// <see cref="GitGatewayError"/> / <see cref="GitHubError"/>をMCP Tool向けの固定エラーコードへ変換します。
@@ -29,7 +36,13 @@ public static class GithubieToolResultMapper
     public static GithubieToolResult<T> Map<T>(string operation, string repository, GitGatewayResult<T> result) =>
         result.IsSuccess
             ? GithubieToolResult<T>.Success(operation, repository, result.Value!)
-            : GithubieToolResult<T>.Failure(operation, repository, MapGitError(result.Error!.Value));
+            : GithubieToolResult<T>.Failure(
+                operation,
+                repository,
+                MapGitError(result.Error!.Value) with
+                {
+                    CorrelationId = result.CorrelationId ?? Guid.NewGuid().ToString("N"),
+                });
 
     public static GithubieToolResult<T> Map<T>(string operation, string repository, GitHubResult<T> result) =>
         result.IsSuccess
@@ -100,7 +113,9 @@ public static class GithubieToolResultMapper
         GitGatewayError.GitFailed => new("git_failed", "Git command failed."),
         GitGatewayError.GitTimedOut => new("timeout", "Git command timed out."),
         GitGatewayError.GitCancelled => new("git_failed", "Git command was cancelled."),
-        GitGatewayError.AuthenticationFailed => new("authentication_failed", "Git authentication failed."),
+        GitGatewayError.NetworkError => new("network_error", "Git could not reach the remote service.", true, "Check DNS, proxy, TLS, and network connectivity, then retry."),
+        GitGatewayError.RemoteUnavailable => new("remote_unavailable", "The configured remote or remote ref is unavailable.", false, "Verify the configured repository, remote, and ref before retrying."),
+        GitGatewayError.AuthenticationFailed => new("authentication_failed", "Git authentication failed.", false, "Refresh or replace the configured credential, then retry."),
         GitGatewayError.WorkingTreeDirty => new("working_tree_dirty", "Working tree has uncommitted changes."),
         GitGatewayError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed for this operation."),
         GitGatewayError.ProtectedBranch => new("protected_branch", "Direct push to a protected branch is not allowed."),
@@ -114,10 +129,10 @@ public static class GithubieToolResultMapper
         GitGatewayError.ApprovalDenied => new("approval_denied", "The history rewrite was denied."),
         GitGatewayError.ApprovalTimedOut => new("approval_timed_out", "The history rewrite approval timed out."),
         GitGatewayError.ApprovalUnavailable => new("approval_unavailable", "The approval prompt could not be displayed."),
-        GitGatewayError.PermissionDenied => new("permission_denied", "GitHub denied the Git operation."),
+        GitGatewayError.PermissionDenied => new("permission_denied", "GitHub denied the Git operation.", false, "Verify repository and token permissions before retrying."),
         GitGatewayError.NothingToPush => new("nothing_to_push", "There is nothing to push."),
-        GitGatewayError.NonFastForward => new("non_fast_forward", "The remote contains changes that prevent a fast-forward operation."),
-        _ => new("git_failed", "Git operation failed."),
+        GitGatewayError.NonFastForward => new("non_fast_forward", "The remote contains changes that prevent a fast-forward operation.", false, "Fetch and reconcile the remote changes before retrying."),
+        _ => new("git_failed", "Git operation failed for an unclassified safe diagnostic category."),
     };
 
     private static GithubieToolError MapGitHubError(GitHubError error) => error switch

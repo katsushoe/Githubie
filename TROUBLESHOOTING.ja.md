@@ -30,7 +30,11 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | error.code | 原因 | 対処 |
 | --- | --- | --- |
 | `git_not_found` | `git`実行ファイルがPATHにない | Git for Windowsを導入しPATHを通す（`githubie.exe doctor`の`[NG] Git`で切り分け可能） |
-| `git_failed` | Gitコマンドが非0で終了した | `repo status`や手動`git status`で状態を確認する |
+| `git_failed` | Gitコマンド失敗を安全に分類できなかった | `repo status`を確認し、`correlationId`で監査ログの対応事象を特定する |
+| `authentication_failed` / `permission_denied` | 認証情報または権限が不足している | 保存済み認証情報とRepository権限を確認する |
+| `network_error` | DNS、Proxy、TLSまたは通信に失敗した | 接続状態を確認してから再試行する |
+| `remote_unavailable` | RemoteまたはRemote refを利用できない | 設定済みRepository、Remote、refを確認する |
+| `non_fast_forward` | Remote変更によりfast-forwardできない | fetch後にRemote変更を統合して再試行する |
 | `remote_https_required` | Git RemoteがSSH形式になっている | `git remote set-url <remote> https://github.com/OWNER/REPOSITORY.git`でHTTPS形式へ変更する |
 | `timeout` | Gitコマンド（fetch/pull/push）が既定時間内に完了しなかった | ネットワーク状態を確認する。大きなリポジトリでは再試行する |
 | `working_tree_dirty` | `require_clean_working_tree=true`でWorking Treeに未コミット変更がある | ローカルでcommitまたはstashしてから再実行する |

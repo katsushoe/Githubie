@@ -27,6 +27,8 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.GitFailed] = "git_failed",
         [GitGatewayError.GitTimedOut] = "timeout",
         [GitGatewayError.GitCancelled] = "git_failed",
+        [GitGatewayError.NetworkError] = "network_error",
+        [GitGatewayError.RemoteUnavailable] = "remote_unavailable",
         [GitGatewayError.AuthenticationFailed] = "authentication_failed",
         [GitGatewayError.WorkingTreeDirty] = "working_tree_dirty",
         [GitGatewayError.BranchNotAllowed] = "branch_not_allowed",
@@ -133,6 +135,22 @@ public sealed class GithubieToolResultMapperTests
         var mapped = GithubieToolResultMapper.Map("register", "repo", result);
 
         mapped.Error!.Code.Should().Be("remote_https_required");
+    }
+
+    [Fact]
+    public void Map_UnclassifiedGitFailure_ContainsDiagnosticContract()
+    {
+        var result = GitGatewayResult<Application.Git.Unit>.Failure(GitGatewayError.GitFailed) with
+        {
+            CorrelationId = "0123456789abcdef0123456789abcdef",
+        };
+
+        var mapped = GithubieToolResultMapper.Map("fetch", "repo", result);
+
+        mapped.Error!.Summary.Should().NotBeNullOrWhiteSpace();
+        mapped.Error.SuggestedAction.Should().NotBeNullOrWhiteSpace();
+        mapped.Error.CorrelationId.Should().Be(result.CorrelationId);
+        mapped.Error.Retryable.Should().BeFalse();
     }
 
     public static IEnumerable<object[]> GitGatewayErrorValues() =>

@@ -79,7 +79,7 @@ public sealed class GitGateway(
         var result = await _commandClient.FetchAsync(resolved.Options!.LocalRoot, repository, resolved.Options.Remote, cancellationToken);
         return result.IsSuccess
             ? GitGatewayResult<Unit>.Success(Unit.Value)
-            : GitGatewayResult<Unit>.Failure(MapCommandFailure(result.Failure!.Value));
+            : GitGatewayResult<Unit>.Failure(ClassifyCommandFailure(result));
     }
 
     public async Task<GitGatewayResult<Unit>> PullAsync(string repository, string branch, CancellationToken cancellationToken)
@@ -102,9 +102,7 @@ public sealed class GitGateway(
             return GitGatewayResult<Unit>.Success(Unit.Value);
         }
 
-        return result.Failure == GitCommandFailure.Failed
-            ? GitGatewayResult<Unit>.Failure(GitGatewayError.NonFastForward)
-            : GitGatewayResult<Unit>.Failure(MapCommandFailure(result.Failure!.Value));
+        return GitGatewayResult<Unit>.Failure(ClassifyCommandFailure(result, pull: true));
     }
 
     public async Task<GitGatewayResult<Unit>> PushAsync(string repository, CancellationToken cancellationToken)
@@ -167,7 +165,7 @@ public sealed class GitGateway(
         }
 
         return result.Failure == GitCommandFailure.Failed
-            ? GitGatewayResult<Unit>.Failure(ClassifyPushFailure(result.StandardError))
+            ? GitGatewayResult<Unit>.Failure(ClassifyGitFailure(result.StandardError))
             : GitGatewayResult<Unit>.Failure(MapCommandFailure(result.Failure!.Value));
     }
 
@@ -308,7 +306,15 @@ public sealed class GitGateway(
         _ => GitGatewayError.GitFailed,
     };
 
-    private static GitGatewayError ClassifyPushFailure(string standardError)
+    private static GitGatewayError ClassifyCommandFailure(GitCommandResult result, bool pull = false)
+    {
+        if (result.Failure != GitCommandFailure.Failed)
+            return MapCommandFailure(result.Failure!.Value);
+
+        return ClassifyGitFailure(result.StandardError, pull);
+    }
+
+    private static GitGatewayError ClassifyGitFailure(string standardError, bool pull = false)
     {
         if (ContainsAny(standardError, "authentication failed", "could not read username", "invalid username or password"))
             return GitGatewayError.AuthenticationFailed;
@@ -316,6 +322,12 @@ public sealed class GitGateway(
             return GitGatewayError.PermissionDenied;
         if (ContainsAny(standardError, "non-fast-forward", "fetch first", "[rejected]"))
             return GitGatewayError.NonFastForward;
+        if (pull && ContainsAny(standardError, "not possible to fast-forward", "diverging branches"))
+            return GitGatewayError.NonFastForward;
+        if (ContainsAny(standardError, "could not resolve host", "failed to connect", "connection timed out", "connection reset", "network is unreachable", "tls", "ssl"))
+            return GitGatewayError.NetworkError;
+        if (ContainsAny(standardError, "repository not found", "remote repository not found", "does not appear to be a git repository", "couldn't find remote ref"))
+            return GitGatewayError.RemoteUnavailable;
         return GitGatewayError.GitFailed;
     }
 

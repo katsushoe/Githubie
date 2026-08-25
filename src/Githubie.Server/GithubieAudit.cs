@@ -19,7 +19,8 @@ public sealed record GithubieAuditEvent(
     string Result,
     long DurationMs,
     string? ErrorCode,
-    string? NewRepository = null);
+    string? NewRepository = null,
+    string? CorrelationId = null);
 
 public interface IGithubieAuditLogger
 {
@@ -31,8 +32,8 @@ public sealed class GithubieAuditLogger(ILogger<GithubieAuditLogger> logger) : I
     private readonly ILogger<GithubieAuditLogger> _logger = logger;
 
     public void Write(GithubieAuditEvent auditEvent) => _logger.LogInformation(
-        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode}",
-        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode);
+        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId}",
+        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId);
 }
 
 /// <summary>
@@ -61,13 +62,15 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
         var stopwatch = Stopwatch.StartNew();
         var result = await action();
         stopwatch.Stop();
+        var correlationId = result.IsSuccess ? null : Guid.NewGuid().ToString("N");
 
         audit.Write(new GithubieAuditEvent(
             Client: "mcp", Tool: tool, Repository: repository, Branch: branch, PullRequestNumber: null, Tag: null,
             Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
-            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString()));
+            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(),
+            CorrelationId: correlationId));
 
-        return result;
+        return result with { CorrelationId = correlationId };
     }
 }
 
