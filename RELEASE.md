@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.6.0.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.6.0.1`.
 
 ## Tags
 
@@ -49,3 +49,5 @@ Version `1.4.0.0` adds retry-safe GitHub Release inspection, update, and asset u
 Version `1.5.0.0` adds repository Description operations, policy-restricted GitHub Actions workflow dispatch and run inspection, and standard-user audit-log ACL support with non-fatal logger failures.
 
 Version `1.6.0.0` adds Server Instructions and the `githubie_usage` MCP prompt so agents receive Githubie's purpose, recommended workflow, and safety constraints from the server. It also allows the first push to create an absent remote branch after existing repository, remote, working-tree, and branch-policy checks pass.
+
+Version `1.6.0.1` aligns pull-request mergeability with the shared retry contract, distinguishes calculating, mergeable, conflicting, blocked, and temporarily unknown states, and adds bounded pre-merge polling.

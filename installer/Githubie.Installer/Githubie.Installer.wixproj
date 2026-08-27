@@ -2,11 +2,12 @@
   <PropertyGroup>
     <OutputType>Package</OutputType>
     <Platform>x64</Platform>
-    <ProductVersion Condition="'$(ProductVersion)' == ''">1.5.0</ProductVersion>
-    <DisplayVersion Condition="'$(DisplayVersion)' == ''">1.5.0.0</DisplayVersion>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">1.6.0</ProductVersion>
+    <DisplayVersion Condition="'$(DisplayVersion)' == ''">1.6.0.1</DisplayVersion>
     <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\.local\installer\publish</PublishDir>
     <OutputName>Githubie-$(DisplayVersion)-win-x64</OutputName>
     <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);$(DefineConstants)</DefineConstants>
+    <SuppressIces>ICE61</SuppressIces>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />

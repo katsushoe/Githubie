@@ -12,6 +12,8 @@ Version `1.0.0.0`ではx64 MSI、Portable ZIP、ソースからのBuildを利用
 
 ## 手順
 
+実機の標準インストール先は、MSI／Portable ZIP／ソースBuildのいずれも`C:\Githubie`とする。
+
 ### 1. ソース取得とテスト
 
 ```powershell

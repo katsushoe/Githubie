@@ -9,11 +9,14 @@
     InstallerVersion="500">
 
     <SummaryInformation Description="Githubie GitHub MCP Server" />
-    <MajorUpgrade DowngradeErrorMessage="A newer version of Githubie is already installed." />
+    <MajorUpgrade
+      AllowSameVersionUpgrades="yes"
+      DowngradeErrorMessage="A newer version of Githubie is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
+    <Property Id="ROOTDRIVE" Value="C:\" Secure="yes" />
 
-    <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLROOT" Name="Githubie">
+    <StandardDirectory Id="TARGETDIR">
+      <Directory Id="INSTALLROOT" Name="Githubie" ComponentGuidGenerationSeed="8A814A4E-0993-471B-960C-461C01187CFD">
         <Directory Id="BINDIR" Name="bin" />
         <Directory Id="CONFIGDIR" Name="config" />
         <Directory Id="LOGDIR" Name="logs" />

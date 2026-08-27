@@ -17,9 +17,9 @@
 
 上位パートが増えたら下位パートは0にリセットします。カテゴリの判断がつかない場合は、増加させる前にユーザーへ確認します。
 
-Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。
+Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.6.0.0`です（2026-08-26、Githubieの目的・利用手順・安全条件を通知するServer InstructionsとMCP Prompt対応、許可済みBranchの初回push対応）。
+現在のDisplay Versionは`1.6.0.1`です（2026-08-26、PRのmerge可能性を計算中・可能・競合・規則拒否・一時的不明へ分類し、限定pollingと再試行契約を追加）。
 
 ## Gitタグ
 
