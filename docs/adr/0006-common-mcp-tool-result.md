@@ -8,7 +8,7 @@ Git and GitHub REST Gateways use operation-specific result and error enums (`Git
 
 ## Decision
 
-Every Githubie MCP Tool returns the common structured shape `{ ok, operation, repository, data, error }`. Successful results place operation-specific typed content in `data` and set `error` to null. Failures set `data` to null and return `{ code, message }` in `error`. `GithubieToolResultMapper` converts every `GitGatewayError` and `GitHubError` to a fixed snake_case code and a fixed non-secret English message.
+Every Githubie MCP Tool returns the common structured shape `{ ok, operation, repository, data, error }`. Successful results place operation-specific typed content in `data` and set `error` to null. Failures set `data` to null. The error retains the compatible `code`, `message`, `recommendation`, and `retryable` fields and also returns the explicit diagnostic aliases `summary`, `suggestedAction`, and `correlationId`. The Git audit decorator writes the same correlation ID with the fixed internal error code, allowing an external failure to be matched to its safe audit event. `GithubieToolResultMapper` converts every `GitGatewayError` and `GitHubError` to a fixed snake_case code and a fixed non-secret English summary. Raw Git stderr is never returned. Authentication, network, permission, remote availability, non-fast-forward, worktree, and remote configuration failures are classified when safely identifiable; only unclassified failures use `git_failed`.
 
 ## Alternatives
 

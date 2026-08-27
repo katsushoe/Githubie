@@ -30,7 +30,11 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | error.code | 原因 | 対処 |
 | --- | --- | --- |
 | `git_not_found` | `git`実行ファイルがPATHにない | Git for Windowsを導入しPATHを通す（`githubie.exe doctor`の`[NG] Git`で切り分け可能） |
-| `git_failed` | Gitコマンドが非0で終了した | `repo status`や手動`git status`で状態を確認する |
+| `git_failed` | Gitコマンド失敗を安全に分類できなかった | `repo status`を確認し、`correlationId`で監査ログの対応事象を特定する |
+| `authentication_failed` / `permission_denied` | 認証情報または権限が不足している | 保存済み認証情報とRepository権限を確認する |
+| `network_error` | DNS、Proxy、TLSまたは通信に失敗した | 接続状態を確認してから再試行する |
+| `remote_unavailable` | RemoteまたはRemote refを利用できない | 設定済みRepository、Remote、refを確認する |
+| `non_fast_forward` | Remote変更によりfast-forwardできない | fetch後にRemote変更を統合して再試行する |
 | `remote_https_required` | Git RemoteがSSH形式になっている | `git remote set-url <remote> https://github.com/OWNER/REPOSITORY.git`でHTTPS形式へ変更する |
 | `timeout` | Gitコマンド（fetch/pull/push）が既定時間内に完了しなかった | ネットワーク状態を確認する。大きなリポジトリでは再試行する |
 | `working_tree_dirty` | `require_clean_working_tree=true`でWorking Treeに未コミット変更がある | ローカルでcommitまたはstashしてから再実行する |
@@ -52,6 +56,11 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | --- | --- | --- |
 | `branch_not_found` | `github_branch_get`等で指定したBranchがGitHub上に存在しない | Branch名を確認する（`github_branch_list`） |
 | `authentication_failed` | Personal Access Tokenが未登録、または無効（GitHub側でRevoke済み等） | `githubie.exe auth set <repository>`で再登録し、`auth test`で確認する |
+| `workflow_not_allowed` / `workflow_ref_not_allowed` | WorkflowまたはrefがRepository Policyの許可外 | `workflows`設定を確認し、Policy変更が必要なら対話承認付き更新を行う |
+| `workflow_input_invalid` | 未定義key、型、必須値、文字数がschema不適合 | Workflowごとのinput schemaへ合わせる |
+| `workflow_concurrency_limit` | 設定済み同時実行上限へ到達 | 実行中の起動処理完了後に再試行する |
+| `workflow_run_not_found` | Run IDが対象Repositoryに存在しない | RepositoryとRun IDを確認する |
+| `workflow_run_correlation_failed` | 起動runを一意に特定できない | run一覧で手動確認し、曖昧性解消まで再起動しない |
 | `permission_denied` | Tokenは有効だが対象操作の権限が不足 | Fine-grained PATの`Contents` / `Pull requests`権限を`Read and write`に見直す（[SECURITY.md](SECURITY.md)） |
 | `token_scope_missing` | 必要なScope/Permissionが不足 | `permission_denied`と同様にToken発行時の権限を見直す |
 | `github_api_error` | 上記以外のGitHub API側エラー、または応答が想定外の形式 | ログの`error_code`とGitHub側のステータスを照合する。GitHub側の障害情報も確認する |
@@ -59,14 +68,21 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `secondary_rate_limited` | Secondary Rate Limit（Abuse Detection）に抵触 | しばらく間隔を空けてから再実行する |
 | `pull_request_not_found` | 指定した`pull_request_number`が存在しない | PR番号を確認する（`github_pr_list`） |
 | `pull_request_not_open` | Mergeしようとした PR が既にclosed/merged | 対象PRの状態を確認する |
-| `pull_request_not_mergeable` | GitHub側でConflict等によりmerge不可 | GitHub UI/CLIでConflictを解消してから再実行する |
+| `pull_request_not_mergeable` | Conflictを確認済み | Conflictを解消してから再実行する |
+| `mergeability_calculating` | `calculating_retryable`。GitHubが計算中または反映待ち | `retry_after_seconds`秒待って`github_pr_get`またはmergeを再実行する |
+| `mergeability_unknown` | `unknown_retryable`。一時的に分類不能 | `retry_after_seconds`秒待って再確認する |
+| `pull_request_blocked` | 必須review・check・draft・branch規則等で拒否 | 必須条件を満たしてから再実行する |
 | `pull_request_route_not_allowed` | Source/Destinationが`develop_branch → main_branch`以外 | 許可経路のPRのみ操作対象にする。経路自体を変えたい場合は設定の`develop_branch`/`main_branch`を見直す |
 | `pull_request_state_not_allowed` | マージ済みPRをクローズまたは再オープンしようとした | 対象PRの現在状態を確認する |
 | `pull_request_comment_invalid` | コメント本文が空、または65,536文字を超えている | 有効な長さの本文を指定する |
 | `pull_request_review_invalid` | Review本文が65,536文字超、または変更要求の本文が空 | 有効な本文を指定する。変更要求では本文を省略しない |
 | `tag_not_found` | `github_tag_get`で指定したTagがGitHub上に存在しない | Tag名を確認する（`github_tag_list`） |
 | `tag_invalid` | Tag名が`tag_pattern`に一致しない | 命名規則（既定は`^v[0-9]+\.[0-9]+\.[0-9]+.*$`）に沿ったTag名にする |
-| `tag_already_exists` | 同名Tagが既に存在する | 別のTag名にする、または既存Tagを確認する（Tag削除Toolは公開していない） |
+| `tag_already_exists` | 同名Tagが既に存在する | 別のTag名にするか、既存Tagを確認する。削除が必要なら`github_tag_delete`を使う |
+| `release_not_found` | 指定したTagまたはRelease IDが存在しない | `github_release_list`で確認する |
+| `release_already_exists` | 同じTagに別のReleaseまたは公開済みReleaseがある | 既存Releaseを取得し、更新または成果物追加Toolを使う |
+| `release_asset_already_exists` | 同名成果物が既にある | 対象を除外するか、意図した置換時だけ`replace_existing=true`を指定する |
+| `release_asset_invalid` / `release_asset_not_found` / `release_upload_failed` | 成果物の場所、種類、存在、Uploadに失敗した | Repository配下のMSI、ZIP、`.sha256`、`SHA256SUMS.txt`、`.ps1`を1～10件指定し、draftのまま再試行する |
 | `tag_target_not_allowed` | Tag対象Branchが`tag_target_branch`と異なる | 既定では`main` HEADのみ許可。設定を確認する |
 | `network_error` | GitHub REST APIへの接続に失敗した | ネットワーク疎通・プロキシ設定を確認する |
 | `timeout`（GitHub API） | GitHub REST API呼び出しが既定時間内に完了しなかった | 再実行する。継続する場合はGitHub側の状態を確認する |
@@ -86,4 +102,4 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 `githubie.exe logs`でログディレクトリを確認し、該当日付の`githubie-yyyyMMdd.log`から`error_code`と前後の文脈を確認する。監査ログにはSecretを含まないため、ログ自体の共有は問題ない。
 # 承認画面の診断
 
-Repository登録または履歴訂正が`approval_unavailable`を返した場合は、Githubieの日次ログを確認します。対話セッション取得失敗とプロセス起動失敗は別々に記録されます。表示済み画面への未応答だけが`approval_timed_out`となり、起動失敗時は承認タイムアウトを待ちません。
+Repository登録または履歴訂正が`approval_unavailable`を返した場合は、Githubieの日次ログを確認します。対話セッション取得失敗、プロセス起動失敗、承認プロセスの空応答は別々に記録されます。コンソール接続とリモートデスクトップ接続のどちらでも、アクティブなWindowsセッションが承認画面の表示先になります。表示済み画面への未応答だけが`approval_timed_out`となり、起動失敗や通信異常を`approval_denied`として扱いません。

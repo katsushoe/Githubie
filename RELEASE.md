@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts. The current display version is `1.3.10.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.6.0.2`.
 
 ## Tags
 
@@ -43,3 +43,13 @@ Version `1.3.8.0` adds pull-request approval and change-request review submissio
 Version `1.3.9.0` requires HTTPS GitHub remotes so repository configuration matches PAT-authenticated Git transport.
 
 Version `1.3.10.0` adds generic CLI access to every MCP tool through the running server, preserving the same policies, approvals, and audit path.
+
+Version `1.4.0.0` adds retry-safe GitHub Release inspection, update, and asset upload/replacement, expands approved distribution asset types, and adds policy-validated tag deletion.
+
+Version `1.5.0.0` adds repository Description operations, policy-restricted GitHub Actions workflow dispatch and run inspection, and standard-user audit-log ACL support with non-fatal logger failures.
+
+Version `1.6.0.0` adds Server Instructions and the `githubie_usage` MCP prompt so agents receive Githubie's purpose, recommended workflow, and safety constraints from the server. It also allows the first push to create an absent remote branch after existing repository, remote, working-tree, and branch-policy checks pass.
+
+Version `1.6.0.1` aligns pull-request mergeability with the shared retry contract, distinguishes calculating, mergeable, conflicting, blocked, and temporarily unknown states, and adds bounded pre-merge polling.
+
+Version `1.6.0.2` persists repository registrations in SQLite with one-time JSON migration, targets approval prompts to active console or Remote Desktop sessions, and reports malformed prompt responses as unavailable instead of denied.

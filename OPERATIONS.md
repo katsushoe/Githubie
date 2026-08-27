@@ -12,7 +12,7 @@ Retain a repository mirror or `refs/backup/*` before rewriting. Run `github_hist
 
 ## GitHub Release
 
-Create the version tag at main HEAD first and generate MSI/ZIP plus `.sha256` files under the repository local root. Pass their absolute paths to `github_release_create`. Githubie creates a draft, uploads every asset, and publishes only after all uploads succeed. If the operation fails, inspect the retained GitHub draft and correct duplicate assets or permissions before retrying.
+Create the version tag at main HEAD first and generate approved assets under the repository local root. MSI, ZIP, `.sha256`, `SHA256SUMS.txt`, and distribution `.ps1` files are accepted. Pass their absolute paths to `github_release_create`. Githubie creates a draft, uploads every missing asset, and publishes only after all uploads succeed. Retrying the same matching draft skips completed uploads. Use `github_release_list`/`get` to inspect state, `github_release_update` for metadata, and `github_release_asset_upload` for later additions; same-name replacement requires `replace_existing=true`.
 
 ## Service Management
 
@@ -27,16 +27,20 @@ Install the service first with `githubie.exe service install` when using a porta
 
 ## Logs and Diagnostics
 
-`githubie.exe logs` prints the log directory. Daily files use `<install-root>\logs\githubie-yyyyMMdd.log`. Run `githubie.exe doctor`, followed by `config check`, `repo status`, or `auth test` to isolate failures.
+`githubie.exe logs` prints the log directory. Daily files use `<install-root>\logs\githubie-yyyyMMdd.log`. MSI installations allow standard users to append logs. If logging fails because of ACL, disk, or transient I/O errors, the requested CLI/MCP operation continues rather than terminating with an unhandled exception. Run `githubie.exe doctor`, followed by `config check`, `repo status`, or `auth test` to isolate failures.
 
 ## Token Rotation
 
 Replace a token with `githubie.exe auth set <repository>` and revoke the previous token on GitHub. Remove a stored token with `githubie.exe auth delete <repository>`.
 
-## Configuration Changes
+## Workflow Dispatch
 
-After manually editing `githubie.json`, run `githubie.exe config check` and `githubie.exe restart`. Manual edits are loaded at startup; entries added through `github_repository_register` are applied immediately.
+Configure the workflow filename/ID, allowed refs, and input schema through the approved repository update boundary. Call `github_workflow_dispatch`, retain the returned run ID, then poll `github_workflow_run_get`. If correlation fails, inspect `github_workflow_run_list` and do not dispatch again until the existing run is identified.
+
+## Repository Database
+
+Repository registrations and policies are stored in `data\githubie.db`. Existing validated JSON entries are imported once when the database is first created. After that migration, use the approval-backed repository management operations; editing JSON does not update database registrations. Endpoint changes in `githubie.json` still require `config check` and a service restart.
 
 ## Backup
 
-Back up `config\githubie.json` and, only when required, `data\secrets\`. DPAPI LocalMachine ciphertext cannot be restored on another machine; register tokens again after migration. Retain `logs\` according to your audit policy.
+Stop the service and back up `config\githubie.json`, `data\githubie.db`, and any adjacent `githubie.db-wal`/`githubie.db-shm` files as one consistent snapshot. Back up `data\secrets\` only when required. DPAPI LocalMachine ciphertext cannot be restored on another machine; register tokens again after migration. Retain `logs\` according to your audit policy.

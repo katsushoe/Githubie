@@ -1,6 +1,24 @@
 namespace Githubie.Application.GitHub;
 
-public sealed record GitHubRepositoryInfo(string Owner, string Repo, string DefaultBranch);
+public sealed record GitHubRepositoryInfo(string Owner, string Repo, string DefaultBranch, string? Description);
+
+public sealed record GitHubWorkflowRunInfo(
+    long Id,
+    string Workflow,
+    string Ref,
+    string HeadSha,
+    string Event,
+    string Status,
+    string? Conclusion,
+    string Actor,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    string Url);
+
+public sealed record GitHubWorkflowDispatchRequest(string Workflow, string Ref, IReadOnlyDictionary<string, string> Inputs);
+
+public sealed record GitHubWorkflowDispatchInfo(
+    string Workflow, string Ref, DateTimeOffset DispatchedAt, GitHubWorkflowRunInfo Run);
 
 public sealed record GitHubBranchInfo(string Name, string HeadSha, bool Protected);
 
@@ -27,7 +45,19 @@ public sealed record GitHubPullRequestInfo(
     bool? Mergeable,
     DateTimeOffset Created,
     DateTimeOffset Updated,
-    string Url);
+    string Url,
+    string MergeabilityStatus = GitHubMergeabilityStatus.UnknownRetryable,
+    int? RetryAfterSeconds = null);
+
+/// <summary>Pull Requestのマージ可能性を表す安定した外部状態名です。</summary>
+public static class GitHubMergeabilityStatus
+{
+    public const string CalculatingRetryable = "calculating_retryable";
+    public const string Mergeable = "mergeable";
+    public const string Conflicting = "conflicting";
+    public const string Blocked = "blocked";
+    public const string UnknownRetryable = "unknown_retryable";
+}
 
 public sealed record GitHubPullRequestCreate(string Title, string? Description, bool Draft);
 
@@ -73,7 +103,11 @@ public sealed record GitHubReleaseCreate(
     bool Prerelease,
     IReadOnlyList<string> Assets);
 
-public sealed record GitHubReleaseAssetInfo(string Name, long Size, string DownloadUrl);
+public sealed record GitHubReleaseUpdate(string? Name, string? Body, bool? Draft, bool? Prerelease);
+
+public sealed record GitHubReleaseAssetUpload(long ReleaseId, IReadOnlyList<string> Assets, bool ReplaceExisting);
+
+public sealed record GitHubReleaseAssetInfo(string Name, long Size, string DownloadUrl, long Id = 0);
 
 public sealed record GitHubReleaseInfo(
     long Id,

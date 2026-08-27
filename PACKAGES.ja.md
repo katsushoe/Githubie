@@ -16,6 +16,7 @@
 パッケージには環境依存データを含めません。
 
 - `config/githubie.json`
+- `data/githubie.db`（Repository登録とPolicy。実行時に作成）
 - `data/`およびDPAPI Tokenファイル
 - `logs/`および監査ログ
 - `.local/`、テスト結果、開発機固有データ

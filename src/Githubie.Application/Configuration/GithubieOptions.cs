@@ -32,4 +32,20 @@ public sealed record RepositoryOptions(
     string TagTargetBranch,
     string TagPattern,
     string MergeMethod,
-    bool RequireCleanWorkingTree);
+    bool RequireCleanWorkingTree)
+{
+    public IReadOnlyDictionary<string, WorkflowPolicyOptions> Workflows { get; init; }
+        = new Dictionary<string, WorkflowPolicyOptions>(StringComparer.Ordinal);
+}
+
+public sealed record WorkflowPolicyOptions(
+    IReadOnlyList<string> AllowedRefs,
+    IReadOnlyDictionary<string, WorkflowInputPolicyOptions> Inputs,
+    int MaxConcurrent = 1,
+    int CorrelationTimeoutSeconds = 15);
+
+public sealed record WorkflowInputPolicyOptions(
+    string Type = "string",
+    bool Required = false,
+    int MaxLength = 256,
+    bool Secret = false);

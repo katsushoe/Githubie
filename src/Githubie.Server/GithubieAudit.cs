@@ -19,7 +19,8 @@ public sealed record GithubieAuditEvent(
     string Result,
     long DurationMs,
     string? ErrorCode,
-    string? NewRepository = null);
+    string? NewRepository = null,
+    string? CorrelationId = null);
 
 public interface IGithubieAuditLogger
 {
@@ -31,8 +32,8 @@ public sealed class GithubieAuditLogger(ILogger<GithubieAuditLogger> logger) : I
     private readonly ILogger<GithubieAuditLogger> _logger = logger;
 
     public void Write(GithubieAuditEvent auditEvent) => _logger.LogInformation(
-        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode}",
-        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode);
+        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId}",
+        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId);
 }
 
 /// <summary>
@@ -61,13 +62,15 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
         var stopwatch = Stopwatch.StartNew();
         var result = await action();
         stopwatch.Stop();
+        var correlationId = result.IsSuccess ? null : Guid.NewGuid().ToString("N");
 
         audit.Write(new GithubieAuditEvent(
             Client: "mcp", Tool: tool, Repository: repository, Branch: branch, PullRequestNumber: null, Tag: null,
             Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
-            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString()));
+            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(),
+            CorrelationId: correlationId));
 
-        return result;
+        return result with { CorrelationId = correlationId };
     }
 }
 
@@ -135,6 +138,30 @@ public sealed class AuditedRepositoryManagementService(
 /// </summary>
 public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inner, IGithubieAuditLogger audit) : IGitHubRepositoryGateway
 {
+    public Task<GitHubResult<GitHubRepositoryInfo>> GetRepositoryAsync(string repository, CancellationToken cancellationToken) =>
+        RunAsync("github_repository_description_get", repository, null, null, () => inner.GetRepositoryAsync(repository, cancellationToken));
+
+    public Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        string repository, string description, CancellationToken cancellationToken) =>
+        RunAsync("github_repository_description_update", repository, null, null,
+            () => inner.UpdateRepositoryDescriptionAsync(repository, description, cancellationToken));
+
+    public Task<GitHubResult<GitHubWorkflowDispatchInfo>> DispatchWorkflowAsync(
+        string repository, GitHubWorkflowDispatchRequest request, CancellationToken cancellationToken) =>
+        RunAsync("github_workflow_dispatch", repository, request.Ref, null,
+            () => inner.DispatchWorkflowAsync(repository, request, cancellationToken));
+
+    public Task<GitHubResult<GitHubWorkflowRunInfo>> GetWorkflowRunAsync(
+        string repository, long runId, CancellationToken cancellationToken) =>
+        RunAsync("github_workflow_run_get", repository, null, null,
+            () => inner.GetWorkflowRunAsync(repository, runId, cancellationToken));
+
+    public Task<GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>> ListWorkflowRunsAsync(
+        string repository, string? workflow, string? branch, string? eventName, string? status,
+        int limit, CancellationToken cancellationToken) =>
+        RunAsync("github_workflow_run_list", repository, branch, null,
+            () => inner.ListWorkflowRunsAsync(repository, workflow, branch, eventName, status, limit, cancellationToken));
+
     public Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repository, CancellationToken cancellationToken) =>
         RunAsync("github_branch_list", repository, null, null, () => inner.ListBranchesAsync(repository, cancellationToken));
 
@@ -187,6 +214,23 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
 
     public Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string? message, CancellationToken cancellationToken) =>
         RunAsync("github_tag_create", repository, null, null, () => inner.CreateTagAsync(repository, tag, message, cancellationToken), tag);
+
+    public Task<GitHubResult<bool>> DeleteTagAsync(string repository, string tag, CancellationToken cancellationToken) =>
+        RunAsync("github_tag_delete", repository, null, null, () => inner.DeleteTagAsync(repository, tag, cancellationToken), tag);
+
+    public Task<GitHubResult<IReadOnlyList<GitHubReleaseInfo>>> ListReleasesAsync(string repository, CancellationToken cancellationToken) =>
+        RunAsync("github_release_list", repository, null, null, () => inner.ListReleasesAsync(repository, cancellationToken));
+
+    public Task<GitHubResult<GitHubReleaseInfo>> GetReleaseAsync(string repository, string tag, CancellationToken cancellationToken) =>
+        RunAsync("github_release_get", repository, null, null, () => inner.GetReleaseAsync(repository, tag, cancellationToken), tag);
+
+    public Task<GitHubResult<GitHubReleaseInfo>> UpdateReleaseAsync(
+        string repository, long releaseId, GitHubReleaseUpdate request, CancellationToken cancellationToken) =>
+        RunAsync("github_release_update", repository, null, null, () => inner.UpdateReleaseAsync(repository, releaseId, request, cancellationToken));
+
+    public Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
+        string repository, GitHubReleaseAssetUpload request, CancellationToken cancellationToken) =>
+        RunAsync("github_release_asset_upload", repository, null, null, () => inner.UploadReleaseAssetsAsync(repository, request, cancellationToken));
 
     public Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
         string repository, GitHubReleaseCreate request, CancellationToken cancellationToken) =>

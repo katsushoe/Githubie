@@ -11,7 +11,8 @@ public sealed record RepositoryUpdateRequest(
     IReadOnlyList<string> ProtectedBranches,
     string TagTargetBranch,
     string TagPattern,
-    bool RequireCleanWorkingTree);
+    bool RequireCleanWorkingTree,
+    IReadOnlyDictionary<string, WorkflowPolicyOptions>? Workflows = null);
 
 public sealed record RepositoryMutationInfo(bool Approved, string RepositoryId);
 
@@ -77,7 +78,8 @@ public sealed class RepositoryManagementService(
                     [$"Direct push: {string.Join(", ", request.DirectPushBranches)}",
                      $"Pull: {string.Join(", ", request.PullBranches)}",
                      $"Protected: {string.Join(", ", request.ProtectedBranches)}",
-                     $"Tag target: {request.TagTargetBranch}"]),
+                     $"Tag target: {request.TagTargetBranch}",
+                     $"Workflows: {string.Join(", ", request.Workflows?.Keys ?? existing.Workflows.Keys)}"]),
                 ApprovalTimeout,
                 cancellationToken);
             var approvalError = MapApprovalError(approval.Outcome);
@@ -91,6 +93,7 @@ public sealed class RepositoryManagementService(
                 TagTargetBranch = request.TagTargetBranch,
                 TagPattern = request.TagPattern,
                 RequireCleanWorkingTree = request.RequireCleanWorkingTree,
+                Workflows = request.Workflows ?? existing.Workflows,
             };
             try { await configurationStore.SaveRepositoryAsync(repositoryId, updated, cancellationToken); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -167,8 +170,19 @@ public sealed class RepositoryManagementService(
         if (request.DirectPushBranches.Any(x => !IsValidName(x))
             || request.PullBranches.Any(x => !IsValidName(x))
             || request.ProtectedBranches.Any(x => !IsValidName(x))) return false;
-        try { _ = new Regex(request.TagPattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)); return true; }
+        try { _ = new Regex(request.TagPattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)); }
         catch (ArgumentException) { return false; }
+        if (request.Workflows is null) return true;
+        return request.Workflows.All(item =>
+            !string.IsNullOrWhiteSpace(item.Key)
+            && item.Value.AllowedRefs.Count > 0
+            && item.Value.AllowedRefs.All(IsValidName)
+            && item.Value.MaxConcurrent is >= 1 and <= 10
+            && item.Value.CorrelationTimeoutSeconds is >= 1 and <= 120
+            && item.Value.Inputs.All(input =>
+                !string.IsNullOrWhiteSpace(input.Key)
+                && input.Value.Type is "string" or "boolean" or "integer"
+                && input.Value.MaxLength is >= 1 and <= 4096));
     }
 
     private static bool IsValidName(string value) =>

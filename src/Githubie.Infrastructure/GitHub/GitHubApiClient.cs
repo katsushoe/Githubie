@@ -45,7 +45,75 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             return GitHubResult<GitHubRepositoryInfo>.Failure(GitHubError.InvalidResponse);
         }
 
-        return GitHubResult<GitHubRepositoryInfo>.Success(new GitHubRepositoryInfo(owner, repo, body.DefaultBranch));
+        return GitHubResult<GitHubRepositoryInfo>.Success(new GitHubRepositoryInfo(owner, repo, body.DefaultBranch, body.Description));
+    }
+
+    public async Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        string repositoryId, string owner, string repo, string description, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Patch, $"repos/{owner}/{repo}", null, cancellationToken,
+            jsonBody: new RepositoryDescriptionUpdate(description),
+            unprocessableError: GitHubError.RepositoryDescriptionInvalid);
+        if (!response.IsSuccess)
+        {
+            var error = response.Error == GitHubError.PermissionDenied ? GitHubError.TokenScopeMissing : response.Error!.Value;
+            return GitHubResult<GitHubRepositoryInfo>.Failure(error);
+        }
+
+        var body = await ReadAsync<RepositoryResponse>(response.Value!, cancellationToken);
+        if (body is null || string.IsNullOrEmpty(body.DefaultBranch))
+            return GitHubResult<GitHubRepositoryInfo>.Failure(GitHubError.InvalidResponse);
+
+        return GitHubResult<GitHubRepositoryInfo>.Success(new GitHubRepositoryInfo(owner, repo, body.DefaultBranch, body.Description));
+    }
+
+    public async Task<GitHubResult<bool>> DispatchWorkflowAsync(
+        string repositoryId, string owner, string repo, GitHubWorkflowDispatchRequest request, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Post,
+            $"repos/{owner}/{repo}/actions/workflows/{Uri.EscapeDataString(request.Workflow)}/dispatches",
+            null, cancellationToken, jsonBody: new WorkflowDispatchBody(request.Ref, request.Inputs),
+            notFoundError: GitHubError.WorkflowNotAllowed,
+            unprocessableError: GitHubError.WorkflowInputInvalid);
+        if (!response.IsSuccess) return GitHubResult<bool>.Failure(response.Error!.Value);
+        response.Value!.Dispose();
+        return GitHubResult<bool>.Success(true);
+    }
+
+    public async Task<GitHubResult<GitHubWorkflowRunInfo>> GetWorkflowRunAsync(
+        string repositoryId, string owner, string repo, long runId, CancellationToken cancellationToken)
+    {
+        if (runId <= 0) return GitHubResult<GitHubWorkflowRunInfo>.Failure(GitHubError.WorkflowRunNotFound);
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/actions/runs/{runId}", null, cancellationToken,
+            notFoundError: GitHubError.WorkflowRunNotFound);
+        if (!response.IsSuccess) return GitHubResult<GitHubWorkflowRunInfo>.Failure(response.Error!.Value);
+        var body = await ReadAsync<WorkflowRunResponse>(response.Value!, cancellationToken);
+        return body is null || !IsValidWorkflowRun(body)
+            ? GitHubResult<GitHubWorkflowRunInfo>.Failure(GitHubError.InvalidResponse)
+            : GitHubResult<GitHubWorkflowRunInfo>.Success(ToWorkflowRunInfo(body));
+    }
+
+    public async Task<GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>> ListWorkflowRunsAsync(
+        string repositoryId, string owner, string repo, string? workflow, string? branch,
+        string? eventName, string? status, int limit, CancellationToken cancellationToken)
+    {
+        var path = workflow is null
+            ? $"repos/{owner}/{repo}/actions/runs"
+            : $"repos/{owner}/{repo}/actions/workflows/{Uri.EscapeDataString(workflow)}/runs";
+        var query = new List<string> { $"per_page={Math.Clamp(limit, 1, 100)}" };
+        if (branch is not null) query.Add($"branch={Uri.EscapeDataString(branch)}");
+        if (eventName is not null) query.Add($"event={Uri.EscapeDataString(eventName)}");
+        if (status is not null) query.Add($"status={Uri.EscapeDataString(status)}");
+        var response = await SendAsync(repositoryId, HttpMethod.Get, $"{path}?{string.Join('&', query)}", null, cancellationToken,
+            notFoundError: GitHubError.WorkflowNotAllowed);
+        if (!response.IsSuccess) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(response.Error!.Value);
+        var body = await ReadAsync<WorkflowRunsResponse>(response.Value!, cancellationToken);
+        if (body?.WorkflowRuns is null) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(GitHubError.InvalidResponse);
+        var runs = body.WorkflowRuns.Where(IsValidWorkflowRun).Take(limit).Select(ToWorkflowRunInfo).ToArray();
+        return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Success(runs);
     }
 
     public async Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken)
@@ -329,6 +397,87 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             request.Tag, request.TargetCommitSha, request.Message, null, null));
     }
 
+    public async Task<GitHubResult<bool>> DeleteTagAsync(string repositoryId, string owner, string repo, string tag, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Delete, $"repos/{owner}/{repo}/git/refs/tags/{Uri.EscapeDataString(tag)}", null,
+            cancellationToken, notFoundError: GitHubError.TagNotFound);
+        if (!response.IsSuccess) return GitHubResult<bool>.Failure(response.Error!.Value);
+        response.Value!.Dispose();
+        return GitHubResult<bool>.Success(true);
+    }
+
+    public async Task<GitHubResult<IReadOnlyList<GitHubReleaseInfo>>> ListReleasesAsync(
+        string repositoryId, string owner, string repo, CancellationToken cancellationToken)
+    {
+        var page = await GetAllPagesAsync<ReleaseResponse>(repositoryId, $"repos/{owner}/{repo}/releases", cancellationToken);
+        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.Failure(page.Error!.Value);
+        var releases = page.Value!;
+        if (releases.Any(release => !IsValidRelease(release)))
+            return GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.Failure(GitHubError.InvalidResponse);
+        return GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.Success(releases.Select(ToReleaseInfo).ToArray());
+    }
+
+    public async Task<GitHubResult<GitHubReleaseInfo>> GetReleaseAsync(
+        string repositoryId, string owner, string repo, string tag, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/releases/tags/{Uri.EscapeDataString(tag)}", null,
+            cancellationToken, notFoundError: GitHubError.ReleaseNotFound);
+        if (!response.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(response.Error!.Value);
+        var release = await ReadAsync<ReleaseResponse>(response.Value!, cancellationToken);
+        return IsValidRelease(release)
+            ? GitHubResult<GitHubReleaseInfo>.Success(ToReleaseInfo(release!))
+            : GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
+    }
+
+    public async Task<GitHubResult<GitHubReleaseInfo>> UpdateReleaseAsync(
+        string repositoryId, string owner, string repo, long releaseId, GitHubReleaseUpdate request, CancellationToken cancellationToken)
+    {
+        if (releaseId <= 0) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.ReleaseNotFound);
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Patch, $"repos/{owner}/{repo}/releases/{releaseId}", null, cancellationToken,
+            jsonBody: request, notFoundError: GitHubError.ReleaseNotFound);
+        if (!response.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(response.Error!.Value);
+        var release = await ReadAsync<ReleaseResponse>(response.Value!, cancellationToken);
+        return IsValidRelease(release)
+            ? GitHubResult<GitHubReleaseInfo>.Success(ToReleaseInfo(release!))
+            : GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
+    }
+
+    public async Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
+        string repositoryId, string owner, string repo, string localRoot, GitHubReleaseAssetUpload request, CancellationToken cancellationToken)
+    {
+        var assets = ValidateReleaseAssets(localRoot, request.Assets);
+        if (assets.Error is not null) return GitHubResult<GitHubReleaseInfo>.Failure(assets.Error.Value);
+        var currentResponse = await SendAsync(
+            repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/releases/{request.ReleaseId}", null, cancellationToken,
+            notFoundError: GitHubError.ReleaseNotFound);
+        if (!currentResponse.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(currentResponse.Error!.Value);
+        var release = await ReadAsync<ReleaseResponse>(currentResponse.Value!, cancellationToken);
+        if (!IsValidRelease(release)) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
+
+        foreach (var path in assets.Paths!)
+        {
+            var existing = release!.Assets?.FirstOrDefault(asset =>
+                string.Equals(asset.Name, Path.GetFileName(path), StringComparison.OrdinalIgnoreCase));
+            if (existing is not null && !request.ReplaceExisting)
+                return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.ReleaseAssetAlreadyExists);
+            if (existing is not null)
+            {
+                var deleted = await SendAsync(
+                    repositoryId, HttpMethod.Delete, $"repos/{owner}/{repo}/releases/assets/{existing.Id}", null,
+                    cancellationToken, notFoundError: GitHubError.ReleaseAssetNotFound);
+                if (!deleted.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(deleted.Error!.Value);
+                deleted.Value!.Dispose();
+            }
+            var upload = await UploadReleaseAssetAsync(repositoryId, owner, repo, release.UploadUrl!, path, cancellationToken);
+            if (!upload.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(upload.Error!.Value);
+        }
+
+        return await GetReleaseAsync(repositoryId, owner, repo, release!.TagName!, cancellationToken);
+    }
+
     public async Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
         string repositoryId,
         string owner,
@@ -340,17 +489,40 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var assets = ValidateReleaseAssets(localRoot, request.Assets);
         if (assets.Error is not null) return GitHubResult<GitHubReleaseInfo>.Failure(assets.Error.Value);
 
-        var createPayload = new CreateReleaseRequest(request.Tag, request.Name, request.Body, true, request.Prerelease);
-        var created = await SendAsync(
-            repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/releases", null, cancellationToken,
-            jsonBody: createPayload, unprocessableError: GitHubError.ReleaseAlreadyExists);
-        if (!created.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(created.Error!.Value);
-        var release = await ReadAsync<ReleaseResponse>(created.Value!, cancellationToken);
-        if (!IsValidRelease(release)) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
-
-        var uploadedAssets = new List<GitHubReleaseAssetInfo>(assets.Paths!.Count);
-        foreach (var path in assets.Paths)
+        ReleaseResponse? release = null;
+        var existingResponse = await SendAsync(
+            repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/releases/tags/{Uri.EscapeDataString(request.Tag)}", null,
+            cancellationToken, notFoundError: GitHubError.ReleaseNotFound);
+        if (existingResponse.IsSuccess)
         {
+            release = await ReadAsync<ReleaseResponse>(existingResponse.Value!, cancellationToken);
+            if (!IsValidRelease(release)) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
+            if (!release!.Draft || !string.Equals(release.Name, request.Name, StringComparison.Ordinal) ||
+                release.Prerelease != request.Prerelease)
+                return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.ReleaseAlreadyExists);
+        }
+        else if (existingResponse.Error != GitHubError.ReleaseNotFound)
+        {
+            return GitHubResult<GitHubReleaseInfo>.Failure(existingResponse.Error!.Value);
+        }
+
+        if (release is null)
+        {
+            var createPayload = new CreateReleaseRequest(request.Tag, request.Name, request.Body, true, request.Prerelease);
+            var created = await SendAsync(
+                repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/releases", null, cancellationToken,
+                jsonBody: createPayload, unprocessableError: GitHubError.ReleaseAlreadyExists);
+            if (!created.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(created.Error!.Value);
+            release = await ReadAsync<ReleaseResponse>(created.Value!, cancellationToken);
+            if (!IsValidRelease(release)) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
+        }
+
+        var uploadedAssets = release!.Assets?.Select(asset =>
+            new GitHubReleaseAssetInfo(asset.Name!, asset.Size, asset.BrowserDownloadUrl!, asset.Id)).ToList() ?? [];
+        foreach (var path in assets.Paths!)
+        {
+            if (uploadedAssets.Any(asset => string.Equals(asset.Name, Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)))
+                continue;
             var upload = await UploadReleaseAssetAsync(repositoryId, owner, repo, release!.UploadUrl!, path, cancellationToken);
             if (!upload.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(upload.Error!.Value);
             uploadedAssets.Add(upload.Value!);
@@ -393,7 +565,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var body = await ReadAsync<ReleaseAssetResponse>(response.Value!, cancellationToken);
         return body is null || string.IsNullOrWhiteSpace(body.Name) || string.IsNullOrWhiteSpace(body.BrowserDownloadUrl)
             ? GitHubResult<GitHubReleaseAssetInfo>.Failure(GitHubError.InvalidResponse)
-            : GitHubResult<GitHubReleaseAssetInfo>.Success(new(body.Name, body.Size, body.BrowserDownloadUrl));
+            : GitHubResult<GitHubReleaseAssetInfo>.Success(new(body.Name, body.Size, body.BrowserDownloadUrl, body.Id));
     }
 
     private static (IReadOnlyList<string>? Paths, GitHubError? Error) ValidateReleaseAssets(
@@ -410,8 +582,10 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
             { return (null, GitHubError.ReleaseAssetInvalid); }
             var extension = Path.GetExtension(path).ToLowerInvariant();
-            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) ||
-                extension is not (".msi" or ".zip" or ".sha256") || !names.Add(Path.GetFileName(path)))
+            var fileName = Path.GetFileName(path);
+            var allowed = extension is ".msi" or ".zip" or ".sha256" or ".ps1" ||
+                string.Equals(fileName, "SHA256SUMS.txt", StringComparison.OrdinalIgnoreCase);
+            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !allowed || !names.Add(fileName))
                 return (null, GitHubError.ReleaseAssetInvalid);
             if (!File.Exists(path)) return (null, GitHubError.ReleaseAssetNotFound);
             paths.Add(path);
@@ -429,6 +603,12 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private static bool IsValidRelease(ReleaseResponse? release) => release is not null && release.Id > 0 &&
         !string.IsNullOrWhiteSpace(release.TagName) && !string.IsNullOrWhiteSpace(release.Name) &&
         !string.IsNullOrWhiteSpace(release.UploadUrl) && !string.IsNullOrWhiteSpace(release.HtmlUrl);
+
+    private static GitHubReleaseInfo ToReleaseInfo(ReleaseResponse release) => new(
+        release.Id, release.TagName!, release.Name!, release.Draft, release.Prerelease, release.HtmlUrl!,
+        release.Assets?.Where(asset => asset.Id > 0 && !string.IsNullOrWhiteSpace(asset.Name) &&
+            !string.IsNullOrWhiteSpace(asset.BrowserDownloadUrl))
+            .Select(asset => new GitHubReleaseAssetInfo(asset.Name!, asset.Size, asset.BrowserDownloadUrl!, asset.Id)).ToArray() ?? []);
 
     private async Task<GitHubResult<IReadOnlyList<T>>> GetAllPagesAsync<T>(string repositoryId, string firstPagePath, CancellationToken cancellationToken)
     {
@@ -628,6 +808,16 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private static bool IsValidBranch(BranchResponse branch) =>
         !string.IsNullOrEmpty(branch.Name) && !string.IsNullOrEmpty(branch.Commit?.Sha);
 
+    private static bool IsValidWorkflowRun(WorkflowRunResponse run) =>
+        run.Id > 0 && !string.IsNullOrEmpty(run.Name) && !string.IsNullOrEmpty(run.HeadBranch)
+        && !string.IsNullOrEmpty(run.HeadSha) && !string.IsNullOrEmpty(run.Event)
+        && !string.IsNullOrEmpty(run.Status) && !string.IsNullOrEmpty(run.Actor?.Login)
+        && !string.IsNullOrEmpty(run.HtmlUrl);
+
+    private static GitHubWorkflowRunInfo ToWorkflowRunInfo(WorkflowRunResponse run) => new(
+        run.Id, run.Name!, run.HeadBranch!, run.HeadSha!, run.Event!, run.Status!, run.Conclusion,
+        run.Actor!.Login!, run.CreatedAt, run.UpdatedAt, run.HtmlUrl!);
+
     private static bool IsValidPullRequest(PullRequestResponse pr) =>
         pr.Number > 0
         && !string.IsNullOrEmpty(pr.Title)
@@ -649,7 +839,29 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         pr.Mergeable,
         pr.CreatedAt,
         pr.UpdatedAt,
-        pr.HtmlUrl!);
+        pr.HtmlUrl!,
+        ClassifyMergeability(pr.Mergeable, pr.MergeableState),
+        IsRetryableMergeability(pr.Mergeable, pr.MergeableState) ? 2 : null);
+
+    private static string ClassifyMergeability(bool? mergeable, string? state)
+    {
+        if (mergeable is null || string.Equals(state, "unknown", StringComparison.OrdinalIgnoreCase))
+            return GitHubMergeabilityStatus.CalculatingRetryable;
+        if (string.Equals(state, "dirty", StringComparison.OrdinalIgnoreCase))
+            return GitHubMergeabilityStatus.Conflicting;
+        if (state is not null && (state.Equals("blocked", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("behind", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("unstable", StringComparison.OrdinalIgnoreCase)
+            || state.Equals("draft", StringComparison.OrdinalIgnoreCase)))
+            return GitHubMergeabilityStatus.Blocked;
+        if (mergeable == true)
+            return GitHubMergeabilityStatus.Mergeable;
+        return GitHubMergeabilityStatus.UnknownRetryable;
+    }
+
+    private static bool IsRetryableMergeability(bool? mergeable, string? state) =>
+        ClassifyMergeability(mergeable, state) is
+            GitHubMergeabilityStatus.CalculatingRetryable or GitHubMergeabilityStatus.UnknownRetryable;
 
     private static string MapStateQuery(GitHubPullRequestState state) => state switch
     {
@@ -679,7 +891,29 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         review.Id, review.Body, review.User!.Login!, review.State!, review.SubmittedAt!.Value,
         review.CommitId!, review.HtmlUrl!);
 
-    private sealed record RepositoryResponse([property: JsonPropertyName("default_branch")] string? DefaultBranch);
+    private sealed record RepositoryResponse(
+        [property: JsonPropertyName("default_branch")] string? DefaultBranch,
+        string? Description);
+
+    private sealed record RepositoryDescriptionUpdate(string Description);
+
+    private sealed record WorkflowDispatchBody(string Ref, IReadOnlyDictionary<string, string> Inputs);
+
+    private sealed record WorkflowRunsResponse(
+        [property: JsonPropertyName("workflow_runs")] IReadOnlyList<WorkflowRunResponse>? WorkflowRuns);
+
+    private sealed record WorkflowRunResponse(
+        long Id,
+        string? Name,
+        [property: JsonPropertyName("head_branch")] string? HeadBranch,
+        [property: JsonPropertyName("head_sha")] string? HeadSha,
+        string? Event,
+        string? Status,
+        string? Conclusion,
+        UserRef? Actor,
+        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+        [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
+        [property: JsonPropertyName("html_url")] string? HtmlUrl);
 
     private sealed record BranchResponse(string? Name, CommitRef? Commit, bool Protected);
 
@@ -696,6 +930,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         UserRef? User,
         [property: JsonPropertyName("merge_commit_sha")] string? MergeCommitSha,
         bool? Mergeable,
+        [property: JsonPropertyName("mergeable_state")] string? MergeableState,
         [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
         [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
         [property: JsonPropertyName("html_url")] string? HtmlUrl,
@@ -768,9 +1003,11 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         bool Draft,
         bool Prerelease,
         [property: JsonPropertyName("html_url")] string? HtmlUrl,
-        [property: JsonPropertyName("upload_url")] string? UploadUrl);
+        [property: JsonPropertyName("upload_url")] string? UploadUrl,
+        IReadOnlyList<ReleaseAssetResponse>? Assets = null);
 
     private sealed record ReleaseAssetResponse(
+        long Id,
         string? Name,
         long Size,
         [property: JsonPropertyName("browser_download_url")] string? BrowserDownloadUrl);

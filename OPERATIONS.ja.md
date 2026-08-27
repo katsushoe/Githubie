@@ -12,7 +12,7 @@
 
 ## GitHub Release
 
-先にmain HEADへバージョンTagを作成し、MSI／ZIPと各`.sha256`をRepository local root配下へ生成する。`github_release_create`へTag、Release名、Release note、draft／prerelease指定、成果物の絶対パス一覧を渡す。Githubieはdraftを作成して全成果物を添付し、すべて成功した場合だけ公開する。失敗時はGitHub上のdraftを確認し、重複成果物または権限を解消してから再実行する。
+先にmain HEADへバージョンTagを作成し、Repository local root配下へ許可成果物を生成する。MSI、ZIP、`.sha256`、`SHA256SUMS.txt`、配布用`.ps1`を指定できる。`github_release_create`はdraftへ未登録成果物だけを追加し、全件成功後にのみ公開する。同一入力の再試行では一致するdraftを再利用する。状態確認は`github_release_list`／`get`、情報更新は`github_release_update`、後からの追加は`github_release_asset_upload`を使い、同名置換時だけ`replace_existing=true`を明示する。
 
 ## サービス起動・停止
 
@@ -31,7 +31,7 @@ githubie.exe status
 githubie.exe logs
 ```
 
-でログディレクトリのパスを表示する。ファイルは`<install-root>\logs\githubie-yyyyMMdd.log`に日次ローテーションされる。監査ログ（Tool呼び出し結果）とアプリケーションの警告・エラーのみを記録し、ASP.NET Core内部の詳細診断ログ（Information以下）は既定で抑制している。
+でログディレクトリのパスを表示する。ファイルは`<install-root>\logs\githubie-yyyyMMdd.log`に日次ローテーションされ、MSI環境では一般ユーザーも追記できる。ACL、ディスク、または一時的I/OエラーでLoggerが書き込めない場合も、CLI／MCP本処理は未処理例外で終了せず継続する。監査ログ（Tool呼び出し結果）とアプリケーションの警告・エラーのみを記録し、ASP.NET Core内部の詳細診断ログ（Information以下）は既定で抑制している。
 
 監査ログの行フォーマット:
 
@@ -69,6 +69,10 @@ Repositoryの登録自体を止める場合:
 githubie.exe auth delete <repository>
 ```
 
+## Workflow起動
+
+対話承認付きRepository更新でworkflowファイル名／ID、許可ref、input schemaを設定する。`github_workflow_dispatch`が返したrun IDを保持し、`github_workflow_run_get`で完了まで確認する。関連付け失敗時は`github_workflow_run_list`で既存runを確認し、曖昧性が解消するまで再起動しない。
+
 ## MCP Endpointの疎通確認
 
 ```powershell
@@ -78,20 +82,21 @@ githubie.exe mcp tools
 
 Serverが起動していない、またはPort/Path設定が不一致だと`[NG] MCP endpoint unreachable`になる。`config show`で現在のPort/Pathを確認する。
 
-## リポジトリ設定の変更
+## Repository Database
 
-`githubie.json`を編集した後は、Windows Serviceを再起動して設定を反映する。
+Repository登録とPolicyは`data\githubie.db`へ保存する。既存JSON EntryはDatabase作成時に一度だけ取り込み、以後は対話承認付きRepository管理操作で変更する。JSONを編集してもSQLite登録は更新されない。Endpoint設定を変更した場合は、次の確認と再起動を行う。
 
 ```powershell
 githubie.exe config check
 githubie.exe restart
 ```
 
-手動編集した設定はComposition Rootで起動時に読み込む。`github_repository_register`で追加したEntryだけは即時反映される。
+`github_repository_register`による追加はSQLiteと実行中Allowlistへ即時反映される。
 
 ## バックアップ対象
 
 - `config\githubie.json`（Secretは含まれない）
+- `data\githubie.db`および存在する`githubie.db-wal`／`githubie.db-shm`（Service停止中に一貫した組として取得する）
 - `data\secrets\`（DPAPI暗号化済みだが、LocalMachineスコープのため同一マシン以外へ復元しても復号できない。移設時は各RepositoryでToken再登録が必要）
 
 `logs\`はバックアップ対象外（監査証跡として必要な期間だけ別途保全する）。

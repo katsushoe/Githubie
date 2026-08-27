@@ -53,11 +53,12 @@ public sealed class GithubieMcpTools(
         [Description("Release Tag対象Branch")] string tag_target_branch,
         [Description("許可するTag名の正規表現")] string tag_pattern,
         [Description("Push時にcleanな作業Treeを要求するか")] bool require_clean_working_tree = true,
+        [Description("起動を許可するworkflow別Policy。省略時は既存設定を維持")] IReadOnlyDictionary<string, Application.Configuration.WorkflowPolicyOptions>? workflows = null,
         CancellationToken cancellationToken = default)
     {
         var request = new RepositoryUpdateRequest(
             direct_push_branches, pull_branches, protected_branches,
-            tag_target_branch, tag_pattern, require_clean_working_tree);
+            tag_target_branch, tag_pattern, require_clean_working_tree, workflows);
         var result = await managementService.UpdateAsync(repository, request, cancellationToken);
         return GithubieToolResultMapper.Map("repository_update", repository, result);
     }
@@ -81,6 +82,68 @@ public sealed class GithubieMcpTools(
     {
         var result = await gitGateway.GetStatusAsync(repository, cancellationToken);
         return GithubieToolResultMapper.Map("repository_status", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_description_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("登録済みリポジトリのDescriptionを取得します。")]
+    public async Task<GithubieToolResult<GitHubRepositoryInfo>> GetRepositoryDescriptionAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetRepositoryAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_description_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_description_update", Destructive = true, UseStructuredContent = true)]
+    [Description("登録済みリポジトリのDescriptionを更新します。空文字列で削除します。")]
+    public async Task<GithubieToolResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("新しいDescription。空文字列で削除")] string description,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.UpdateRepositoryDescriptionAsync(repository, description, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_description_update", repository, result);
+    }
+
+    [McpServerTool(Name = "github_workflow_dispatch", Destructive = true, UseStructuredContent = true)]
+    [Description("許可済みGitHub Actions workflowを許可ref・検証済みinputsで起動し、対応runを一意に特定します。")]
+    public async Task<GithubieToolResult<GitHubWorkflowDispatchInfo>> DispatchWorkflowAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("設定で許可されたworkflowファイル名またはID")] string workflow,
+        [Description("設定で許可されたGit ref")] string @ref,
+        [Description("workflowごとの許可スキーマに適合するinputs")] IReadOnlyDictionary<string, string> inputs,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.DispatchWorkflowAsync(
+            repository, new GitHubWorkflowDispatchRequest(workflow, @ref, inputs), cancellationToken);
+        return GithubieToolResultMapper.Map("workflow_dispatch", repository, result);
+    }
+
+    [McpServerTool(Name = "github_workflow_run_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("GitHub Actions workflow runをrun IDで取得します。log本文は返しません。")]
+    public async Task<GithubieToolResult<GitHubWorkflowRunInfo>> GetWorkflowRunAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Workflow run ID")] long run_id,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetWorkflowRunAsync(repository, run_id, cancellationToken);
+        return GithubieToolResultMapper.Map("workflow_run_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_workflow_run_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("GitHub Actions workflow run一覧を最大100件取得します。log本文は返しません。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitHubWorkflowRunInfo>>> ListWorkflowRunsAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("許可済みworkflow。省略時は全workflow")] string? workflow,
+        [Description("許可branchフィルタ")] string? branch,
+        [Description("Eventフィルタ")] string? event_name,
+        [Description("Statusフィルタ")] string? status,
+        [Description("取得上限。1から100")] int limit,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ListWorkflowRunsAsync(
+            repository, workflow, branch, event_name, status, limit, cancellationToken);
+        return GithubieToolResultMapper.Map("workflow_run_list", repository, result);
     }
 
     [McpServerTool(Name = "github_fetch", UseStructuredContent = true)]
@@ -309,6 +372,68 @@ public sealed class GithubieMcpTools(
     {
         var result = await gitHubGateway.CreateTagAsync(repository, tag, message, cancellationToken);
         return GithubieToolResultMapper.Map("tag_create", repository, result);
+    }
+
+    [McpServerTool(Name = "github_tag_delete", Destructive = true, UseStructuredContent = true)]
+    [Description("Tagを削除します。")]
+    public async Task<GithubieToolResult<bool>> DeleteTagAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Tag名")] string tag,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.DeleteTagAsync(repository, tag, cancellationToken);
+        return GithubieToolResultMapper.Map("tag_delete", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Release一覧を取得します。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitHubReleaseInfo>>> ListReleasesAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ListReleasesAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("release_list", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("TagからRelease詳細を取得します。")]
+    public async Task<GithubieToolResult<GitHubReleaseInfo>> GetReleaseAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Tag名")] string tag,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetReleaseAsync(repository, tag, cancellationToken);
+        return GithubieToolResultMapper.Map("release_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_update", Destructive = true, UseStructuredContent = true)]
+    [Description("Release名、本文、draft、prereleaseを更新します。")]
+    public async Task<GithubieToolResult<GitHubReleaseInfo>> UpdateReleaseAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Release ID")] long release_id,
+        [Description("Release名。変更しない場合はnull")] string? name,
+        [Description("Release本文。変更しない場合はnull")] string? body,
+        [Description("Draft。変更しない場合はnull")] bool? draft,
+        [Description("Pre-release。変更しない場合はnull")] bool? prerelease,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.UpdateReleaseAsync(
+            repository, release_id, new GitHubReleaseUpdate(name, body, draft, prerelease), cancellationToken);
+        return GithubieToolResultMapper.Map("release_update", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_asset_upload", Destructive = true, UseStructuredContent = true)]
+    [Description("既存Releaseへ成果物を追加し、明示指定時だけ同名成果物を置換します。")]
+    public async Task<GithubieToolResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Release ID")] long release_id,
+        [Description("Repository local root配下の成果物絶対パス一覧")] IReadOnlyList<string> assets,
+        [Description("同名成果物を置換するか")] bool replace_existing,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.UploadReleaseAssetsAsync(
+            repository, new GitHubReleaseAssetUpload(release_id, assets, replace_existing), cancellationToken);
+        return GithubieToolResultMapper.Map("release_asset_upload", repository, result);
     }
 
     [McpServerTool(Name = "github_release_create", Destructive = true, UseStructuredContent = true)]

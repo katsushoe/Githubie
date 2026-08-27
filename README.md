@@ -15,7 +15,7 @@ githubie.exe start
 githubie.exe doctor
 ```
 
-Register `http://127.0.0.1:45460/mcp` with your MCP client. See [MCP setup](MCP_SETUP.md) for client-specific instructions.
+Register `http://127.0.0.1:45460/mcp` with your MCP client. Server Instructions sent during connection explain Githubie's purpose, safety constraints, and recommended tool selection to the agent. See [MCP setup](MCP_SETUP.md) for client-specific instructions.
 
 ## Installation
 
@@ -30,15 +30,17 @@ dotnet test Githubie.slnx
 
 ## Configuration
 
-Githubie reads `<install-root>\config\githubie.json` by default. Repository IDs map to fixed GitHub owner/repository pairs, local roots, and branch policies. See [Configuration](CONFIG.md).
+Githubie reads endpoint settings from `<install-root>\config\githubie.json` and stores repository registrations and policies in `<install-root>\data\githubie.db`. Existing JSON repository entries are imported once during upgrade. See [Configuration](CONFIG.md).
 
 ## Usage
 
-Use `githubie.exe` for configuration, credentials, diagnostics, and Windows Service management. MCP clients receive 18 typed tools for approved repository registration, repository status, fetch/pull/push, approved history rewrite, branches, pull requests, tags, releases, and version information. See [Commands](COMMANDS.md).
+Use `githubie.exe` for configuration, credentials, diagnostics, and Windows Service management. MCP clients receive 37 typed tools for approval-backed repository registration, repository status/description, GitHub Actions workflow dispatch/run inspection, fetch/pull/push, approval-backed history rewrite, branches, pull requests, tags, releases, and version information. See [Commands](COMMANDS.md).
+
+The `githubie_usage` MCP prompt gives agents a concise guide to Githubie's purpose, repository ID usage, the inspect-before-mutate workflow, protected branches, credentials, and history-rewrite safety. MCP clients that support prompts can select it at the start of repository work.
 
 `github_repository_register` derives the GitHub owner/repository from an existing local remote, requires desktop approval, persists the configuration, and updates the running allowlist without a service restart.
 
-`github_release_create` creates a draft from an existing tag, uploads bounded MSI/ZIP/SHA-256 assets under the repository root, and publishes only after every upload succeeds.
+Release tools list, inspect, update, and retry asset publication. Approved assets are bounded to repository-local MSI, ZIP, SHA-256, `SHA256SUMS.txt`, and PowerShell files; replacement requires an explicit flag.
 
 `github_history_rewrite` corrects published branch/tag history. Inspect its dry-run and retain a mirror or backup refs first. Real updates require out-of-band desktop approval, recheck every remote SHA, and use atomic push with per-ref force-with-lease. Normal `github_push` protection remains unchanged; recovery uses the same workflow with backed-up SHAs.
 

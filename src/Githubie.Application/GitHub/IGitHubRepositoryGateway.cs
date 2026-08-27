@@ -6,6 +6,21 @@ namespace Githubie.Application.GitHub;
 /// </summary>
 public interface IGitHubRepositoryGateway
 {
+    Task<GitHubResult<GitHubRepositoryInfo>> GetRepositoryAsync(string repository, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
+        string repository, string description, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubWorkflowDispatchInfo>> DispatchWorkflowAsync(
+        string repository, GitHubWorkflowDispatchRequest request, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubWorkflowRunInfo>> GetWorkflowRunAsync(
+        string repository, long runId, CancellationToken cancellationToken);
+
+    Task<GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>> ListWorkflowRunsAsync(
+        string repository, string? workflow, string? branch, string? eventName, string? status,
+        int limit, CancellationToken cancellationToken);
+
     Task<GitHubResult<IReadOnlyList<GitHubBranchInfo>>> ListBranchesAsync(string repository, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repository, string branch, CancellationToken cancellationToken);
@@ -42,6 +57,16 @@ public interface IGitHubRepositoryGateway
     Task<GitHubResult<GitHubTagInfo>> GetTagAsync(string repository, string tag, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string? message, CancellationToken cancellationToken);
+
+    Task<GitHubResult<bool>> DeleteTagAsync(string repository, string tag, CancellationToken cancellationToken);
+
+    Task<GitHubResult<IReadOnlyList<GitHubReleaseInfo>>> ListReleasesAsync(string repository, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> GetReleaseAsync(string repository, string tag, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> UpdateReleaseAsync(string repository, long releaseId, GitHubReleaseUpdate request, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(string repository, GitHubReleaseAssetUpload request, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(
         string repository,

@@ -27,6 +27,8 @@
 
 `service install` and Windows Service start/stop typically require Administrator privileges; the CLI does not elevate itself.
 
+The MSI registers the service for automatic startup and starts it before installation completes. In WiX, `ServiceInstall Start="auto"` configures the startup type but does not start the service during installation, so the service component also declares `ServiceControl Start="install"`.
+
 ## Implementation, tests, and documentation
 
-`Githubie.Cli.WindowsServiceManagement` (`IServiceCommandExecutor`, `ScServiceCommandExecutor`, `WindowsServiceManager`). Not exercised against a real Windows Service registration during Phase 1 real-machine verification (deferred pending explicit authorization, since it modifies system service state); `Githubie.Server.exe` itself was verified running interactively.
+`Githubie.Cli.WindowsServiceManagement` (`IServiceCommandExecutor`, `ScServiceCommandExecutor`, `WindowsServiceManager`) and `installer/Githubie.Installer/Package.wxs`. The MSI service registration, automatic start, stop, and removal paths were verified on a real Windows machine.

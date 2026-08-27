@@ -17,9 +17,9 @@
 
 上位パートが増えたら下位パートは0にリセットします。カテゴリの判断がつかない場合は、増加させる前にユーザーへ確認します。
 
-Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。
+Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.3.10.0`です（2026-08-22、全MCP ToolのCLI呼び出し対応）。
+現在のDisplay Versionは`1.6.0.2`です（2026-08-27、Repository登録のSQLite移行、RDP対応の承認画面表示、異常応答の拒否扱い防止）。
 
 ## Gitタグ
 

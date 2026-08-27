@@ -16,6 +16,13 @@ public sealed record GitHubResult<T>(bool IsSuccess, T? Value, GitHubError? Erro
 public enum GitHubError
 {
     RepositoryNotFound,
+    RepositoryDescriptionInvalid,
+    WorkflowNotAllowed,
+    WorkflowRefNotAllowed,
+    WorkflowInputInvalid,
+    WorkflowConcurrencyLimit,
+    WorkflowRunNotFound,
+    WorkflowRunCorrelationFailed,
     BranchNotFound,
 
     AuthenticationFailed,
@@ -30,6 +37,9 @@ public enum GitHubError
     PullRequestNotFound,
     PullRequestNotOpen,
     PullRequestNotMergeable,
+    MergeabilityCalculating,
+    MergeabilityUnknownRetryable,
+    PullRequestBlocked,
     PullRequestRouteNotAllowed,
     PullRequestStateNotAllowed,
     PullRequestCommentInvalid,
@@ -39,10 +49,13 @@ public enum GitHubError
     TagInvalid,
     TagAlreadyExists,
     TagTargetNotAllowed,
+    TagDeleteFailed,
 
     ReleaseAlreadyExists,
+    ReleaseNotFound,
     ReleaseAssetInvalid,
     ReleaseAssetNotFound,
+    ReleaseAssetAlreadyExists,
     ReleaseUploadFailed,
 
     NetworkError,

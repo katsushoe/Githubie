@@ -16,6 +16,8 @@
 
 Packages exclude active configuration, tokens, application data, logs, test results, and `.local/` content.
 
+Runtime application data includes `data/githubie.db`, which stores repository registrations and policies but no tokens.
+
 ## MSI
 
 The x64 MSI installs under `%ProgramFiles%\Githubie`, creates runtime directories with the required ACLs, registers the Windows Service, supports major upgrades, and preserves user configuration and data during uninstall.

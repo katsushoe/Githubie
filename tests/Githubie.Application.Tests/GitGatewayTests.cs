@@ -58,6 +58,8 @@ public sealed class GitGatewayTests
             .Returns(GitCommandResult.Success(remoteUrl));
         _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
             .Returns(GitCommandResult.Success(workingTreeClean ? string.Empty : " M file.txt"));
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", $"refs/heads/{currentBranch}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success($"{OldSha}\trefs/heads/{currentBranch}"));
         _commandClient.GetAheadBehindAsync(LocalRoot, "origin", currentBranch, Arg.Any<CancellationToken>())
             .Returns(GitCommandResult.Success($"{ahead} {behind}"));
     }
@@ -193,6 +195,41 @@ public sealed class GitGatewayTests
     }
 
     [Fact]
+    public async Task PushAsync_WhenRemoteBranchDoesNotExist_CreatesBranchWithoutAheadCheck()
+    {
+        SetUpPushPreconditions("develop", workingTreeClean: true);
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", "refs/heads/develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.PushAsync(LocalRoot, RepositoryId, "origin", "develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await _gateway.PushAsync(RepositoryId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        await _commandClient.DidNotReceive().GetAheadBehindAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _commandClient.Received(1).PushAsync(
+            LocalRoot, RepositoryId, "origin", "develop", Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("fatal: Authentication failed", GitGatewayError.AuthenticationFailed)]
+    [InlineData("remote: Write access to repository not granted", GitGatewayError.PermissionDenied)]
+    public async Task PushAsync_WhenRemoteBranchLookupFails_ReturnsSpecificError(
+        string standardError, GitGatewayError expected)
+    {
+        SetUpPushPreconditions("develop", workingTreeClean: true);
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", "refs/heads/develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: standardError));
+
+        var result = await _gateway.PushAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(expected);
+        await _commandClient.DidNotReceive().PushAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task PushAsync_DeniesProtectedBranch_AndNeverCallsPush()
     {
         SetUpPushPreconditions("main", workingTreeClean: true);
@@ -266,7 +303,7 @@ public sealed class GitGatewayTests
     [InlineData("fatal: Authentication failed for 'https://github.com/owner/repo.git/'", GitGatewayError.AuthenticationFailed)]
     [InlineData("remote: Write access to repository not granted. fatal: requested URL returned error: 403", GitGatewayError.PermissionDenied)]
     [InlineData("! [rejected] develop -> develop (fetch first)", GitGatewayError.NonFastForward)]
-    [InlineData("fatal: unable to access remote: connection reset", GitGatewayError.GitFailed)]
+    [InlineData("fatal: unable to access remote: connection reset", GitGatewayError.NetworkError)]
     public async Task PushAsync_WhenGitFails_ClassifiesStandardError(string standardError, GitGatewayError expected)
     {
         SetUpPushPreconditions("develop", workingTreeClean: true, ahead: 1);
@@ -292,12 +329,26 @@ public sealed class GitGatewayTests
     public async Task PullAsync_MapsFailedPullToNonFastForward()
     {
         _commandClient.PullFastForwardOnlyAsync(LocalRoot, RepositoryId, "origin", "main", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed));
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "fatal: Not possible to fast-forward, aborting."));
 
         var result = await _gateway.PullAsync(RepositoryId, "main", CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(GitGatewayError.NonFastForward);
+    }
+
+    [Theory]
+    [InlineData("fatal: Authentication failed", GitGatewayError.AuthenticationFailed)]
+    [InlineData("fatal: unable to access remote: Could not resolve host: github.com", GitGatewayError.NetworkError)]
+    [InlineData("remote: Repository not found.", GitGatewayError.RemoteUnavailable)]
+    public async Task FetchAsync_WhenGitFails_ReturnsSpecificSafeCategory(string standardError, GitGatewayError expected)
+    {
+        _commandClient.FetchAsync(LocalRoot, RepositoryId, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: standardError));
+
+        var result = await _gateway.FetchAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(expected);
     }
 
     [Fact]
