@@ -60,6 +60,7 @@
         <ServiceControl
           Id="GithubieServiceControl"
           Name="Githubie"
+          Start="install"
           Stop="both"
           Remove="uninstall"
           Wait="yes" />
