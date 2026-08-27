@@ -37,10 +37,10 @@ Replace a token with `githubie.exe auth set <repository>` and revoke the previou
 
 Configure the workflow filename/ID, allowed refs, and input schema through the approved repository update boundary. Call `github_workflow_dispatch`, retain the returned run ID, then poll `github_workflow_run_get`. If correlation fails, inspect `github_workflow_run_list` and do not dispatch again until the existing run is identified.
 
-## Configuration Changes
+## Repository Database
 
-After manually editing `githubie.json`, run `githubie.exe config check` and `githubie.exe restart`. Manual edits are loaded at startup; entries added through `github_repository_register` are applied immediately.
+Repository registrations and policies are stored in `data\githubie.db`. Existing validated JSON entries are imported once when the database is first created. After that migration, use the approval-backed repository management operations; editing JSON does not update database registrations. Endpoint changes in `githubie.json` still require `config check` and a service restart.
 
 ## Backup
 
-Back up `config\githubie.json` and, only when required, `data\secrets\`. DPAPI LocalMachine ciphertext cannot be restored on another machine; register tokens again after migration. Retain `logs\` according to your audit policy.
+Stop the service and back up `config\githubie.json`, `data\githubie.db`, and any adjacent `githubie.db-wal`/`githubie.db-shm` files as one consistent snapshot. Back up `data\secrets\` only when required. DPAPI LocalMachine ciphertext cannot be restored on another machine; register tokens again after migration. Retain `logs\` according to your audit policy.

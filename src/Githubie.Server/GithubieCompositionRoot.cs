@@ -46,6 +46,26 @@ public static class GithubieCompositionRoot
         }
 
         var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
+        SqliteRepositoryConfigurationStore configurationStore;
+        IReadOnlyDictionary<string, RepositoryOptions> repositories;
+        try
+        {
+            configurationStore = new SqliteRepositoryConfigurationStore(layout.RepositoryDatabasePath);
+            repositories = await configurationStore.InitializeAsync(options.Repositories, cancellationToken);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            return GithubieCompositionResult.Failure($"repository database initialization failed: {ex.Message}");
+        }
+
+        options = options with { Repositories = repositories };
+        var databaseErrors = JsonGithubieOptionsLoader.Validate(options);
+        if (databaseErrors.Count > 0)
+        {
+            return GithubieCompositionResult.Failure(databaseErrors
+                .Select(error => $"{error.Path}: {error.Message} ({error.Code})")
+                .ToArray());
+        }
         var askPassExecutablePath = Path.Combine(binDirectory, "Githubie.AskPass.exe");
         var approvalPromptExecutablePath = Path.Combine(binDirectory, "Githubie.ApprovalPrompt.exe");
 
@@ -62,8 +82,7 @@ public static class GithubieCompositionRoot
         services.AddSingleton<IGitCommandClient>(sp =>
             new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath));
         services.AddSingleton<IInteractiveApprovalPrompt>(sp => CreateApprovalPrompt(sp, approvalPromptExecutablePath));
-        services.AddSingleton<IRepositoryConfigurationStore>(sp => new JsonRepositoryConfigurationStore(
-            configPath, options, sp.GetRequiredService<IGithubieOptionsLoader>()));
+        services.AddSingleton<IRepositoryConfigurationStore>(configurationStore);
         services.AddSingleton<IRepositoryRegistrationService, RepositoryRegistrationService>();
         services.AddSingleton<IRepositoryManagementService, RepositoryManagementService>();
         services.AddSingleton<IGitGateway, GitGateway>();

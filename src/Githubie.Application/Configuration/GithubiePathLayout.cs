@@ -9,6 +9,7 @@ public sealed record GithubiePathLayout(
     string ConfigDirectory,
     string LogsDirectory,
     string DataDirectory,
+    string RepositoryDatabasePath,
     string SecretsDirectory)
 {
     /// <summary>
@@ -27,6 +28,7 @@ public sealed record GithubiePathLayout(
             ConfigDirectory: Path.Combine(installRoot, "config"),
             LogsDirectory: Path.Combine(installRoot, "logs"),
             DataDirectory: dataDirectory,
+            RepositoryDatabasePath: Path.Combine(dataDirectory, "githubie.db"),
             SecretsDirectory: Path.Combine(dataDirectory, "secrets"));
     }
 }

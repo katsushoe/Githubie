@@ -4,7 +4,7 @@ using Githubie.Application.Configuration;
 namespace Githubie.Application.Repositories;
 
 /// <summary>
-/// 設定ファイルに登録済みのRepositoryだけを解決するAllowlistです。
+/// SQLiteに登録済みのRepositoryだけを解決する実行時Allowlistです。
 /// Agentは`repository`という内部IDだけを指定でき、owner/repo/localRootを自由指定できません。
 /// </summary>
 public sealed class RepositoryAllowlist

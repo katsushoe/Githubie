@@ -24,8 +24,8 @@
 
 | コマンド | 説明 |
 | --- | --- |
-| `githubie config check` | `githubie.json`の構文・値・各Repositoryの`local_root`/`.git`実在を検証し`[OK]`/`[NG]`を表示する |
-| `githubie config show` | 読み込んだ設定内容（Port、Path、Repository一覧）を表示する |
+| `githubie config check` | `githubie.json`の構文・値・初回移行用Repositoryの`local_root`/`.git`実在を検証し`[OK]`/`[NG]`を表示する |
+| `githubie config show` | 読み込んだ起動設定と初回移行用Repository Entryを表示する。現在有効な登録は`repo list`を使用する |
 
 ### リポジトリ
 

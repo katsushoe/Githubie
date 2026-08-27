@@ -8,7 +8,7 @@ ADR 0012 intentionally deferred dynamic repository registration. Operators now n
 
 ## Decision
 
-Githubie exposes `github_repository_register`. The caller supplies an internal ID, local root, remote name, and optional branch names. Githubie validates the local Git repository, reads the configured remote with the fixed Git command gateway, derives the GitHub owner and repository from that URL, and requires approval in the interactive desktop session. After approval it atomically persists `githubie.json` and updates the running allowlist.
+Githubie exposes `github_repository_register`. The caller supplies an internal ID, local root, remote name, and optional branch names. Githubie validates the local Git repository, reads the configured remote with the fixed Git command gateway, derives the GitHub owner and repository from that URL, and requires approval in an active interactive desktop session. The service enumerates active Windows sessions instead of assuming that the active console session is the interactive user, so the prompt also works for an active Remote Desktop session. After approval it atomically persists the repository database and updates the running allowlist.
 
 New entries use safe defaults: direct push to `develop`, pull from `develop` and `main`, protected `main`, tags at `main`, merge commits, and a clean-working-tree requirement.
 
@@ -24,7 +24,7 @@ Registration no longer requires a service restart. Existing repository settings 
 
 ## Security conditions
 
-The local root must exist, contain Git metadata, and contain no reparse point. The remote must resolve to `github.com`; owner and repository are derived only from that URL. Repository IDs cannot be replaced. Registration requires out-of-band desktop approval, and secrets are never returned or logged.
+The local root must exist, contain Git metadata, and contain no reparse point. The remote must resolve to `github.com`; owner and repository are derived only from that URL. Repository IDs cannot be replaced. Registration requires out-of-band desktop approval, and secrets are never returned or logged. Only an explicit negative response is treated as denial; a missing or malformed prompt response is a protocol failure.
 
 ## Operational conditions
 
@@ -32,4 +32,4 @@ The service identity must be able to update `githubie.json`. Operators should ve
 
 ## Implementation, tests, and documentation
 
-The Application layer owns registration validation and orchestration, Infrastructure atomically persists strict JSON, and the Server maps stable MCP results. Tests cover success, defaults, duplicates, invalid roots/remotes, non-GitHub remotes, and approval denial. README, COMMANDS, CONFIG, and OPERATIONS describe the workflow.
+The Application layer owns registration validation and orchestration, Infrastructure atomically persists SQLite rows as specified by ADR 0025, and the Server maps stable MCP results. Tests cover success, defaults, duplicates, invalid roots/remotes, non-GitHub remotes, and approval denial. README, COMMANDS, CONFIG, and OPERATIONS describe the workflow.

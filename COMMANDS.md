@@ -11,7 +11,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie help` | Prints the command list |
 | `githubie version` | Prints the CLI version |
 | `githubie logs` | Prints the log directory |
-| `githubie config check` | Validates JSON, values, local roots, and `.git` directories |
+| `githubie config check` | Validates JSON and legacy-import repository roots and `.git` directories |
 | `githubie config show` | Prints the loaded port, path, and repository IDs |
 | `githubie repo list` | Prints configured repository IDs |
 | `githubie repo status <repository>` | Reads current branch, HEAD, ahead/behind, and working-tree state |

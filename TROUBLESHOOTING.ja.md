@@ -102,4 +102,4 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 `githubie.exe logs`でログディレクトリを確認し、該当日付の`githubie-yyyyMMdd.log`から`error_code`と前後の文脈を確認する。監査ログにはSecretを含まないため、ログ自体の共有は問題ない。
 # 承認画面の診断
 
-Repository登録または履歴訂正が`approval_unavailable`を返した場合は、Githubieの日次ログを確認します。対話セッション取得失敗とプロセス起動失敗は別々に記録されます。表示済み画面への未応答だけが`approval_timed_out`となり、起動失敗時は承認タイムアウトを待ちません。
+Repository登録または履歴訂正が`approval_unavailable`を返した場合は、Githubieの日次ログを確認します。対話セッション取得失敗、プロセス起動失敗、承認プロセスの空応答は別々に記録されます。コンソール接続とリモートデスクトップ接続のどちらでも、アクティブなWindowsセッションが承認画面の表示先になります。表示済み画面への未応答だけが`approval_timed_out`となり、起動失敗や通信異常を`approval_denied`として扱いません。

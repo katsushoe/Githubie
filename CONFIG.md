@@ -14,7 +14,7 @@ The default path is `<install-root>\config\githubie.json`. Pass another path as 
 | --- | --- | --- | --- | --- |
 | `mcp_port` | Yes | integer | None | `1` through `65535`; the supplied example uses `45460` |
 | `mcp_path` | Yes | string | None | Must start with `/`; the supplied example uses `/mcp` |
-| `repositories` | Yes | object | None | Maps repository IDs to repository objects; an empty object allows startup but no repository operations |
+| `repositories` | Yes | object | None | Legacy import seed. On first database initialization these entries are imported into SQLite; later JSON changes are not re-imported |
 
 ## `repositories.<id>` Properties
 
@@ -41,7 +41,9 @@ Each workflow policy requires `allowed_refs`; inputs may use `string`, `boolean`
 
 The pull-request route is always `develop_branch` to `main_branch`; clients cannot supply another route.
 
-`github_repository_register` can add an existing local GitHub repository at runtime. It derives `github_owner` and `github_repo` from the selected local remote, requires desktop approval, writes this file atomically, and applies safe branch-policy defaults. The selected remote must use `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are rejected. A service restart is not required for that newly registered entry.
+The repository source of truth is `<install-root>\data\githubie.db`. `github_repository_register` adds an existing local GitHub repository to that database at runtime. It derives `github_owner` and `github_repo` from the selected local remote, requires desktop approval, and applies safe branch-policy defaults. The selected remote must use `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are rejected. A service restart is not required.
+
+At the first startup after upgrading, validated entries under `repositories` are imported transactionally. A migration marker prevents later startups from overwriting database changes with stale JSON. Keep the legacy JSON until migration and backup verification are complete; use repository management operations for later changes.
 
 ## Example
 
@@ -61,7 +63,7 @@ The pull-request route is always `develop_branch` to `main_branch`; clients cann
 
 ## Validation
 
-`githubie.exe config check` validates JSON, all constraints above, `local_root`, and `.git`. Startup performs schema and value validation. Invalid values return named errors such as `InvalidMcpPort`, `InvalidRepositoryId`, `InvalidTagPattern`, or `InvalidMergeMethod`.
+`githubie.exe config check` validates JSON and any legacy import entries, including `local_root` and `.git`. Startup additionally initializes and reads SQLite. Use `githubie.exe repo list` and `doctor` to inspect the effective database-backed registrations.
 
 ## Personal Access Token
 

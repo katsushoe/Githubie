@@ -61,4 +61,4 @@
 If the server exits immediately, run `githubie.exe config check`. If MCP is unreachable, verify service status and the configured port/path. For `auth set` ACL failures from pre-`1.0.0.0` installations, upgrade the MSI. If a pasted token is unexpectedly long or authentication fails immediately, delete it and enter it again.
 # Approval prompt diagnostics
 
-If repository registration or history rewrite returns `approval_unavailable`, inspect the daily Githubie log. Session lookup and process launch failures are logged separately. A genuine unanswered prompt returns `approval_timed_out`; launch failures do not wait for the approval timeout.
+If repository registration or history rewrite returns `approval_unavailable`, inspect the daily Githubie log. Session lookup, process launch failures, and empty prompt responses are logged separately. The prompt targets an active Windows session for both console and Remote Desktop connections. A genuine unanswered prompt returns `approval_timed_out`; launch and protocol failures are not reported as `approval_denied`.

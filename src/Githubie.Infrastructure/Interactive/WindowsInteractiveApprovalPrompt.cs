@@ -44,7 +44,13 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
                     await pipe.WaitForConnectionAsync(linked.Token);
                     await ApprovalPipeProtocol.WriteFrameAsync(pipe, request, linked.Token);
                     var response = await ApprovalPipeProtocol.ReadFrameAsync<ApprovalPromptResponse>(pipe, linked.Token);
-                    return response?.Approved == true ? ApprovalPromptOutcome.Approved() : ApprovalPromptOutcome.Denied();
+                    if (response is null)
+                    {
+                        logger.LogError("Approval prompt returned an empty response in session {SessionId}.", sessionId);
+                        return ApprovalPromptOutcome.Failure(ApprovalOutcome.ProtocolError);
+                    }
+
+                    return response.Approved ? ApprovalPromptOutcome.Approved() : ApprovalPromptOutcome.Denied();
                 }
                 catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
                 {
@@ -74,18 +80,71 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
     {
         token = null;
         sid = null;
-        sessionId = NativeMethods.WTSGetActiveConsoleSessionId();
-        if (sessionId == uint.MaxValue || !NativeMethods.WTSQueryUserToken(sessionId, out var handle) || handle.IsInvalid)
-            return false;
+        sessionId = uint.MaxValue;
+
+        foreach (var candidate in EnumerateActiveSessionIds())
+        {
+            if (!NativeMethods.WTSQueryUserToken(candidate, out var handle) || handle.IsInvalid)
+            {
+                handle.Dispose();
+                continue;
+            }
+
+            try
+            {
+                using var identity = new WindowsIdentity(handle.DangerousGetHandle());
+                if (identity.User is null)
+                {
+                    handle.Dispose();
+                    continue;
+                }
+
+                token = handle;
+                sid = identity.User;
+                sessionId = candidate;
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                handle.Dispose();
+            }
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<uint> EnumerateActiveSessionIds()
+    {
+        if (!NativeMethods.WTSEnumerateSessions(
+                IntPtr.Zero, 0, 1, out var sessionInfo, out var count))
+        {
+            return ConsoleSessionFallback();
+        }
+
         try
         {
-            using var identity = new WindowsIdentity(handle.DangerousGetHandle());
-            if (identity.User is null) { handle.Dispose(); return false; }
-            token = handle;
-            sid = identity.User;
-            return true;
+            var sessions = new List<uint>();
+            var itemSize = Marshal.SizeOf<NativeMethods.WtsSessionInfo>();
+            for (var index = 0; index < count; index++)
+            {
+                var item = Marshal.PtrToStructure<NativeMethods.WtsSessionInfo>(
+                    IntPtr.Add(sessionInfo, index * itemSize));
+                if (item.State == NativeMethods.WtsConnectState.Active)
+                    sessions.Add(item.SessionId);
+            }
+
+            return sessions.Count > 0 ? sessions : ConsoleSessionFallback();
         }
-        catch (UnauthorizedAccessException) { handle.Dispose(); return false; }
+        finally
+        {
+            NativeMethods.WTSFreeMemory(sessionInfo);
+        }
+    }
+
+    private static IReadOnlyList<uint> ConsoleSessionFallback()
+    {
+        var sessionId = NativeMethods.WTSGetActiveConsoleSessionId();
+        return sessionId == uint.MaxValue ? [] : [sessionId];
     }
 
     private static bool TryLaunch(SafeAccessTokenHandle token, string path, string pipeName, out string error)
@@ -119,6 +178,28 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
     {
         internal const uint CreateUnicodeEnvironment = 0x00000400;
 
+        internal enum WtsConnectState
+        {
+            Active,
+            Connected,
+            ConnectQuery,
+            Shadow,
+            Disconnected,
+            Idle,
+            Listen,
+            Reset,
+            Down,
+            Init,
+        }
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+        internal struct WtsSessionInfo
+        {
+            internal uint SessionId;
+            internal IntPtr WinStationName;
+            internal WtsConnectState State;
+        }
+
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
         internal struct StartupInfo
         {
@@ -136,17 +217,28 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
         }
 
         [DllImport("kernel32.dll")] internal static extern uint WTSGetActiveConsoleSessionId();
-        [DllImport("wtsapi32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+        [DllImport("wtsapi32.dll", EntryPoint = "WTSEnumerateSessionsW", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        internal static extern bool WTSEnumerateSessions(
+            IntPtr server, int reserved, int version, out IntPtr sessionInfo, out int count);
+        [DllImport("wtsapi32.dll")]
+        internal static extern void WTSFreeMemory(IntPtr memory);
+        [DllImport("wtsapi32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool WTSQueryUserToken(uint sessionId, out SafeAccessTokenHandle token);
-        [DllImport("userenv.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+        [DllImport("userenv.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool CreateEnvironmentBlock(out IntPtr environment, SafeAccessTokenHandle token, bool inherit);
-        [DllImport("userenv.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+        [DllImport("userenv.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool DestroyEnvironmentBlock(IntPtr environment);
-        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+        [DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool CreateProcessAsUser(SafeAccessTokenHandle token, string? applicationName, string commandLine,
             IntPtr processAttributes, IntPtr threadAttributes, bool inheritHandles, uint creationFlags, IntPtr environment,
             string? currentDirectory, ref StartupInfo startupInfo, out ProcessInformation processInformation);
-        [DllImport("kernel32.dll", SetLastError = true)] [return: MarshalAs(UnmanagedType.Bool)]
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool CloseHandle(IntPtr handle);
     }
 }

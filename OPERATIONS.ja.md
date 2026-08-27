@@ -82,20 +82,21 @@ githubie.exe mcp tools
 
 Serverが起動していない、またはPort/Path設定が不一致だと`[NG] MCP endpoint unreachable`になる。`config show`で現在のPort/Pathを確認する。
 
-## リポジトリ設定の変更
+## Repository Database
 
-`githubie.json`を編集した後は、Windows Serviceを再起動して設定を反映する。
+Repository登録とPolicyは`data\githubie.db`へ保存する。既存JSON EntryはDatabase作成時に一度だけ取り込み、以後は対話承認付きRepository管理操作で変更する。JSONを編集してもSQLite登録は更新されない。Endpoint設定を変更した場合は、次の確認と再起動を行う。
 
 ```powershell
 githubie.exe config check
 githubie.exe restart
 ```
 
-手動編集した設定はComposition Rootで起動時に読み込む。`github_repository_register`で追加したEntryだけは即時反映される。
+`github_repository_register`による追加はSQLiteと実行中Allowlistへ即時反映される。
 
 ## バックアップ対象
 
 - `config\githubie.json`（Secretは含まれない）
+- `data\githubie.db`および存在する`githubie.db-wal`／`githubie.db-shm`（Service停止中に一貫した組として取得する）
 - `data\secrets\`（DPAPI暗号化済みだが、LocalMachineスコープのため同一マシン以外へ復元しても復号できない。移設時は各RepositoryでToken再登録が必要）
 
 `logs\`はバックアップ対象外（監査証跡として必要な期間だけ別途保全する）。

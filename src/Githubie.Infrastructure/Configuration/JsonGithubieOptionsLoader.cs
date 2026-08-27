@@ -43,14 +43,15 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
             return ConfigurationLoadResult.Failure(new ConfigurationError(ConfigurationErrorCode.InvalidJson, "$", "root value must be a JSON object."));
         }
 
-        var errors = ValidateValues(options);
+        var errors = Validate(options);
         return errors.Count == 0 ? ConfigurationLoadResult.Success(options) : ConfigurationLoadResult.Failure(errors);
     }
 
     public Task SaveAsync(GithubieOptions options, Stream stream, CancellationToken cancellationToken) =>
         JsonSerializer.SerializeAsync(stream, options, WriterOptions, cancellationToken);
 
-    private static List<ConfigurationError> ValidateValues(GithubieOptions options)
+    /// <summary>JSONまたはRepository Databaseから構築した設定値を検証します。</summary>
+    public static List<ConfigurationError> Validate(GithubieOptions options)
     {
         var errors = new List<ConfigurationError>();
 

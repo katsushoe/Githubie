@@ -30,7 +30,7 @@ dotnet test Githubie.slnx
 
 ## 設定
 
-既定では`<install-root>\config\githubie.json`を読み込みます。Repository IDを、固定したGitHub Owner／Repository、Local Root、Branch Policyへ対応付けます。詳細は[設定](CONFIG.ja.md)を参照してください。
+既定ではEndpoint設定を`<install-root>\config\githubie.json`から読み込み、Repository登録とPolicyを`<install-root>\data\githubie.db`へ保存します。既存JSONのRepository Entryは初回起動時に一度だけ移行します。詳細は[設定](CONFIG.ja.md)を参照してください。
 
 ## 使用方法
 

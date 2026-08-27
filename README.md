@@ -30,7 +30,7 @@ dotnet test Githubie.slnx
 
 ## Configuration
 
-Githubie reads `<install-root>\config\githubie.json` by default. Repository IDs map to fixed GitHub owner/repository pairs, local roots, and branch policies. See [Configuration](CONFIG.md).
+Githubie reads endpoint settings from `<install-root>\config\githubie.json` and stores repository registrations and policies in `<install-root>\data\githubie.db`. Existing JSON repository entries are imported once during upgrade. See [Configuration](CONFIG.md).
 
 ## Usage
 
