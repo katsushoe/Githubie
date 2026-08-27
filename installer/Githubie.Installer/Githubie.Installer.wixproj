@@ -3,7 +3,7 @@
     <OutputType>Package</OutputType>
     <Platform>x64</Platform>
     <ProductVersion Condition="'$(ProductVersion)' == ''">1.6.0</ProductVersion>
-    <DisplayVersion Condition="'$(DisplayVersion)' == ''">1.6.0.1</DisplayVersion>
+    <DisplayVersion Condition="'$(DisplayVersion)' == ''">1.6.0.2</DisplayVersion>
     <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\.local\installer\publish</PublishDir>
     <OutputName>Githubie-$(DisplayVersion)-win-x64</OutputName>
     <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);$(DefineConstants)</DefineConstants>
