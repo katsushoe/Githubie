@@ -4,6 +4,8 @@ namespace Githubie.Application.Interactive;
 
 public sealed record ApprovalPromptResponse(bool Approved);
 
+public sealed record TokenPromptResponse(bool Accepted, string Token);
+
 public static class ApprovalPipeProtocol
 {
     public const int MaxPayloadBytes = 16384;

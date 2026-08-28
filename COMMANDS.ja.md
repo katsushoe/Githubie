@@ -41,7 +41,7 @@
 
 | コマンド | 説明 |
 | --- | --- |
-| `githubie auth set <repository>` | Personal Access Tokenをマスク入力で受け取り、DPAPI暗号化してsecretsディレクトリへ保存する |
+| `githubie auth set <repository> [--console]` | 既定では最前面GUIでPersonal Access Tokenを受け取り、DPAPI暗号化して保存する。`--console`指定時はコマンドラインでマスク入力する |
 | `githubie auth test <repository>` | 保存済みTokenで`github_branch_list`相当のAPI呼び出しを行い、認証が通るか確認する |
 | `githubie auth delete <repository>` | 保存済みTokenを削除する |
 

@@ -16,6 +16,8 @@ githubie.exe start
 githubie.exe doctor
 ```
 
+`auth set` opens a centered foreground Token dialog by default. Use `auth set <repository-id> --console` for masked terminal input.
+
 MSI install, major upgrade, and uninstall have been validated for version `1.0.0.0`.
 
 ## Portable ZIP

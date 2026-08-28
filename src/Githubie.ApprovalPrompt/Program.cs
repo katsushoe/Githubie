@@ -8,12 +8,17 @@ internal static class Program
     [STAThread]
     private static void Main(string[] args)
     {
-        if (args.Length != 1) return;
         ApplicationConfiguration.Initialize();
-        RunAsync(args[0]).GetAwaiter().GetResult();
+        if (args is ["--token", var tokenPipe])
+        {
+            RunTokenAsync(tokenPipe).GetAwaiter().GetResult();
+            return;
+        }
+
+        if (args is [var approvalPipe]) RunApprovalAsync(approvalPipe).GetAwaiter().GetResult();
     }
 
-    private static async Task RunAsync(string pipeName)
+    private static async Task RunApprovalAsync(string pipeName)
     {
         await using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -23,6 +28,20 @@ internal static class Program
         using var form = new ApprovalForm(request);
         var approved = form.ShowDialog() == DialogResult.Yes;
         try { await ApprovalPipeProtocol.WriteFrameAsync(pipe, new ApprovalPromptResponse(approved), CancellationToken.None); }
+        catch (IOException) { }
+    }
+
+    private static async Task RunTokenAsync(string pipeName)
+    {
+        await using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.Out, PipeOptions.Asynchronous);
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try { await pipe.ConnectAsync(timeout.Token); }
+        catch (Exception exception) when (exception is IOException or OperationCanceledException) { return; }
+
+        using var form = new TokenForm();
+        var accepted = form.ShowDialog() == DialogResult.OK;
+        var response = new TokenPromptResponse(accepted, accepted ? form.Token : string.Empty);
+        try { await ApprovalPipeProtocol.WriteFrameAsync(pipe, response, CancellationToken.None); }
         catch (IOException) { }
     }
 }
