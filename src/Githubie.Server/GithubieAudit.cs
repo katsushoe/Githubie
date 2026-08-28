@@ -20,7 +20,9 @@ public sealed record GithubieAuditEvent(
     long DurationMs,
     string? ErrorCode,
     string? NewRepository = null,
-    string? CorrelationId = null);
+    string? CorrelationId = null,
+    string? Diagnostic = null,
+    int? ExitCode = null);
 
 public interface IGithubieAuditLogger
 {
@@ -32,8 +34,8 @@ public sealed class GithubieAuditLogger(ILogger<GithubieAuditLogger> logger) : I
     private readonly ILogger<GithubieAuditLogger> _logger = logger;
 
     public void Write(GithubieAuditEvent auditEvent) => _logger.LogInformation(
-        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId}",
-        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId);
+        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId} git_exit_code={GitExitCode} diagnostic={Diagnostic}",
+        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId, auditEvent.ExitCode, auditEvent.Diagnostic);
 }
 
 /// <summary>
@@ -68,7 +70,9 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
             Client: "mcp", Tool: tool, Repository: repository, Branch: branch, PullRequestNumber: null, Tag: null,
             Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
             ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(),
-            CorrelationId: correlationId));
+            CorrelationId: correlationId,
+            Diagnostic: result.Diagnostic,
+            ExitCode: result.ExitCode));
 
         return result with { CorrelationId = correlationId };
     }

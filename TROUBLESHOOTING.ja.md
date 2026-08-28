@@ -30,7 +30,7 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | error.code | 原因 | 対処 |
 | --- | --- | --- |
 | `git_not_found` | `git`実行ファイルがPATHにない | Git for Windowsを導入しPATHを通す（`githubie.exe doctor`の`[NG] Git`で切り分け可能） |
-| `git_failed` | Gitコマンド失敗を安全に分類できなかった | `repo status`を確認し、`correlationId`で監査ログの対応事象を特定する |
+| `git_failed` | Gitコマンド失敗を安全に分類できなかった | `diagnostic`と`exit_code`を確認し、必要なら`correlation_id`で監査ログの対応事象を特定する |
 | `authentication_failed` / `permission_denied` | 認証情報または権限が不足している | 保存済み認証情報とRepository権限を確認する |
 | `network_error` | DNS、Proxy、TLSまたは通信に失敗した | 接続状態を確認してから再試行する |
 | `remote_unavailable` | RemoteまたはRemote refを利用できない | 設定済みRepository、Remote、refを確認する |

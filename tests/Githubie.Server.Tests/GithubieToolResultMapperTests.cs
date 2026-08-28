@@ -155,7 +155,10 @@ public sealed class GithubieToolResultMapperTests
     [Fact]
     public void Map_UnclassifiedGitFailure_ContainsDiagnosticContract()
     {
-        var result = GitGatewayResult<Application.Git.Unit>.Failure(GitGatewayError.GitFailed) with
+        var result = GitGatewayResult<Application.Git.Unit>.Failure(
+            GitGatewayError.GitFailed,
+            "fatal: remote rejected the update",
+            128) with
         {
             CorrelationId = "0123456789abcdef0123456789abcdef",
         };
@@ -166,6 +169,8 @@ public sealed class GithubieToolResultMapperTests
         mapped.Error.SuggestedAction.Should().NotBeNullOrWhiteSpace();
         mapped.Error.CorrelationId.Should().Be(result.CorrelationId);
         mapped.Error.Retryable.Should().BeFalse();
+        mapped.Error.Diagnostic.Should().Be(result.Diagnostic);
+        mapped.Error.ExitCode.Should().Be(result.ExitCode);
     }
 
     public static IEnumerable<object[]> GitGatewayErrorValues() =>

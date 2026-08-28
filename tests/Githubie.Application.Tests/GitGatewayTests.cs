@@ -308,11 +308,13 @@ public sealed class GitGatewayTests
     {
         SetUpPushPreconditions("develop", workingTreeClean: true, ahead: 1);
         _commandClient.PushAsync(LocalRoot, RepositoryId, "origin", "develop", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: standardError));
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: standardError, exitCode: 128));
 
         var result = await _gateway.PushAsync(RepositoryId, CancellationToken.None);
 
         result.Error.Should().Be(expected);
+        result.Diagnostic.Should().Be(standardError);
+        result.ExitCode.Should().Be(128);
     }
 
     [Fact]

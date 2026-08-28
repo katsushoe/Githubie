@@ -33,9 +33,21 @@ public sealed record GitGatewayResult<T>(bool IsSuccess, T? Value, GitGatewayErr
 {
     public string? CorrelationId { get; init; }
 
+    public string? Diagnostic { get; init; }
+
+    public int? ExitCode { get; init; }
+
     public static GitGatewayResult<T> Success(T value) => new(true, value, null);
 
-    public static GitGatewayResult<T> Failure(GitGatewayError error) => new(false, default, error);
+    public static GitGatewayResult<T> Failure(
+        GitGatewayError error,
+        string? diagnostic = null,
+        int? exitCode = null) =>
+        new(false, default, error)
+        {
+            Diagnostic = diagnostic,
+            ExitCode = exitCode,
+        };
 }
 
 /// <summary>

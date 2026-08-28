@@ -30,6 +30,10 @@ public sealed record GithubieToolError(string Code, string Message, bool Retryab
     public string? Status { get; init; }
 
     public int? RetryAfterSeconds { get; init; }
+
+    public string? Diagnostic { get; init; }
+
+    public int? ExitCode { get; init; }
 }
 
 /// <summary>
@@ -46,6 +50,8 @@ public static class GithubieToolResultMapper
                 MapGitError(result.Error!.Value) with
                 {
                     CorrelationId = result.CorrelationId ?? Guid.NewGuid().ToString("N"),
+                    Diagnostic = result.Diagnostic,
+                    ExitCode = result.ExitCode,
                 });
 
     public static GithubieToolResult<T> Map<T>(string operation, string repository, GitHubResult<T> result) =>
