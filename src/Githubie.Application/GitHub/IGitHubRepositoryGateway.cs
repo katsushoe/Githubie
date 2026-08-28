@@ -25,6 +25,10 @@ public interface IGitHubRepositoryGateway
 
     Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repository, string branch, CancellationToken cancellationToken);
 
+    Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(string repository, string branch, CancellationToken cancellationToken);
+
+    Task<GitHubResult<bool>> DeleteBranchAsync(string repository, string branch, CancellationToken cancellationToken);
+
     Task<GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>> ListPullRequestsAsync(
         string repository, GitHubPullRequestState? state, string? source, string? destination, CancellationToken cancellationToken);
 

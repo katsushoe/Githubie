@@ -177,6 +177,37 @@ public sealed class GitGateway(
         return CreateCommandFailure<Unit>(result);
     }
 
+    public async Task<GitGatewayResult<Unit>> PushTagAsync(
+        string repository, string tag, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<Unit>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var policy = options.ToPolicy(repository).ValidateTag(tag, options.TagTargetBranch);
+        if (!policy.IsAllowed) return GitGatewayResult<Unit>.Failure(GitGatewayError.InvalidRef);
+
+        var remoteUrl = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, options.Remote, cancellationToken);
+        if (!remoteUrl.IsSuccess) return CreateCommandFailure<Unit>(remoteUrl);
+        if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
+            return GitGatewayResult<Unit>.Failure(GitHubRemoteUrlValidator.IsSshRemote(remoteUrl.StandardOutput)
+                ? GitGatewayError.RemoteHttpsRequired : GitGatewayError.RemoteMismatch);
+
+        var reference = $"refs/tags/{tag}";
+        var local = await _commandClient.GetLocalRefAsync(options.LocalRoot, reference, cancellationToken);
+        if (!local.IsSuccess) return GitGatewayResult<Unit>.Failure(GitGatewayError.InvalidRef);
+        var remote = await _commandClient.GetRemoteRefAsync(
+            options.LocalRoot, repository, options.Remote, reference, cancellationToken);
+        if (!remote.IsSuccess) return CreateCommandFailure<Unit>(remote);
+        if (!string.IsNullOrWhiteSpace(remote.StandardOutput))
+            return GitGatewayResult<Unit>.Failure(GitGatewayError.NothingToPush);
+
+        var push = await _commandClient.PushTagAsync(
+            options.LocalRoot, repository, options.Remote, tag, cancellationToken);
+        return push.IsSuccess
+            ? GitGatewayResult<Unit>.Success(Unit.Value)
+            : CreateCommandFailure<Unit>(push);
+    }
+
     public async Task<GitGatewayResult<GitHistoryRewriteResult>> RewriteHistoryAsync(
         string repository,
         IReadOnlyList<GitHistoryRewriteRef> refs,

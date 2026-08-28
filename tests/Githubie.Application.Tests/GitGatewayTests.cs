@@ -78,6 +78,37 @@ public sealed class GitGatewayTests
         new("refs/heads/main", NewSha, expected);
 
     [Fact]
+    public async Task PushTagAsync_PushesExistingAllowedLocalTag()
+    {
+        const string tag = "v1.2.3";
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.GetLocalRefAsync(LocalRoot, $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.PushTagAsync(LocalRoot, RepositoryId, "origin", tag, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await _gateway.PushTagAsync(RepositoryId, tag, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PushTagAsync_WhenLocalTagIsMissing_ReturnsInvalidRef()
+    {
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.GetLocalRefAsync(LocalRoot, "refs/tags/v1.2.3", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "unknown revision"));
+
+        var result = await _gateway.PushTagAsync(RepositoryId, "v1.2.3", TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.InvalidRef);
+    }
+
+    [Fact]
     public async Task RewriteHistoryAsync_DryRun_ReturnsPlanWithoutApprovalOrPush()
     {
         SetUpRewritePreconditions();

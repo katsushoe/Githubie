@@ -25,6 +25,12 @@ public interface IGitHubApiClient
 
     Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repositoryId, string owner, string repo, string branch, CancellationToken cancellationToken);
 
+    Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(
+        string repositoryId, string owner, string repo, string branch, string sourceSha, CancellationToken cancellationToken);
+
+    Task<GitHubResult<bool>> DeleteBranchAsync(
+        string repositoryId, string owner, string repo, string branch, CancellationToken cancellationToken);
+
     Task<GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>> ListPullRequestsAsync(
         string repositoryId, string owner, string repo, GitHubPullRequestState? state, string? source, string? destination, CancellationToken cancellationToken);
 

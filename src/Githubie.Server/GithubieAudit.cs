@@ -55,11 +55,15 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
     public async Task<GitGatewayResult<Unit>> PushAsync(string repository, CancellationToken cancellationToken) =>
         await RunAsync("github_push", repository, null, () => inner.PushAsync(repository, cancellationToken));
 
+    public async Task<GitGatewayResult<Unit>> PushTagAsync(string repository, string tag, CancellationToken cancellationToken) =>
+        await RunAsync("github_tag_push", repository, null, () => inner.PushTagAsync(repository, tag, cancellationToken), tag);
+
     public async Task<GitGatewayResult<GitHistoryRewriteResult>> RewriteHistoryAsync(
         string repository, IReadOnlyList<GitHistoryRewriteRef> refs, bool dryRun, CancellationToken cancellationToken) =>
         await RunAsync("github_history_rewrite", repository, null, () => inner.RewriteHistoryAsync(repository, refs, dryRun, cancellationToken));
 
-    private async Task<GitGatewayResult<T>> RunAsync<T>(string tool, string repository, string? branch, Func<Task<GitGatewayResult<T>>> action)
+    private async Task<GitGatewayResult<T>> RunAsync<T>(
+        string tool, string repository, string? branch, Func<Task<GitGatewayResult<T>>> action, string? tag = null)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = await action();
@@ -67,7 +71,7 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
         var correlationId = result.IsSuccess ? null : Guid.NewGuid().ToString("N");
 
         audit.Write(new GithubieAuditEvent(
-            Client: "mcp", Tool: tool, Repository: repository, Branch: branch, PullRequestNumber: null, Tag: null,
+            Client: "mcp", Tool: tool, Repository: repository, Branch: branch, PullRequestNumber: null, Tag: tag,
             Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
             ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(),
             CorrelationId: correlationId,
@@ -171,6 +175,12 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
 
     public Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repository, string branch, CancellationToken cancellationToken) =>
         RunAsync("github_branch_get", repository, branch, null, () => inner.GetBranchAsync(repository, branch, cancellationToken));
+
+    public Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(string repository, string branch, CancellationToken cancellationToken) =>
+        RunAsync("github_branch_create", repository, branch, null, () => inner.CreateBranchAsync(repository, branch, cancellationToken));
+
+    public Task<GitHubResult<bool>> DeleteBranchAsync(string repository, string branch, CancellationToken cancellationToken) =>
+        RunAsync("github_branch_delete", repository, branch, null, () => inner.DeleteBranchAsync(repository, branch, cancellationToken));
 
     public Task<GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>> ListPullRequestsAsync(
         string repository, GitHubPullRequestState? state, string? source, string? destination, CancellationToken cancellationToken) =>

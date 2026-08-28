@@ -154,6 +154,33 @@ public sealed class GitHubRepositoryGateway(
         return await _apiClient.GetBranchAsync(repository, resolved.Options!.GitHubOwner, resolved.Options.GitHubRepo, branch, cancellationToken);
     }
 
+    public async Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(
+        string repository, string branch, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubBranchInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        if (!IsAllowedBranch(options, branch)) return GitHubResult<GitHubBranchInfo>.Failure(GitHubError.BranchNotAllowed);
+        var source = await _apiClient.GetBranchAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, options.MainBranch, cancellationToken);
+        if (!source.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(source.Error!.Value);
+        return await _apiClient.CreateBranchAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, branch, source.Value!.HeadSha, cancellationToken);
+    }
+
+    public async Task<GitHubResult<bool>> DeleteBranchAsync(
+        string repository, string branch, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<bool>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        if (options.ProtectedBranches.Contains(branch, StringComparer.Ordinal))
+            return GitHubResult<bool>.Failure(GitHubError.ProtectedBranch);
+        if (!IsAllowedBranch(options, branch)) return GitHubResult<bool>.Failure(GitHubError.BranchNotAllowed);
+        return await _apiClient.DeleteBranchAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, branch, cancellationToken);
+    }
+
     public async Task<GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>> ListPullRequestsAsync(
         string repository, GitHubPullRequestState? state, string? source, string? destination, CancellationToken cancellationToken)
     {
@@ -490,6 +517,10 @@ public sealed class GitHubRepositoryGateway(
         return await _apiClient.CreateReleaseAsync(
             repository, options.GitHubOwner, options.GitHubRepo, options.LocalRoot, request, cancellationToken);
     }
+
+    private static bool IsAllowedBranch(Configuration.RepositoryOptions options, string branch) =>
+        options.DirectPushBranches.Contains(branch, StringComparer.Ordinal) ||
+        options.PullBranches.Contains(branch, StringComparer.Ordinal);
 
     private (Configuration.RepositoryOptions? Options, GitHubError? Error) Resolve(string repository)
     {

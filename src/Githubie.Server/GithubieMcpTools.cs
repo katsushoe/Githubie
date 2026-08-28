@@ -199,6 +199,19 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("branch_list", repository, result);
     }
 
+    [McpServerTool(Name = "github_provider_capabilities", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Repository Contractで利用できるGithubie操作を返します。")]
+    public async Task<GithubieToolResult<GitHubProviderCapabilities>> GetProviderCapabilitiesAsync(
+        string repository, CancellationToken cancellationToken)
+    {
+        var repositoryResult = await gitHubGateway.GetRepositoryAsync(repository, cancellationToken);
+        if (!repositoryResult.IsSuccess)
+            return GithubieToolResult<GitHubProviderCapabilities>.Failure(
+                "provider_capabilities", repository, GithubieToolResultMapper.MapError(repositoryResult.Error!.Value));
+        return GithubieToolResult<GitHubProviderCapabilities>.Success(
+            "provider_capabilities", repository, new(true, true, true, true, true, true, true));
+    }
+
     [McpServerTool(Name = "github_branch_get", ReadOnly = true, UseStructuredContent = true)]
     [Description("指定Branchのhead commit sha等を取得します。")]
     public async Task<GithubieToolResult<GitHubBranchInfo>> GetBranchAsync(
@@ -208,6 +221,24 @@ public sealed class GithubieMcpTools(
     {
         var result = await gitHubGateway.GetBranchAsync(repository, branch, cancellationToken);
         return GithubieToolResultMapper.Map("branch_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_branch_create", Destructive = true, UseStructuredContent = true)]
+    [Description("許可されたBranchをmain HEADから作成します。")]
+    public async Task<GithubieToolResult<GitHubBranchInfo>> CreateBranchAsync(
+        string repository, string branch, CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.CreateBranchAsync(repository, branch, cancellationToken);
+        return GithubieToolResultMapper.Map("branch_create", repository, result);
+    }
+
+    [McpServerTool(Name = "github_branch_delete", Destructive = true, UseStructuredContent = true)]
+    [Description("許可された非保護Branchを削除します。")]
+    public async Task<GithubieToolResult<bool>> DeleteBranchAsync(
+        string repository, string branch, CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.DeleteBranchAsync(repository, branch, cancellationToken);
+        return GithubieToolResultMapper.Map("branch_delete", repository, result);
     }
 
     [McpServerTool(Name = "github_pr_list", ReadOnly = true, UseStructuredContent = true)]
@@ -339,6 +370,15 @@ public sealed class GithubieMcpTools(
     {
         var result = await gitHubGateway.RequestPullRequestChangesAsync(repository, pull_request_number, body, cancellationToken);
         return GithubieToolResultMapper.Map("pr_review_request_changes", repository, result);
+    }
+
+    [McpServerTool(Name = "github_tag_push", Destructive = true, UseStructuredContent = true)]
+    [Description("既存の許可されたLocal TagをRemoteへ明示的にPushします。")]
+    public async Task<GithubieToolResult<Unit>> PushTagAsync(
+        string repository, string tag, CancellationToken cancellationToken)
+    {
+        var result = await gitGateway.PushTagAsync(repository, tag, cancellationToken);
+        return GithubieToolResultMapper.Map("tag_push", repository, result);
     }
 
     [McpServerTool(Name = "github_tag_list", ReadOnly = true, UseStructuredContent = true)]

@@ -13,6 +13,8 @@ public interface IGitGateway
 
     Task<GitGatewayResult<Unit>> PushAsync(string repository, CancellationToken cancellationToken);
 
+    Task<GitGatewayResult<Unit>> PushTagAsync(string repository, string tag, CancellationToken cancellationToken);
+
     Task<GitGatewayResult<GitHistoryRewriteResult>> RewriteHistoryAsync(
         string repository,
         IReadOnlyList<GitHistoryRewriteRef> refs,
