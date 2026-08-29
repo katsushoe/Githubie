@@ -26,6 +26,7 @@ githubie.exe --config C:\path\to\githubie.json config check
 ## `repositories.<id>`項目
 
 Repository IDはItogurumaのProject Inbox ID規則に合わせ、保存値を`^[a-z][a-z0-9]*$`、最大128文字とする。登録・名称変更の入力はInvariant lowercaseへ正規化し、検索時は大文字小文字を区別しない（`Githubie.Application.Repositories.RepositoryId`で検証）。MCP Agentはこの内部IDだけを指定し、`github_owner` / `github_repo` / `local_root`を自由指定できない。
+Upgrade時は旧規則`^[A-Za-z0-9._-]+$`のIDから`.`、`_`、`-`を除去し、Invariant lowercaseへ変換して移行する。変換結果が不正または重複する場合は、Repositoryを暗黙選択せず起動を停止する。
 
 | キー | 必須 | 型 | 既定値 | 説明 |
 | --- | --- | --- | --- | --- |

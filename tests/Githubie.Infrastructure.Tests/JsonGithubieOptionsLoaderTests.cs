@@ -72,10 +72,10 @@ public sealed class JsonGithubieOptionsLoaderTests
     }
 
     [Theory]
-    [InlineData("Example")]
     [InlineData("1example")]
-    [InlineData("example-repo")]
-    [InlineData("example_repo")]
+    [InlineData("---")]
+    [InlineData("example repo")]
+    [InlineData("日本語")]
     public async Task LoadAsync_RejectsRepositoryIdOutsideProjectInboxRule(string repositoryId)
     {
         var json = ValidJson.Replace("\"example\": {", $"\"{repositoryId}\": {{");
@@ -86,6 +86,19 @@ public sealed class JsonGithubieOptionsLoaderTests
 
         result.IsSuccess.Should().BeFalse();
         result.Errors.Should().Contain(e => e.Code == ConfigurationErrorCode.InvalidRepositoryId);
+    }
+
+    [Fact]
+    public async Task LoadAsync_NormalizesLegacyRepositoryId()
+    {
+        var json = ValidJson.Replace("\"example\": {", "\"Example-Repo\": {");
+        var loader = new JsonGithubieOptionsLoader();
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Options!.Repositories.Should().ContainKey("examplerepo");
     }
 
     [Fact]

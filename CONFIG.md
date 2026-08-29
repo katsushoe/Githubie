@@ -19,6 +19,7 @@ The default path is `<install-root>\config\githubie.json`. Pass another path as 
 ## `repositories.<id>` Properties
 
 Repository IDs follow the Itoguruma Project Inbox ID rule: stored IDs match `^[a-z][a-z0-9]*$` and contain at most 128 characters. Registration and rename inputs are normalized to invariant lowercase, and lookups are case-insensitive.
+During upgrade, legacy IDs matching the former `^[A-Za-z0-9._-]+$` rule are migrated by removing `.`, `_`, and `-`, then converting the result to invariant lowercase. An ambiguous or invalid result stops startup instead of selecting a repository implicitly.
 
 | Key | Required | Type | Default | Constraints and behavior |
 | --- | --- | --- | --- | --- |

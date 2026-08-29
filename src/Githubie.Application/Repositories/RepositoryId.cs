@@ -31,9 +31,24 @@ public static partial class RepositoryId
         return true;
     }
 
+    public static bool TryNormalizeLegacy(string? value, out string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > MaxLength || !LegacyPattern().IsMatch(value))
+        {
+            normalized = string.Empty;
+            return false;
+        }
+
+        normalized = string.Concat(value.Where(character => character is not ('.' or '_' or '-'))).ToLowerInvariant();
+        return IsValid(normalized);
+    }
+
     [GeneratedRegex("^[a-z][a-z0-9]*$")]
     private static partial Regex IdPattern();
 
     [GeneratedRegex("^[A-Za-z][A-Za-z0-9]*$")]
     private static partial Regex LookupPattern();
+
+    [GeneratedRegex("^[A-Za-z0-9._-]+$")]
+    private static partial Regex LegacyPattern();
 }
