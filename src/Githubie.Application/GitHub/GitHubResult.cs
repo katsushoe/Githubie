@@ -24,6 +24,9 @@ public enum GitHubError
     WorkflowRunNotFound,
     WorkflowRunCorrelationFailed,
     BranchNotFound,
+    BranchAlreadyExists,
+    BranchNotAllowed,
+    ProtectedBranch,
 
     AuthenticationFailed,
     PermissionDenied,

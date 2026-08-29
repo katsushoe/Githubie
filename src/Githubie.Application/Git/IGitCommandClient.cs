@@ -24,6 +24,8 @@ public interface IGitCommandClient
 
     Task<GitCommandResult> PushAsync(string repositoryRoot, string repositoryId, string remote, string branch, CancellationToken cancellationToken);
 
+    Task<GitCommandResult> PushTagAsync(string repositoryRoot, string repositoryId, string remote, string tag, CancellationToken cancellationToken);
+
     Task<GitCommandResult> GetLocalRefAsync(string repositoryRoot, string reference, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetRemoteRefAsync(string repositoryRoot, string repositoryId, string remote, string reference, CancellationToken cancellationToken);

@@ -151,6 +151,32 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         return GitHubResult<GitHubBranchInfo>.Success(new GitHubBranchInfo(body.Name!, body.Commit!.Sha!, body.Protected));
     }
 
+    public async Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(
+        string repositoryId, string owner, string repo, string branch, string sourceSha, CancellationToken cancellationToken)
+    {
+        var payload = new CreateRefRequest($"refs/heads/{branch}", sourceSha);
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/git/refs", null, cancellationToken,
+            jsonBody: payload, unprocessableError: GitHubError.BranchAlreadyExists);
+        if (!response.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(response.Error!.Value);
+
+        var body = await ReadAsync<GitRefResponse>(response.Value!, cancellationToken);
+        return string.IsNullOrWhiteSpace(body?.Object?.Sha)
+            ? GitHubResult<GitHubBranchInfo>.Failure(GitHubError.InvalidResponse)
+            : GitHubResult<GitHubBranchInfo>.Success(new(branch, body.Object.Sha, false));
+    }
+
+    public async Task<GitHubResult<bool>> DeleteBranchAsync(
+        string repositoryId, string owner, string repo, string branch, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Delete, $"repos/{owner}/{repo}/git/refs/heads/{Uri.EscapeDataString(branch)}", null,
+            cancellationToken, notFoundError: GitHubError.BranchNotFound);
+        if (!response.IsSuccess) return GitHubResult<bool>.Failure(response.Error!.Value);
+        response.Value!.Dispose();
+        return GitHubResult<bool>.Success(true);
+    }
+
     public async Task<GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>> ListPullRequestsAsync(
         string repositoryId, string owner, string repo, GitHubPullRequestState? state, string? source, string? destination, CancellationToken cancellationToken)
     {

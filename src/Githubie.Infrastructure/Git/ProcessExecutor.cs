@@ -75,7 +75,7 @@ public sealed class ProcessExecutor : IProcessExecutor
 
         return process.ExitCode == 0
             ? GitCommandResult.Success(standardOutput)
-            : GitCommandResult.Failed(GitCommandFailure.Failed, standardOutput, standardError);
+            : GitCommandResult.Failed(GitCommandFailure.Failed, standardOutput, standardError, process.ExitCode);
     }
 
     private static void TryKill(Process process)

@@ -7,6 +7,18 @@ namespace Githubie.Cli.Tests;
 public sealed class CliApplicationTests
 {
     [Fact]
+    public async Task RunAsync_Help_DescribesConsoleAuthOption()
+    {
+        using var output = new StringWriter();
+        using var error = new StringWriter();
+
+        var exitCode = await CliApplication.RunAsync(["help"], output, error, TestContext.Current.CancellationToken);
+
+        exitCode.Should().Be(0);
+        output.ToString().Should().Contain("auth set <repository> [--console]");
+    }
+
+    [Fact]
     public async Task RunAsync_NoArgs_PrintsHelpAndReturnsZero()
     {
         using var output = new StringWriter();

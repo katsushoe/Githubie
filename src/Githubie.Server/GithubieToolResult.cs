@@ -30,6 +30,10 @@ public sealed record GithubieToolError(string Code, string Message, bool Retryab
     public string? Status { get; init; }
 
     public int? RetryAfterSeconds { get; init; }
+
+    public string? Diagnostic { get; init; }
+
+    public int? ExitCode { get; init; }
 }
 
 /// <summary>
@@ -37,6 +41,8 @@ public sealed record GithubieToolError(string Code, string Message, bool Retryab
 /// </summary>
 public static class GithubieToolResultMapper
 {
+    public static GithubieToolError MapError(GitHubError error) => MapGitHubError(error);
+
     public static GithubieToolResult<T> Map<T>(string operation, string repository, GitGatewayResult<T> result) =>
         result.IsSuccess
             ? GithubieToolResult<T>.Success(operation, repository, result.Value!)
@@ -46,6 +52,8 @@ public static class GithubieToolResultMapper
                 MapGitError(result.Error!.Value) with
                 {
                     CorrelationId = result.CorrelationId ?? Guid.NewGuid().ToString("N"),
+                    Diagnostic = result.Diagnostic,
+                    ExitCode = result.ExitCode,
                 });
 
     public static GithubieToolResult<T> Map<T>(string operation, string repository, GitHubResult<T> result) =>
@@ -150,6 +158,9 @@ public static class GithubieToolResultMapper
         GitHubError.WorkflowRunNotFound => new("workflow_run_not_found", "Workflow run was not found."),
         GitHubError.WorkflowRunCorrelationFailed => new("workflow_run_correlation_failed", "The dispatched workflow run could not be identified uniquely.", false, "List workflow runs and identify the run manually before dispatching again."),
         GitHubError.BranchNotFound => new("branch_not_found", "Branch was not found."),
+        GitHubError.BranchAlreadyExists => new("branch_already_exists", "Branch already exists."),
+        GitHubError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed by repository policy."),
+        GitHubError.ProtectedBranch => new("protected_branch", "Protected branch cannot be deleted."),
         GitHubError.AuthenticationFailed => new("authentication_failed", "GitHub authentication failed."),
         GitHubError.PermissionDenied => new("permission_denied", "GitHub denied the operation."),
         GitHubError.TokenScopeMissing => new("token_scope_missing", "Personal Access Token is missing required permissions."),

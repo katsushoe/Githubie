@@ -35,11 +35,12 @@ public sealed class RepositoryRegistrationServiceTests
         var service = CreateService();
 
         var result = await service.RegisterAsync(
-            new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null),
+            new RepositoryRegistrationRequest("Sample", LocalRoot, null, null, null),
             TestContext.Current.CancellationToken);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.GitHubOwner.Should().Be("derived-owner");
+        result.Value!.RepositoryId.Should().Be("sample");
+        result.Value.GitHubOwner.Should().Be("derived-owner");
         result.Value.GitHubRepo.Should().Be("derived-repo");
         _allowlist.TryGet("sample", out var options).Should().BeTrue();
         options.DirectPushBranches.Should().Equal("develop");
@@ -55,7 +56,7 @@ public sealed class RepositoryRegistrationServiceTests
         var service = CreateService();
 
         var result = await service.RegisterAsync(
-            new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null),
+            new RepositoryRegistrationRequest("SAMPLE", LocalRoot, null, null, null),
             TestContext.Current.CancellationToken);
 
         result.Error.Should().Be(RepositoryRegistrationError.DuplicateRepositoryId);

@@ -79,7 +79,7 @@ public sealed class GitGateway(
         var result = await _commandClient.FetchAsync(resolved.Options!.LocalRoot, repository, resolved.Options.Remote, cancellationToken);
         return result.IsSuccess
             ? GitGatewayResult<Unit>.Success(Unit.Value)
-            : GitGatewayResult<Unit>.Failure(ClassifyCommandFailure(result));
+            : CreateCommandFailure<Unit>(result);
     }
 
     public async Task<GitGatewayResult<Unit>> PullAsync(string repository, string branch, CancellationToken cancellationToken)
@@ -102,7 +102,7 @@ public sealed class GitGateway(
             return GitGatewayResult<Unit>.Success(Unit.Value);
         }
 
-        return GitGatewayResult<Unit>.Failure(ClassifyCommandFailure(result, pull: true));
+        return CreateCommandFailure<Unit>(result, pull: true);
     }
 
     public async Task<GitGatewayResult<Unit>> PushAsync(string repository, CancellationToken cancellationToken)
@@ -119,13 +119,13 @@ public sealed class GitGateway(
         var branch = await _commandClient.GetCurrentBranchAsync(root, cancellationToken);
         if (!branch.IsSuccess)
         {
-            return GitGatewayResult<Unit>.Failure(MapCommandFailure(branch.Failure!.Value));
+            return CreateCommandFailure<Unit>(branch);
         }
 
         var remoteUrl = await _commandClient.GetRemoteUrlAsync(root, options.Remote, cancellationToken);
         if (!remoteUrl.IsSuccess)
         {
-            return GitGatewayResult<Unit>.Failure(MapCommandFailure(remoteUrl.Failure!.Value));
+            return CreateCommandFailure<Unit>(remoteUrl);
         }
 
         if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
@@ -150,9 +150,7 @@ public sealed class GitGateway(
             root, repository, options.Remote, $"refs/heads/{branch.StandardOutput}", cancellationToken);
         if (!remoteRef.IsSuccess)
         {
-            return remoteRef.Failure == GitCommandFailure.Failed
-                ? GitGatewayResult<Unit>.Failure(ClassifyGitFailure(remoteRef.StandardError))
-                : GitGatewayResult<Unit>.Failure(MapCommandFailure(remoteRef.Failure!.Value));
+            return CreateCommandFailure<Unit>(remoteRef);
         }
 
         if (!string.IsNullOrWhiteSpace(remoteRef.StandardOutput))
@@ -160,7 +158,7 @@ public sealed class GitGateway(
             var aheadBehind = await _commandClient.GetAheadBehindAsync(root, options.Remote, branch.StandardOutput, cancellationToken);
             if (!aheadBehind.IsSuccess)
             {
-                return GitGatewayResult<Unit>.Failure(MapCommandFailure(aheadBehind.Failure!.Value));
+                return CreateCommandFailure<Unit>(aheadBehind);
             }
 
             var (ahead, _) = ParseAheadBehind(aheadBehind.StandardOutput);
@@ -176,9 +174,38 @@ public sealed class GitGateway(
             return GitGatewayResult<Unit>.Success(Unit.Value);
         }
 
-        return result.Failure == GitCommandFailure.Failed
-            ? GitGatewayResult<Unit>.Failure(ClassifyGitFailure(result.StandardError))
-            : GitGatewayResult<Unit>.Failure(MapCommandFailure(result.Failure!.Value));
+        return CreateCommandFailure<Unit>(result);
+    }
+
+    public async Task<GitGatewayResult<Unit>> PushTagAsync(
+        string repository, string tag, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<Unit>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var policy = options.ToPolicy(repository).ValidateTag(tag, options.TagTargetBranch);
+        if (!policy.IsAllowed) return GitGatewayResult<Unit>.Failure(GitGatewayError.InvalidRef);
+
+        var remoteUrl = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, options.Remote, cancellationToken);
+        if (!remoteUrl.IsSuccess) return CreateCommandFailure<Unit>(remoteUrl);
+        if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
+            return GitGatewayResult<Unit>.Failure(GitHubRemoteUrlValidator.IsSshRemote(remoteUrl.StandardOutput)
+                ? GitGatewayError.RemoteHttpsRequired : GitGatewayError.RemoteMismatch);
+
+        var reference = $"refs/tags/{tag}";
+        var local = await _commandClient.GetLocalRefAsync(options.LocalRoot, reference, cancellationToken);
+        if (!local.IsSuccess) return GitGatewayResult<Unit>.Failure(GitGatewayError.InvalidRef);
+        var remote = await _commandClient.GetRemoteRefAsync(
+            options.LocalRoot, repository, options.Remote, reference, cancellationToken);
+        if (!remote.IsSuccess) return CreateCommandFailure<Unit>(remote);
+        if (!string.IsNullOrWhiteSpace(remote.StandardOutput))
+            return GitGatewayResult<Unit>.Failure(GitGatewayError.NothingToPush);
+
+        var push = await _commandClient.PushTagAsync(
+            options.LocalRoot, repository, options.Remote, tag, cancellationToken);
+        return push.IsSuccess
+            ? GitGatewayResult<Unit>.Success(Unit.Value)
+            : CreateCommandFailure<Unit>(push);
     }
 
     public async Task<GitGatewayResult<GitHistoryRewriteResult>> RewriteHistoryAsync(
@@ -228,7 +255,10 @@ public sealed class GitGateway(
         if (!push.IsSuccess)
         {
             var error = ClassifyHistoryRewriteFailure(push.StandardError);
-            return GitGatewayResult<GitHistoryRewriteResult>.Failure(error);
+            return GitGatewayResult<GitHistoryRewriteResult>.Failure(
+                error,
+                GitErrorDiagnostic.Sanitize(push.StandardError),
+                push.ExitCode);
         }
 
         return GitGatewayResult<GitHistoryRewriteResult>.Success(new(
@@ -280,7 +310,7 @@ public sealed class GitGateway(
 
     private (Configuration.RepositoryOptions? Options, GitGatewayError? Error) Resolve(string repository)
     {
-        if (!RepositoryId.IsValid(repository))
+        if (!RepositoryId.TryNormalize(repository, out repository))
         {
             return (null, GitGatewayError.RepositoryNotFound);
         }
@@ -325,6 +355,12 @@ public sealed class GitGateway(
 
         return ClassifyGitFailure(result.StandardError, pull);
     }
+
+    private static GitGatewayResult<T> CreateCommandFailure<T>(GitCommandResult result, bool pull = false) =>
+        GitGatewayResult<T>.Failure(
+            ClassifyCommandFailure(result, pull),
+            GitErrorDiagnostic.Sanitize(result.StandardError),
+            result.ExitCode);
 
     private static GitGatewayError ClassifyGitFailure(string standardError, bool pull = false)
     {

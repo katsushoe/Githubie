@@ -71,6 +71,36 @@ public sealed class JsonGithubieOptionsLoaderTests
         result.IsSuccess.Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("1example")]
+    [InlineData("---")]
+    [InlineData("example repo")]
+    [InlineData("日本語")]
+    public async Task LoadAsync_RejectsRepositoryIdOutsideProjectInboxRule(string repositoryId)
+    {
+        var json = ValidJson.Replace("\"example\": {", $"\"{repositoryId}\": {{");
+        var loader = new JsonGithubieOptionsLoader();
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Errors.Should().Contain(e => e.Code == ConfigurationErrorCode.InvalidRepositoryId);
+    }
+
+    [Fact]
+    public async Task LoadAsync_NormalizesLegacyRepositoryId()
+    {
+        var json = ValidJson.Replace("\"example\": {", "\"Example-Repo\": {");
+        var loader = new JsonGithubieOptionsLoader();
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Options!.Repositories.Should().ContainKey("examplerepo");
+    }
+
     [Fact]
     public async Task SaveAsync_ThenLoadAsync_RoundTrips()
     {

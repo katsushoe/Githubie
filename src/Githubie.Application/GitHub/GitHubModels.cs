@@ -22,6 +22,15 @@ public sealed record GitHubWorkflowDispatchInfo(
 
 public sealed record GitHubBranchInfo(string Name, string HeadSha, bool Protected);
 
+public sealed record GitHubProviderCapabilities(
+    bool ProviderCapabilities,
+    bool BranchList,
+    bool BranchCreate,
+    bool BranchDelete,
+    bool TagCreate,
+    bool TagDelete,
+    bool TagPush);
+
 public sealed record GitHubTagInfo(string Name, string TargetCommitSha, string? Message, string? Tagger, DateTimeOffset? Date);
 
 public sealed record GitHubTagCreate(string Tag, string TargetCommitSha, string? Message);

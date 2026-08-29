@@ -50,6 +50,27 @@ public sealed class GitGatewayTests
         MergeMethod: "merge",
         RequireCleanWorkingTree: requireCleanWorkingTree);
 
+    [Fact]
+    public async Task GetStatusAsync_ResolvesRepositoryIdCaseInsensitively()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetRemoteHeadAsync(LocalRoot, "origin", "develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetRemoteHeadAsync(LocalRoot, "origin", "main", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetAheadBehindAsync(LocalRoot, "origin", "develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("1 0"));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await _gateway.GetStatusAsync("SAMPLE", CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
     private void SetUpPushPreconditions(string currentBranch, bool workingTreeClean, string remoteUrl = "https://github.com/owner/repo.git", int ahead = 1, int behind = 0)
     {
         _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
@@ -76,6 +97,37 @@ public sealed class GitGatewayTests
 
     private static GitHistoryRewriteRef RewriteRef(string expected = OldSha) =>
         new("refs/heads/main", NewSha, expected);
+
+    [Fact]
+    public async Task PushTagAsync_PushesExistingAllowedLocalTag()
+    {
+        const string tag = "v1.2.3";
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.GetLocalRefAsync(LocalRoot, $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.PushTagAsync(LocalRoot, RepositoryId, "origin", tag, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await _gateway.PushTagAsync(RepositoryId, tag, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PushTagAsync_WhenLocalTagIsMissing_ReturnsInvalidRef()
+    {
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.GetLocalRefAsync(LocalRoot, "refs/tags/v1.2.3", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "unknown revision"));
+
+        var result = await _gateway.PushTagAsync(RepositoryId, "v1.2.3", TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.InvalidRef);
+    }
 
     [Fact]
     public async Task RewriteHistoryAsync_DryRun_ReturnsPlanWithoutApprovalOrPush()
@@ -308,11 +360,13 @@ public sealed class GitGatewayTests
     {
         SetUpPushPreconditions("develop", workingTreeClean: true, ahead: 1);
         _commandClient.PushAsync(LocalRoot, RepositoryId, "origin", "develop", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: standardError));
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: standardError, exitCode: 128));
 
         var result = await _gateway.PushAsync(RepositoryId, CancellationToken.None);
 
         result.Error.Should().Be(expected);
+        result.Diagnostic.Should().Be(standardError);
+        result.ExitCode.Should().Be(128);
     }
 
     [Fact]
@@ -365,7 +419,7 @@ public sealed class GitGatewayTests
     [Fact]
     public async Task GetStatusAsync_DeniesUnregisteredRepository()
     {
-        var result = await _gateway.GetStatusAsync("not-registered", CancellationToken.None);
+        var result = await _gateway.GetStatusAsync("notregistered", CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(GitGatewayError.RepositoryNotAllowed);

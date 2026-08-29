@@ -13,7 +13,7 @@ public sealed class GitAskPassResponder(IApiTokenStore tokenStore)
 
     public AskPassResponse Respond(string repositoryId, string prompt)
     {
-        if (!Application.Repositories.RepositoryId.IsValid(repositoryId))
+        if (!Application.Repositories.RepositoryId.TryNormalize(repositoryId, out repositoryId))
         {
             return AskPassResponse.Failure("invalid repository id");
         }

@@ -42,7 +42,8 @@ public static class CliApplication
                 effectiveConfigPath, binDirectory, oldRepo, newRepo, output, error, cancellationToken),
 
             ["auth", "test", var repo] => await AuthTestAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
-            ["auth", "set", var repo] => AuthSet(layout, repo, output, error),
+            ["auth", "set", var repo] => await AuthSetAsync(layout, binDirectory, repo, false, output, error, cancellationToken),
+            ["auth", "set", var repo, "--console"] => await AuthSetAsync(layout, binDirectory, repo, true, output, error, cancellationToken),
             ["auth", "delete", var repo] => AuthDelete(layout, repo, output, error),
 
             ["mcp", "status"] => await McpStatusAsync(effectiveConfigPath, output, error, cancellationToken),
@@ -104,7 +105,7 @@ public static class CliApplication
               repo rename <old-repository> <new-repository>
 
               auth test <repository>
-              auth set <repository>
+              auth set <repository> [--console]
               auth delete <repository>
 
               mcp status
@@ -320,7 +321,14 @@ public static class CliApplication
         return result.IsSuccess ? 0 : 1;
     }
 
-    private static int AuthSet(GithubiePathLayout layout, string repository, TextWriter output, TextWriter error)
+    private static async Task<int> AuthSetAsync(
+        GithubiePathLayout layout,
+        string binDirectory,
+        string repository,
+        bool useConsole,
+        TextWriter output,
+        TextWriter error,
+        CancellationToken cancellationToken)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -328,14 +336,36 @@ public static class CliApplication
             return 1;
         }
 
-        output.Write("Personal Access Token: ");
-        var token = ReadMaskedLine();
-        output.WriteLine($"({token.Length} characters captured)");
+        char[]? token;
+        if (useConsole)
+        {
+            output.Write("Personal Access Token: ");
+            token = ReadMaskedLine();
+            output.WriteLine($"({token.Length} characters captured)");
+        }
+        else
+        {
+            var prompt = new TokenPromptClient(Path.Combine(binDirectory, "Githubie.ApprovalPrompt.exe"));
+            token = await prompt.RequestAsync(cancellationToken);
+            if (token is null)
+            {
+                output.WriteLine("[CANCELLED] token was not saved");
+                return 1;
+            }
+        }
 
         var store = new DpapiFileTokenStore(layout.SecretsDirectory);
-        var result = store.Save(repository, token);
-        output.WriteLine(result.IsSuccess ? "[OK] token saved" : $"[NG] {result.Error}");
-        return result.IsSuccess ? 0 : 1;
+        try
+        {
+            var result = store.Save(repository, token);
+            output.WriteLine(result.IsSuccess ? "[OK] token saved" : $"[NG] {result.Error}");
+            return result.IsSuccess ? 0 : 1;
+        }
+        finally
+        {
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(
+                System.Runtime.InteropServices.MemoryMarshal.AsBytes(token.AsSpan()));
+        }
     }
 
     private static int AuthDelete(GithubiePathLayout layout, string repository, TextWriter output, TextWriter error)
@@ -352,7 +382,7 @@ public static class CliApplication
         return result.IsSuccess ? 0 : 1;
     }
 
-    private static ReadOnlySpan<char> ReadMaskedLine()
+    private static char[] ReadMaskedLine()
     {
         var chars = new List<char>();
         while (true)

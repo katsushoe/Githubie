@@ -54,6 +54,8 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IR
                 );
                 """, cancellationToken, transaction);
 
+            await NormalizeRepositoryIdsAsync(connection, transaction, cancellationToken);
+
             if (!await HasMetadataAsync(connection, LegacyImportKey, transaction, cancellationToken))
             {
                 foreach (var (repositoryId, options) in legacyRepositories)
@@ -175,7 +177,7 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IR
         SqliteConnection connection,
         CancellationToken cancellationToken)
     {
-        var repositories = new Dictionary<string, RepositoryOptions>(StringComparer.Ordinal);
+        var repositories = new Dictionary<string, RepositoryOptions>(StringComparer.OrdinalIgnoreCase);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT repository_id, options_json FROM repositories ORDER BY repository_id;";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -201,6 +203,35 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IR
         command.CommandText = "SELECT 1 FROM schema_metadata WHERE key = $key LIMIT 1;";
         command.Parameters.AddWithValue("$key", key);
         return await command.ExecuteScalarAsync(cancellationToken) is not null;
+    }
+
+    private static async Task NormalizeRepositoryIdsAsync(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        CancellationToken cancellationToken)
+    {
+        var identifiers = new List<string>();
+        await using (var select = connection.CreateCommand())
+        {
+            select.Transaction = transaction;
+            select.CommandText = "SELECT repository_id FROM repositories;";
+            await using var reader = await select.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken)) identifiers.Add(reader.GetString(0));
+        }
+
+        foreach (var identifier in identifiers)
+        {
+            if (!RepositoryId.TryNormalizeLegacy(identifier, out var normalized))
+                throw new InvalidDataException($"Repository ID '{identifier}' cannot be normalized.");
+            if (string.Equals(identifier, normalized, StringComparison.Ordinal)) continue;
+
+            await using var update = connection.CreateCommand();
+            update.Transaction = transaction;
+            update.CommandText = "UPDATE repositories SET repository_id = $normalized WHERE repository_id = $current;";
+            update.Parameters.AddWithValue("$normalized", normalized);
+            update.Parameters.AddWithValue("$current", identifier);
+            await update.ExecuteNonQueryAsync(cancellationToken);
+        }
     }
 
     private static async Task InsertIfMissingAsync(

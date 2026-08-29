@@ -34,7 +34,7 @@ public sealed class DpapiFileTokenStore : IApiTokenStore
 
     public ApiTokenStoreResult Save(string repositoryId, ReadOnlySpan<char> token)
     {
-        if (!Application.Repositories.RepositoryId.IsValid(repositoryId))
+        if (!Application.Repositories.RepositoryId.TryNormalize(repositoryId, out repositoryId))
         {
             return ApiTokenStoreResult.Failure(ApiTokenStoreError.InvalidRepositoryId);
         }
@@ -75,7 +75,7 @@ public sealed class DpapiFileTokenStore : IApiTokenStore
 
     public ApiTokenStoreReadResult Read(string repositoryId)
     {
-        if (!Application.Repositories.RepositoryId.IsValid(repositoryId))
+        if (!Application.Repositories.RepositoryId.TryNormalize(repositoryId, out repositoryId))
         {
             return ApiTokenStoreReadResult.Failure(ApiTokenStoreError.InvalidRepositoryId);
         }
@@ -109,7 +109,7 @@ public sealed class DpapiFileTokenStore : IApiTokenStore
 
     public ApiTokenStoreResult Delete(string repositoryId)
     {
-        if (!Application.Repositories.RepositoryId.IsValid(repositoryId))
+        if (!Application.Repositories.RepositoryId.TryNormalize(repositoryId, out repositoryId))
         {
             return ApiTokenStoreResult.Failure(ApiTokenStoreError.InvalidRepositoryId);
         }
@@ -132,8 +132,8 @@ public sealed class DpapiFileTokenStore : IApiTokenStore
 
     public ApiTokenStoreResult Rename(string oldRepositoryId, string newRepositoryId)
     {
-        if (!Application.Repositories.RepositoryId.IsValid(oldRepositoryId)
-            || !Application.Repositories.RepositoryId.IsValid(newRepositoryId))
+        if (!Application.Repositories.RepositoryId.TryNormalize(oldRepositoryId, out oldRepositoryId)
+            || !Application.Repositories.RepositoryId.TryNormalize(newRepositoryId, out newRepositoryId))
             return ApiTokenStoreResult.Failure(ApiTokenStoreError.InvalidRepositoryId);
 
         var oldPath = GetTokenPath(oldRepositoryId);

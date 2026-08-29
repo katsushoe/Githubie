@@ -14,13 +14,13 @@ public sealed class DpapiFileTokenStoreTests : IDisposable
     public void SaveReadDelete_RoundTripsThroughRealDpapiAndAcl()
     {
         var store = new DpapiFileTokenStore(_secretsDirectory);
-        const string repositoryId = "sample-repo";
+        const string repositoryId = "samplerepo";
         const string token = "ghp_example_token_value_1234567890";
 
         var saveResult = store.Save(repositoryId, token);
         saveResult.IsSuccess.Should().BeTrue();
 
-        var readResult = store.Read(repositoryId);
+        var readResult = store.Read("SAMPLEREPO");
         readResult.IsSuccess.Should().BeTrue();
         new string(readResult.Token!).Should().Be(token);
 
@@ -37,7 +37,7 @@ public sealed class DpapiFileTokenStoreTests : IDisposable
     {
         var store = new DpapiFileTokenStore(_secretsDirectory);
 
-        var result = store.Read("never-saved");
+        var result = store.Read("neversaved");
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(Githubie.Application.Credentials.ApiTokenStoreError.TokenNotFound);
@@ -47,13 +47,13 @@ public sealed class DpapiFileTokenStoreTests : IDisposable
     public void Rename_ExistingToken_MovesEncryptedCredentialWithoutLeavingOldId()
     {
         var store = new DpapiFileTokenStore(_secretsDirectory);
-        store.Save("old-id", "ghp_example_token_value").IsSuccess.Should().BeTrue();
+        store.Save("oldid", "ghp_example_token_value").IsSuccess.Should().BeTrue();
 
-        var result = store.Rename("old-id", "new-id");
+        var result = store.Rename("oldid", "newid");
 
         result.IsSuccess.Should().BeTrue();
-        store.Read("old-id").Error.Should().Be(Githubie.Application.Credentials.ApiTokenStoreError.TokenNotFound);
-        new string(store.Read("new-id").Token!).Should().Be("ghp_example_token_value");
+        store.Read("oldid").Error.Should().Be(Githubie.Application.Credentials.ApiTokenStoreError.TokenNotFound);
+        new string(store.Read("newid").Token!).Should().Be("ghp_example_token_value");
     }
 
     public void Dispose()

@@ -43,6 +43,20 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
             return ConfigurationLoadResult.Failure(new ConfigurationError(ConfigurationErrorCode.InvalidJson, "$", "root value must be a JSON object."));
         }
 
+        var normalizedRepositories = new Dictionary<string, RepositoryOptions>(StringComparer.Ordinal);
+        foreach (var (repositoryId, repository) in options.Repositories)
+        {
+            if (!RepositoryId.TryNormalizeLegacy(repositoryId, out var normalizedId)
+                || !normalizedRepositories.TryAdd(normalizedId, repository))
+            {
+                return ConfigurationLoadResult.Failure(new ConfigurationError(
+                    ConfigurationErrorCode.InvalidRepositoryId,
+                    $"$.repositories.{repositoryId}",
+                    "repository id cannot be normalized uniquely to ^[a-z][a-z0-9]*$."));
+            }
+        }
+
+        options = options with { Repositories = normalizedRepositories };
         var errors = Validate(options);
         return errors.Count == 0 ? ConfigurationLoadResult.Success(options) : ConfigurationLoadResult.Failure(errors);
     }
@@ -71,7 +85,7 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
 
             if (!RepositoryId.IsValid(repositoryId))
             {
-                errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidRepositoryId, path, "repository id must match ^[A-Za-z0-9._-]+$ and be at most 128 characters."));
+                errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidRepositoryId, path, "repository id must match ^[a-z][a-z0-9]*$ and be at most 128 characters."));
             }
 
             if (string.IsNullOrWhiteSpace(repository.GitHubOwner))

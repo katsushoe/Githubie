@@ -41,7 +41,7 @@
 
 | コマンド | 説明 |
 | --- | --- |
-| `githubie auth set <repository>` | Personal Access Tokenをマスク入力で受け取り、DPAPI暗号化してsecretsディレクトリへ保存する |
+| `githubie auth set <repository> [--console]` | 既定では最前面GUIでPersonal Access Tokenを受け取り、DPAPI暗号化して保存する。`--console`指定時はコマンドラインでマスク入力する |
 | `githubie auth test <repository>` | 保存済みTokenで`github_branch_list`相当のAPI呼び出しを行い、認証が通るか確認する |
 | `githubie auth delete <repository>` | 保存済みTokenを削除する |
 
@@ -88,6 +88,7 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_workflow_run_list` | `repository`、任意filter、`limit` | Workflow runを最大100件取得。log本文は返さない |
 | `github_branch_list` | `repository` | Remote Branch一覧を取得 |
 | `github_branch_get` | `repository`, `branch` | 指定Branchのhead commit sha等を取得 |
+| `github_provider_capabilities` | `repository` | Githubieが対応するRepository Contract操作を返す |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull Request一覧を取得 |
 | `github_pr_get` | `repository`, `pull_request_number` | Pull Request詳細を取得 |
 | `github_pr_diff` | `repository`, `pull_request_number` | diff・変更統計を取得 |
@@ -109,6 +110,8 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_repository_description_update` | `repository`, `description` | Descriptionだけを更新。空文字列で削除、最大350文字 |
 | `github_workflow_dispatch` | `repository`, `workflow`, `ref`, `inputs` | 許可済みworkflowだけを起動し、新規runを一意に関連付ける |
 | `github_push` | `repository` | develop等へのGit push。許可BranchがRemoteに未作成なら初回pushで作成し、既存BranchはFast-forward時だけ更新。Protected Branchへの直接Pushは`protected_branch`で拒否 |
+| `github_branch_create` | `repository`, `branch` | 許可されたBranchを設定済みmain HEADから作成。既存時は競合エラー |
+| `github_branch_delete` | `repository`, `branch` | 許可された非保護Branchを削除 |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | develop→mainのPRを作成（Source/Destinationは設定固定） |
 | `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | 2秒間隔・最大3回でmerge可能性を確認後、Stateと許可経路を検証してPRをmerge |
 | `github_pr_close` | `repository`, `pull_request_number` | 未マージのPRをクローズ。クローズ済みの場合は状態を維持 |
@@ -118,6 +121,7 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | 開いているPRへ変更を要求。Review本文は必須 |
 | `github_tag_create` | `repository`, `tag`, `message?` | main HEADへAnnotated Tagを作成（Git Data APIの2段階呼び出し） |
 | `github_tag_delete` | `repository`, `tag` | Policyに適合するTagを削除。存在しない場合は`tag_not_found` |
+| `github_tag_push` | `repository`, `tag` | 既存のPolicy適合Local Tagを1件だけ明示的にpush。全Tagはpushしない |
 | `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | 一致するdraftを再利用し、未登録成果物を追加後、全件成功時だけ公開 |
 | `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | 明示指定したRelease項目だけを更新 |
 | `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | 許可成果物を最大10件追加。同名置換は`replace_existing=true`の場合のみ |

@@ -11,7 +11,7 @@
 | `reparse_point_detected` | Configure the physical path without a symlink or junction. |
 | `remote_mismatch` | Make the Git remote match the configured GitHub owner and repository. |
 | `remote_https_required` | Change the Git remote to `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are not accepted. |
-| `git_not_found` / `git_failed` | Install Git for Windows, check `PATH`, inspect `repo status`, and use `correlationId` to locate the audit event. |
+| `git_not_found` / `git_failed` | Install Git for Windows, check `PATH`, inspect `diagnostic` and `exit_code`, then use `correlation_id` to locate the audit event if needed. |
 | `authentication_failed` / `permission_denied` | Refresh the configured credential or grant the required repository permission. |
 | `network_error` | Check DNS, proxy, TLS, and network connectivity, then retry. |
 | `remote_unavailable` | Verify the configured repository, remote, and ref. |

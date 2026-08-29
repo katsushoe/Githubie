@@ -18,7 +18,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie repo description get <repository>` | Gets the repository description |
 | `githubie repo description update <repository> <description>` | Updates the description; an empty string removes it |
 | `githubie repo rename <old> <new>` | Atomically migrates repository configuration and its encrypted token to a new ID |
-| `githubie auth set <repository>` | Replaces the DPAPI-encrypted token after masked input |
+| `githubie auth set <repository> [--console]` | Replaces the DPAPI-encrypted token using the foreground GUI by default; `--console` uses masked terminal input |
 | `githubie auth test <repository>` | Calls GitHub with the stored token and reports authentication status |
 | `githubie auth delete <repository>` | Deletes the stored token |
 | `githubie mcp status` / `mcp test` | Sends MCP `initialize` and reports connectivity |
@@ -55,6 +55,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_workflow_run_list` | `repository`, optional filters, `limit` | Up to 100 workflow runs without logs |
 | `github_branch_list` | `repository` | Remote branches visible to the stored token |
 | `github_branch_get` | `repository`, `branch` | The named remote branch and HEAD SHA; fails if absent |
+| `github_provider_capabilities` | `repository` | Repository Contract operations supported by this Githubie instance |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull requests matching the optional filters |
 | `github_pr_get` | `repository`, `pull_request_number` | Pull-request metadata for an existing number |
 | `github_pr_diff` | `repository`, `pull_request_number` | Diff and change statistics for an existing pull request |
@@ -78,6 +79,8 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_fetch` | `repository` | Updates remote-tracking refs |
 | `github_pull` | `repository`, `branch` | Fast-forwards an allowed branch; rejects divergent history |
 | `github_push` | `repository` | Pushes the current allowed branch, creating it on the remote when absent and requiring fast-forward updates when present; rejects protected branches, dirty trees when configured, and no-op pushes |
+| `github_branch_create` | `repository`, `branch` | Creates an allowed branch from the configured main branch HEAD; conflicts when it already exists |
+| `github_branch_delete` | `repository`, `branch` | Deletes an allowed non-protected branch |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | Creates only the configured `develop` to `main` route |
 | `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | Polls mergeability at most 3 times at 2-second intervals, then merges an open, mergeable pull request on the allowed route |
 | `github_pr_close` | `repository`, `pull_request_number` | Closes an open, unmerged pull request; already-closed requests are unchanged |
@@ -87,6 +90,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | Requests changes on an open pull request with a required review body |
 | `github_tag_create` | `repository`, `tag`, `message?` | Creates an annotated tag matching `tag_pattern` at the configured target branch HEAD |
 | `github_tag_delete` | `repository`, `tag` | Deletes a policy-compliant tag; returns `tag_not_found` when absent |
+| `github_tag_push` | `repository`, `tag` | Pushes one existing local policy-compliant tag explicitly; never pushes all tags |
 | `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | Creates or resumes a matching draft, uploads all missing assets, then publishes only after success |
 | `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | Updates explicitly supplied release fields |
 | `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | Adds up to ten approved assets; same-name replacement requires `replace_existing=true` |
