@@ -24,13 +24,13 @@
 
 リリースはSelf-contained Windows x64パッケージです。導入後はSHA-256を記録したうえで`githubie.exe version`、`config check`、`doctor`を実行します。
 
-MSIは`%ProgramFiles%\Githubie`（または`INSTALLROOT`）配下へのインストール、ディレクトリ作成、Windows Service登録、Major Upgrade、アンインストールを管理します。有効な設定・アプリケーションデータ・Token・監査ログはパッケージにもアンインストール時の削除対象にも含みません。
+MSIは標準インストール先`C:\Githubie`へのインストール、ディレクトリ作成、Windows Service登録、Major Upgrade、アンインストールを管理します。有効な設定・アプリケーションデータ・Token・監査ログはパッケージにもアンインストール時の削除対象にも含みません。
 
 ## ビルド
 
 ```powershell
-pwsh scripts\Build-Msi.ps1 -DisplayVersion 1.0.0.0 -ProductVersion 1.0.0
-pwsh scripts\Build-Zip.ps1 -DisplayVersion 1.0.0.0
+pwsh scripts\Build-Msi.ps1 -DisplayVersion <表示バージョン> -ProductVersion <3部構成の製品バージョン>
+pwsh scripts\Build-Zip.ps1 -DisplayVersion <表示バージョン>
 ```
 
 出力先は`.local\installer\output`（MSI）、`.local\release\output`（ZIP）です。バージョン管理方針は[RELEASE.md](RELEASE.md)を参照してください。

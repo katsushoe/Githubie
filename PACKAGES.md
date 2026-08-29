@@ -20,7 +20,7 @@ Runtime application data includes `data/githubie.db`, which stores repository re
 
 ## MSI
 
-The x64 MSI installs under `%ProgramFiles%\Githubie`, creates runtime directories with the required ACLs, registers the Windows Service, supports major upgrades, and preserves user configuration and data during uninstall.
+The x64 MSI installs under the standard installation directory `C:\Githubie`, creates runtime directories with the required ACLs, registers the Windows Service, supports major upgrades, and preserves user configuration and data during uninstall.
 
 ## Portable ZIP
 
@@ -29,8 +29,8 @@ The ZIP contains the same application and public documentation but does not regi
 ## Build
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\Build-Msi.ps1 -Version 1.0.0.0
-powershell -ExecutionPolicy Bypass -File scripts\Build-Zip.ps1 -Version 1.0.0.0
+pwsh scripts\Build-Msi.ps1 -DisplayVersion <display-version> -ProductVersion <three-part-product-version>
+pwsh scripts\Build-Zip.ps1 -DisplayVersion <display-version>
 ```
 
 Outputs are written under `.local\installer\output` and `.local\release\output`. See [Release](RELEASE.md).

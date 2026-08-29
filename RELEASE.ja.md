@@ -49,6 +49,8 @@ Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUI
 - MSI Install／Upgrade／Uninstallの実機または管理者権限での検証
 - 設定・DPAPI Token・監査ログ等の環境依存データが成果物に含まれていないことを確認
 
-## Phase 1の状態
+## 検証履歴
 
-コア実装・実機検証・実データ疎通確認（読み取り・書き込み双方、Windows Service運用含む）・テスト（114件）・ドキュメント・MSI Install/Upgrade/Uninstallの実機検証まで完了しています（[docs/adr/](docs/adr/)に主要設計判断を記録）。実機検証でMSI作成ディレクトリのACL不備（`auth set`が`IoError`になる問題）を発見・修正済みです（[0013](docs/adr/0013-msi-directory-acl-grants.md)）。
+Version `1.0.0.0`では、Phase 1のコア実装、Windows実機での読み取り・書き込み疎通、Windows Service運用、当時の自動テスト114件、MSI Install／Upgrade／Uninstallを検証しました。実機検証で判明したMSI作成ディレクトリのACL不備（`auth set`が`IoError`になる問題）は修正済みです（[ADR 0013](docs/adr/0013-msi-directory-acl-grants.md)）。
+
+Version `1.6.0.4`では、自動テスト285件の全件成功、`C:\Githubie`へのMSI Install／Upgrade、既存設定とRepository Dataの保持、Windows Service起動、MCP応答、大文字小文字を区別しない認証済みRepository検索をWindows実機で検証しました。

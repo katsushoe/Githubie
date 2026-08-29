@@ -55,3 +55,5 @@ Version `1.6.0.1` aligns pull-request mergeability with the shared retry contrac
 Version `1.6.0.2` persists repository registrations in SQLite with one-time JSON migration, targets approval prompts to active console or Remote Desktop sessions, and reports malformed prompt responses as unavailable instead of denied.
 
 Version `1.6.0.4` aligns repository IDs with the Itoguruma Project Inbox ID rule, normalizes registration and rename inputs to invariant lowercase, and makes repository lookup case-insensitive across Git, GitHub, AskPass, and token access.
+
+Version `1.6.0.4` passed all 285 automated tests. Its MSI install and upgrade at `C:\Githubie`, preservation of existing configuration and repository data, Windows Service startup, MCP response, and case-insensitive authenticated repository lookup were validated on a Windows machine.
