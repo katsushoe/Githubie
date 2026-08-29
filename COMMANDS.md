@@ -88,9 +88,9 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | Adds a non-empty conversation comment to an existing pull request |
 | `github_pr_review_approve` | `repository`, `pull_request_number`, `body?` | Approves an open pull request with an optional review body |
 | `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | Requests changes on an open pull request with a required review body |
-| `github_tag_create` | `repository`, `tag`, `message?` | Creates an annotated tag matching `tag_pattern` at the configured target branch HEAD |
+| `github_tag_create` | `repository`, `tag`, `message?` | Creates and publishes an annotated tag on GitHub at the configured target branch HEAD; it does not create a local tag |
 | `github_tag_delete` | `repository`, `tag` | Deletes a policy-compliant tag; returns `tag_not_found` when absent |
-| `github_tag_push` | `repository`, `tag` | Pushes one existing local policy-compliant tag explicitly; never pushes all tags |
+| `github_tag_push` | `repository`, `tag` | Pushes one existing local policy-compliant lightweight or annotated tag explicitly; never pushes all tags or overwrites a conflicting remote tag |
 | `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | Creates or resumes a matching draft, uploads all missing assets, then publishes only after success |
 | `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | Updates explicitly supplied release fields |
 | `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | Adds up to ten approved assets; same-name replacement requires `replace_existing=true` |

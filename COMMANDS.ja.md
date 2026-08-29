@@ -119,9 +119,9 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | PR全体へ空でない会話コメントを追加 |
 | `github_pr_review_approve` | `repository`, `pull_request_number`, `body?` | 開いているPRを承認。Review本文は任意 |
 | `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | 開いているPRへ変更を要求。Review本文は必須 |
-| `github_tag_create` | `repository`, `tag`, `message?` | main HEADへAnnotated Tagを作成（Git Data APIの2段階呼び出し） |
+| `github_tag_create` | `repository`, `tag`, `message?` | main HEADへAnnotated Tagを作成してGitHubへ公開（Git Data APIの2段階呼び出し）。Local Tagは作成しない |
 | `github_tag_delete` | `repository`, `tag` | Policyに適合するTagを削除。存在しない場合は`tag_not_found` |
-| `github_tag_push` | `repository`, `tag` | 既存のPolicy適合Local Tagを1件だけ明示的にpush。全Tagはpushしない |
+| `github_tag_push` | `repository`, `tag` | 既存のPolicy適合Lightweight／Annotated Local Tagを1件だけ明示的にpush。全Tagのpushや競合Remote Tagの上書きはしない |
 | `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | 一致するdraftを再利用し、未登録成果物を追加後、全件成功時だけ公開 |
 | `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | 明示指定したRelease項目だけを更新 |
 | `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | 許可成果物を最大10件追加。同名置換は`replace_existing=true`の場合のみ |

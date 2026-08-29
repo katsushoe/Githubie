@@ -19,7 +19,7 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.6.0.4`です（2026-08-29、Repository ID規則のItoguruma Project Inbox ID準拠、登録・名称変更時の小文字正規化、検索の大文字小文字非依存化）。
+現在のDisplay Versionは`1.6.0.5`です（2026-08-29、明示的なLocal Tag pushの原因別診断、既存Remote Tagの同一・競合判定、競合Tag上書き拒否、`github_tag_create`のRemote Tag公開動作の明確化）。
 
 ## Gitタグ
 
@@ -49,6 +49,12 @@ Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUI
 - MSI Install／Upgrade／Uninstallの実機または管理者権限での検証
 - 設定・DPAPI Token・監査ログ等の環境依存データが成果物に含まれていないことを確認
 
-## Phase 1の状態
+## 検証履歴
 
-コア実装・実機検証・実データ疎通確認（読み取り・書き込み双方、Windows Service運用含む）・テスト（114件）・ドキュメント・MSI Install/Upgrade/Uninstallの実機検証まで完了しています（[docs/adr/](docs/adr/)に主要設計判断を記録）。実機検証でMSI作成ディレクトリのACL不備（`auth set`が`IoError`になる問題）を発見・修正済みです（[0013](docs/adr/0013-msi-directory-acl-grants.md)）。
+Version `1.0.0.0`では、Phase 1のコア実装、Windows実機での読み取り・書き込み疎通、Windows Service運用、当時の自動テスト114件、MSI Install／Upgrade／Uninstallを検証しました。実機検証で判明したMSI作成ディレクトリのACL不備（`auth set`が`IoError`になる問題）は修正済みです（[ADR 0013](docs/adr/0013-msi-directory-acl-grants.md)）。
+
+Version `1.6.0.4`では、自動テスト285件の全件成功、`C:\Githubie`へのMSI Install／Upgrade、既存設定とRepository Dataの保持、Windows Service起動、MCP応答、大文字小文字を区別しない認証済みRepository検索をWindows実機で検証しました。
+
+Version `1.6.0.5`では、明示的なLocal Tag pushの診断を原因別にし、既存Remote Tagが同一か競合かを判定して競合Tagの上書きを拒否します。また、`github_tag_create`がLocal Tagを作成せずRemote Annotated Tagを公開する操作であることを明確化しました。
+
+Version `1.6.0.5`では、自動テスト291件の全件成功、MSI／Portable ZIPのBuildとSHA-256、`C:\Githubie`へのMSI Upgrade、Install済みファイルのVersion、既存設定とRepository Dataの保持、Windows Service起動、CLI設定検査、MCP応答をWindows実機で検証しました。

@@ -2,7 +2,7 @@
 
 [English](INSTALLATION.md) | [日本語](INSTALLATION.ja.md)
 
-Version `1.0.0.0`ではx64 MSI、Portable ZIP、ソースからのBuildを利用できます。推奨する配布形式はMSIです。MSIのInstall／Major Upgrade／UninstallはWindows実機で検証済みです。`logs`には組み込みUsersの読み取り・書き込み・走査権限を付与し、一般ユーザーの管理CLIが昇格なしで監査ログを追記できるようにする。Secret ACLは別に制限する。
+Githubieではx64 MSI、Portable ZIP、ソースからのBuildを利用できます。推奨する配布形式はMSIです。初回のMSI Install／Major Upgrade／Uninstall検証はVersion `1.0.0.0`で完了しています。Version `1.6.0.5`では`C:\Githubie`へのMSI Upgrade、既存設定とRepository Databaseの保持、Install済みファイルのVersion、Windows Service、CLI設定検査、MCPの動作を追加検証済みです。`logs`には組み込みUsersの読み取り・書き込み・走査権限を付与し、一般ユーザーの管理CLIが昇格なしで監査ログを追記できるようにします。Secret ACLは別に制限します。
 
 ## 前提
 

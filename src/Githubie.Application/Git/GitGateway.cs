@@ -184,7 +184,10 @@ public sealed class GitGateway(
         if (resolved.Error is not null) return GitGatewayResult<Unit>.Failure(resolved.Error.Value);
         var options = resolved.Options!;
         var policy = options.ToPolicy(repository).ValidateTag(tag, options.TagTargetBranch);
-        if (!policy.IsAllowed) return GitGatewayResult<Unit>.Failure(GitGatewayError.InvalidRef);
+        if (!policy.IsAllowed)
+            return GitGatewayResult<Unit>.Failure(
+                GitGatewayError.InvalidRef,
+                "The tag name does not match the configured tag policy.");
 
         var remoteUrl = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, options.Remote, cancellationToken);
         if (!remoteUrl.IsSuccess) return CreateCommandFailure<Unit>(remoteUrl);
@@ -194,12 +197,28 @@ public sealed class GitGateway(
 
         var reference = $"refs/tags/{tag}";
         var local = await _commandClient.GetLocalRefAsync(options.LocalRoot, reference, cancellationToken);
-        if (!local.IsSuccess) return GitGatewayResult<Unit>.Failure(GitGatewayError.InvalidRef);
+        if (!local.IsSuccess)
+            return GitGatewayResult<Unit>.Failure(
+                GitGatewayError.InvalidRef,
+                "The local tag ref does not exist.");
         var remote = await _commandClient.GetRemoteRefAsync(
             options.LocalRoot, repository, options.Remote, reference, cancellationToken);
         if (!remote.IsSuccess) return CreateCommandFailure<Unit>(remote);
         if (!string.IsNullOrWhiteSpace(remote.StandardOutput))
-            return GitGatewayResult<Unit>.Failure(GitGatewayError.NothingToPush);
+        {
+            var remoteSha = ParseLsRemoteSha(remote.StandardOutput, reference);
+            if (remoteSha is null)
+                return GitGatewayResult<Unit>.Failure(
+                    GitGatewayError.InvalidRef,
+                    "The remote tag response could not be parsed.");
+            if (!string.Equals(remoteSha, local.StandardOutput, StringComparison.OrdinalIgnoreCase))
+                return GitGatewayResult<Unit>.Failure(
+                    GitGatewayError.NonFastForward,
+                    "The remote tag points to a different object; overwrite is not allowed.");
+            return GitGatewayResult<Unit>.Failure(
+                GitGatewayError.NothingToPush,
+                "The remote tag already points to the same object.");
+        }
 
         var push = await _commandClient.PushTagAsync(
             options.LocalRoot, repository, options.Remote, tag, cancellationToken);

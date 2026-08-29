@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.6.0.4`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.6.0.5`.
 
 ## Tags
 
@@ -55,3 +55,9 @@ Version `1.6.0.1` aligns pull-request mergeability with the shared retry contrac
 Version `1.6.0.2` persists repository registrations in SQLite with one-time JSON migration, targets approval prompts to active console or Remote Desktop sessions, and reports malformed prompt responses as unavailable instead of denied.
 
 Version `1.6.0.4` aligns repository IDs with the Itoguruma Project Inbox ID rule, normalizes registration and rename inputs to invariant lowercase, and makes repository lookup case-insensitive across Git, GitHub, AskPass, and token access.
+
+Version `1.6.0.4` passed all 285 automated tests. Its MSI install and upgrade at `C:\Githubie`, preservation of existing configuration and repository data, Windows Service startup, MCP response, and case-insensitive authenticated repository lookup were validated on a Windows machine.
+
+Version `1.6.0.5` improves explicit local tag push diagnostics, distinguishes matching and conflicting remote tags, refuses conflicting remote tag overwrites, and documents that `github_tag_create` publishes a remote annotated tag without creating a local tag.
+
+Version `1.6.0.5` passed all 291 automated tests. Its MSI and Portable ZIP builds and SHA-256 manifests, MSI upgrade at `C:\Githubie`, installed file version, preservation of existing configuration and repository data, Windows Service startup, CLI configuration check, and MCP response were validated on a Windows machine.
