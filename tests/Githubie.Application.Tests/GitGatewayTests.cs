@@ -127,6 +127,74 @@ public sealed class GitGatewayTests
         var result = await _gateway.PushTagAsync(RepositoryId, "v1.2.3", TestContext.Current.CancellationToken);
 
         result.Error.Should().Be(GitGatewayError.InvalidRef);
+        result.Diagnostic.Should().Be("The local tag ref does not exist.");
+    }
+
+    [Fact]
+    public async Task PushTagAsync_WhenLightweightRemoteTagMatches_ReturnsNothingToPush()
+    {
+        const string tag = "v1.2.3";
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.GetLocalRefAsync(LocalRoot, $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success($"{NewSha}\trefs/tags/{tag}"));
+
+        var result = await _gateway.PushTagAsync(RepositoryId, tag, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.NothingToPush);
+        result.Diagnostic.Should().Be("The remote tag already points to the same object.");
+        await _commandClient.DidNotReceive().PushTagAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PushTagAsync_WhenAnnotatedRemoteTagMatches_ReturnsNothingToPush()
+    {
+        const string tag = "v1.2.3";
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.GetLocalRefAsync(LocalRoot, $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success($"{OldSha}\trefs/tags/{tag}"));
+
+        var result = await _gateway.PushTagAsync(RepositoryId, tag, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.NothingToPush);
+        result.Diagnostic.Should().Be("The remote tag already points to the same object.");
+    }
+
+    [Fact]
+    public async Task PushTagAsync_WhenRemoteTagDiffers_ReturnsNonFastForward()
+    {
+        const string tag = "v1.2.3";
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.GetLocalRefAsync(LocalRoot, $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetRemoteRefAsync(LocalRoot, RepositoryId, "origin", $"refs/tags/{tag}", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success($"{OldSha}\trefs/tags/{tag}"));
+
+        var result = await _gateway.PushTagAsync(RepositoryId, tag, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.NonFastForward);
+        result.Diagnostic.Should().Be("The remote tag points to a different object; overwrite is not allowed.");
+        await _commandClient.DidNotReceive().PushTagAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PushTagAsync_WhenTagViolatesPolicy_ReturnsDiagnosticInvalidRef()
+    {
+        var result = await _gateway.PushTagAsync(
+            RepositoryId, "invalid tag", TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.InvalidRef);
+        result.Diagnostic.Should().Be("The tag name does not match the configured tag policy.");
+        await _commandClient.DidNotReceive().GetLocalRefAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

@@ -131,7 +131,7 @@ public static class GithubieToolResultMapper
         GitGatewayError.WorkingTreeDirty => new("working_tree_dirty", "Working tree has uncommitted changes."),
         GitGatewayError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed for this operation."),
         GitGatewayError.ProtectedBranch => new("protected_branch", "Direct push to a protected branch is not allowed."),
-        GitGatewayError.InvalidRef => new("invalid_ref", "A history rewrite ref or SHA is invalid."),
+        GitGatewayError.InvalidRef => new("invalid_ref", "The supplied Git ref is invalid."),
         GitGatewayError.DuplicateRef => new("duplicate_ref", "A history rewrite ref was specified more than once."),
         GitGatewayError.LeaseConflict => new("lease_conflict", "A remote ref changed or does not match the expected SHA."),
         GitGatewayError.AtomicNotSupported => new("atomic_not_supported", "The remote does not support atomic push."),

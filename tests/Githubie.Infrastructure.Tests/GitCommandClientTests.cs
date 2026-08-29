@@ -61,6 +61,22 @@ public sealed class GitCommandClientTests
         executor.CapturedEnvironment.Should().Contain(GitAskPassProtocol.AskPassRequireVariable, "force");
     }
 
+    [Theory]
+    [InlineData("v1.2.3")]
+    [InlineData("v1.2.3-annotated")]
+    public async Task PushTagAsync_UsesExplicitTagRefspec(string tag)
+    {
+        var executor = new RecordingProcessExecutor();
+        var client = new GitCommandClient(executor, AskPassPath);
+
+        await client.PushTagAsync(RepositoryRoot, "sample-repo", "origin", tag, CancellationToken.None);
+
+        executor.CapturedArguments.Should().Equal(
+            "-c", "safe.directory=C:/repo",
+            "-c", "credential.helper=",
+            "push", "--", "origin", $"refs/tags/{tag}:refs/tags/{tag}");
+    }
+
     [Fact]
     public async Task PullFastForwardOnlyAsync_UsesFixedFlagAndDoubleDashSeparator()
     {
