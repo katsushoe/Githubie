@@ -310,7 +310,7 @@ public sealed class GitGateway(
 
     private (Configuration.RepositoryOptions? Options, GitGatewayError? Error) Resolve(string repository)
     {
-        if (!RepositoryId.IsValid(repository))
+        if (!RepositoryId.TryNormalize(repository, out repository))
         {
             return (null, GitGatewayError.RepositoryNotFound);
         }

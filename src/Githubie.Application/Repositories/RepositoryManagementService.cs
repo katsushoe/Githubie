@@ -60,7 +60,7 @@ public sealed class RepositoryManagementService(
         string repositoryId, RepositoryUpdateRequest request, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (!RepositoryId.IsValid(repositoryId))
+        if (!RepositoryId.TryNormalize(repositoryId, out repositoryId))
             return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidRepositoryId);
         if (!IsValidPolicy(request))
             return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidPolicy);
@@ -108,7 +108,7 @@ public sealed class RepositoryManagementService(
     public async Task<RepositoryMutationResult> UnregisterAsync(
         string repositoryId, CancellationToken cancellationToken)
     {
-        if (!RepositoryId.IsValid(repositoryId))
+        if (!RepositoryId.TryNormalize(repositoryId, out repositoryId))
             return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidRepositoryId);
         await _mutationLock.WaitAsync(cancellationToken);
         try
@@ -127,7 +127,8 @@ public sealed class RepositoryManagementService(
     public async Task<RepositoryMutationResult> RenameAsync(
         string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken)
     {
-        if (!RepositoryId.IsValid(oldRepositoryId) || !RepositoryId.IsValid(newRepositoryId))
+        if (!RepositoryId.TryNormalize(oldRepositoryId, out oldRepositoryId)
+            || !RepositoryId.TryNormalize(newRepositoryId, out newRepositoryId))
             return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidRepositoryId);
         await _mutationLock.WaitAsync(cancellationToken);
         try

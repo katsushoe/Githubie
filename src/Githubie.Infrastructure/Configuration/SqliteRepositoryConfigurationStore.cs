@@ -175,7 +175,7 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IR
         SqliteConnection connection,
         CancellationToken cancellationToken)
     {
-        var repositories = new Dictionary<string, RepositoryOptions>(StringComparer.Ordinal);
+        var repositories = new Dictionary<string, RepositoryOptions>(StringComparer.OrdinalIgnoreCase);
         await using var command = connection.CreateCommand();
         command.CommandText = "SELECT repository_id, options_json FROM repositories ORDER BY repository_id;";
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);

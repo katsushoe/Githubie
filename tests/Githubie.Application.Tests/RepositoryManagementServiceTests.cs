@@ -33,7 +33,7 @@ public sealed class RepositoryManagementServiceTests
         var request = new RepositoryUpdateRequest(
             ["develop", "release"], ["develop", "main"], ["main"], "main", "^v[0-9]+$", false);
 
-        var result = await service.UpdateAsync(RepositoryId, request, TestContext.Current.CancellationToken);
+        var result = await service.UpdateAsync("SAMPLE", request, TestContext.Current.CancellationToken);
 
         result.IsSuccess.Should().BeTrue();
         await _store.Received(1).SaveRepositoryAsync(
@@ -92,7 +92,7 @@ public sealed class RepositoryManagementServiceTests
     {
         var service = CreateService();
 
-        var result = await service.RenameAsync(RepositoryId, "renamed", TestContext.Current.CancellationToken);
+        var result = await service.RenameAsync("SAMPLE", "Renamed", TestContext.Current.CancellationToken);
 
         result.IsSuccess.Should().BeTrue();
         _tokens.Received(1).Rename(RepositoryId, "renamed");

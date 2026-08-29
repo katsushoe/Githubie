@@ -24,13 +24,13 @@ public sealed class RepositoryRegistrationService(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
-        if (!RepositoryId.IsValid(request.Repository))
+        if (!RepositoryId.TryNormalize(request.Repository, out var repositoryId))
             return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.InvalidRepositoryId);
 
         await _registrationLock.WaitAsync(cancellationToken);
         try
         {
-            if (allowlist.TryGet(request.Repository, out _))
+            if (allowlist.TryGet(repositoryId, out _))
                 return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.DuplicateRepositoryId);
 
             var remote = string.IsNullOrWhiteSpace(request.Remote) ? DefaultRemote : request.Remote;
@@ -71,7 +71,7 @@ public sealed class RepositoryRegistrationService(
             var approval = await approvalPrompt.RequestApprovalAsync(
                 new ApprovalPromptRequest(
                     "Githubie repository registration",
-                    $"Register '{request.Repository}' for {parsed.Value.Owner}/{parsed.Value.Repo}",
+                    $"Register '{repositoryId}' for {parsed.Value.Owner}/{parsed.Value.Repo}",
                     [$"Local root: {localRoot}", $"Remote: {remote}", $"Branches: {develop} -> {main}"]),
                 ApprovalTimeout,
                 cancellationToken);
@@ -81,7 +81,7 @@ public sealed class RepositoryRegistrationService(
 
             try
             {
-                await configurationStore.SaveRepositoryAsync(request.Repository, options, cancellationToken);
+                await configurationStore.SaveRepositoryAsync(repositoryId, options, cancellationToken);
             }
             catch (IOException)
             {
@@ -92,11 +92,11 @@ public sealed class RepositoryRegistrationService(
                 return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.PersistenceFailed);
             }
 
-            if (!allowlist.TryAdd(request.Repository, options))
+            if (!allowlist.TryAdd(repositoryId, options))
                 return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.DuplicateRepositoryId);
 
             return RepositoryRegistrationResult.Success(new RepositoryRegistrationInfo(
-                true, request.Repository, parsed.Value.Owner, parsed.Value.Repo, localRoot, remote, develop, main));
+                true, repositoryId, parsed.Value.Owner, parsed.Value.Repo, localRoot, remote, develop, main));
         }
         finally
         {

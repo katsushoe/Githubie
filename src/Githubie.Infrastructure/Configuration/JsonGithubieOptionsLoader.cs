@@ -71,7 +71,7 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
 
             if (!RepositoryId.IsValid(repositoryId))
             {
-                errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidRepositoryId, path, "repository id must match ^[A-Za-z0-9._-]+$ and be at most 128 characters."));
+                errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidRepositoryId, path, "repository id must match ^[a-z][a-z0-9]*$ and be at most 128 characters."));
             }
 
             if (string.IsNullOrWhiteSpace(repository.GitHubOwner))

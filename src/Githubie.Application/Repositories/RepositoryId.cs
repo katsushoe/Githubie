@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace Githubie.Application.Repositories;
 
 /// <summary>
-/// Githubie内部で使うRepository ID（英数字と`._-`のみ、最大128文字）を検証します。
+/// Githubie内部で使うRepository ID（小文字ASCII英字で始まる小文字ASCII英数字、最大128文字）を検証します。
 /// </summary>
 public static partial class RepositoryId
 {
@@ -19,6 +19,21 @@ public static partial class RepositoryId
         return IdPattern().IsMatch(value);
     }
 
-    [GeneratedRegex("^[A-Za-z0-9._-]+$")]
+    public static bool TryNormalize(string? value, out string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Length > MaxLength || !LookupPattern().IsMatch(value))
+        {
+            normalized = string.Empty;
+            return false;
+        }
+
+        normalized = value.ToLowerInvariant();
+        return true;
+    }
+
+    [GeneratedRegex("^[a-z][a-z0-9]*$")]
     private static partial Regex IdPattern();
+
+    [GeneratedRegex("^[A-Za-z][A-Za-z0-9]*$")]
+    private static partial Regex LookupPattern();
 }

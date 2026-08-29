@@ -50,6 +50,27 @@ public sealed class GitGatewayTests
         MergeMethod: "merge",
         RequireCleanWorkingTree: requireCleanWorkingTree);
 
+    [Fact]
+    public async Task GetStatusAsync_ResolvesRepositoryIdCaseInsensitively()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetRemoteHeadAsync(LocalRoot, "origin", "develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetRemoteHeadAsync(LocalRoot, "origin", "main", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetAheadBehindAsync(LocalRoot, "origin", "develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("1 0"));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await _gateway.GetStatusAsync("SAMPLE", CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
     private void SetUpPushPreconditions(string currentBranch, bool workingTreeClean, string remoteUrl = "https://github.com/owner/repo.git", int ahead = 1, int behind = 0)
     {
         _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
@@ -398,7 +419,7 @@ public sealed class GitGatewayTests
     [Fact]
     public async Task GetStatusAsync_DeniesUnregisteredRepository()
     {
-        var result = await _gateway.GetStatusAsync("not-registered", CancellationToken.None);
+        var result = await _gateway.GetStatusAsync("notregistered", CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(GitGatewayError.RepositoryNotAllowed);

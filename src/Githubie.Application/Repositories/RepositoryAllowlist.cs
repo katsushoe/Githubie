@@ -13,7 +13,7 @@ public sealed class RepositoryAllowlist
 
     public RepositoryAllowlist(IReadOnlyDictionary<string, RepositoryOptions> repositories)
     {
-        _repositories = new ConcurrentDictionary<string, RepositoryOptions>(repositories, StringComparer.Ordinal);
+        _repositories = new ConcurrentDictionary<string, RepositoryOptions>(repositories, StringComparer.OrdinalIgnoreCase);
     }
 
     public bool TryGet(string repositoryId, out RepositoryOptions options)

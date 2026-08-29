@@ -524,7 +524,7 @@ public sealed class GitHubRepositoryGateway(
 
     private (Configuration.RepositoryOptions? Options, GitHubError? Error) Resolve(string repository)
     {
-        if (!RepositoryId.IsValid(repository) || !_allowlist.TryGet(repository, out var options))
+        if (!RepositoryId.TryNormalize(repository, out repository) || !_allowlist.TryGet(repository, out var options))
         {
             return (null, GitHubError.RepositoryNotFound);
         }
