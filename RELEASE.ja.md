@@ -19,7 +19,7 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.6.0.5`です（2026-08-29、明示的なLocal Tag pushの原因別診断、既存Remote Tagの同一・競合判定、競合Tag上書き拒否、`github_tag_create`のRemote Tag公開動作の明確化）。
+現在のDisplay Versionは`1.6.0.6`です（2026-08-30、Policyに従うRepository working tree diff／local commit操作、標準response/error contract、監査ログ、Provider Capability対応）。
 
 ## Gitタグ
 
@@ -58,3 +58,5 @@ Version `1.6.0.4`では、自動テスト285件の全件成功、`C:\Githubie`�
 Version `1.6.0.5`では、明示的なLocal Tag pushの診断を原因別にし、既存Remote Tagが同一か競合かを判定して競合Tagの上書きを拒否します。また、`github_tag_create`がLocal Tagを作成せずRemote Annotated Tagを公開する操作であることを明確化しました。
 
 Version `1.6.0.5`では、自動テスト291件の全件成功、MSI／Portable ZIPのBuildとSHA-256、`C:\Githubie`へのMSI Upgrade、Install済みファイルのVersion、既存設定とRepository Dataの保持、Windows Service起動、CLI設定検査、MCP応答をWindows実機で検証しました。
+
+Version `1.6.0.6`では、Policyに従うRepository working tree diff／local commit操作を追加し、標準response/error contract、監査ログ、Provider Capabilityへ反映しました。自動テスト292件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのMSI Upgrade、Install済みVersion、既存設定とRepository Dataの保持、Windows Service起動、CLI設定検査、新ToolのMCP SchemaをWindows実機で検証しました。

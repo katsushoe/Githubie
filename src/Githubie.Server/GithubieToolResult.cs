@@ -129,6 +129,7 @@ public static class GithubieToolResultMapper
         GitGatewayError.RemoteUnavailable => new("remote_unavailable", "The configured remote or remote ref is unavailable.", false, "Verify the configured repository, remote, and ref before retrying."),
         GitGatewayError.AuthenticationFailed => new("authentication_failed", "Git authentication failed.", false, "Refresh or replace the configured credential, then retry."),
         GitGatewayError.WorkingTreeDirty => new("working_tree_dirty", "Working tree has uncommitted changes."),
+        GitGatewayError.NothingToCommit => new("nothing_to_commit", "Working tree has no changes to commit."),
         GitGatewayError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed for this operation."),
         GitGatewayError.ProtectedBranch => new("protected_branch", "Direct push to a protected branch is not allowed."),
         GitGatewayError.InvalidRef => new("invalid_ref", "The supplied Git ref is invalid."),

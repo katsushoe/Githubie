@@ -50,6 +50,8 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | Tool | Parameters | Data source and result |
 | --- | --- | --- |
 | `github_repository_status` | `repository` | Local/remote HEAD, ahead/behind, and working-tree state from Git |
+| `github_repository_diff` | `repository` | Working-tree diff for the registered repository |
+| `github_repository_commit` | `repository`, `message` | Create a local commit on a policy-allowed branch |
 | `github_repository_description_get` | `repository` | Repository description from GitHub |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run status and metadata without logs |
 | `github_workflow_run_list` | `repository`, optional filters, `limit` | Up to 100 workflow runs without logs |

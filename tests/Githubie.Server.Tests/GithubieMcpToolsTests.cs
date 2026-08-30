@@ -16,6 +16,8 @@ public sealed class GithubieMcpToolsTests
     private static readonly string[] ExpectedToolNames =
     [
         "github_repository_status",
+        "github_repository_diff",
+        "github_repository_commit",
         "github_repository_description_get",
         "github_repository_description_update",
         "github_workflow_dispatch",
@@ -61,6 +63,7 @@ public sealed class GithubieMcpToolsTests
     private static readonly string[] ExpectedReadOnlyTools =
     [
         "github_repository_status",
+        "github_repository_diff",
         "github_repository_description_get",
         "github_workflow_run_get",
         "github_workflow_run_list",

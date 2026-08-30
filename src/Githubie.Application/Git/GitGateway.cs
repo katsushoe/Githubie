@@ -68,6 +68,76 @@ public sealed class GitGateway(
         return GitGatewayResult<GitRepositoryStatus>.Success(snapshot);
     }
 
+    public async Task<GitGatewayResult<GitRepositoryDiff>> GetDiffAsync(string repository, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null)
+        {
+            return GitGatewayResult<GitRepositoryDiff>.Failure(resolved.Error.Value);
+        }
+
+        var result = await _commandClient.GetDiffAsync(resolved.Options!.LocalRoot, cancellationToken);
+        return result.IsSuccess
+            ? GitGatewayResult<GitRepositoryDiff>.Success(new(result.StandardOutput))
+            : CreateCommandFailure<GitRepositoryDiff>(result);
+    }
+
+    public async Task<GitGatewayResult<GitRepositoryCommit>> CommitAsync(
+        string repository, string message, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.GitFailed, "Commit message is required.");
+        }
+
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null)
+        {
+            return GitGatewayResult<GitRepositoryCommit>.Failure(resolved.Error.Value);
+        }
+
+        var options = resolved.Options!;
+        var branch = await _commandClient.GetCurrentBranchAsync(options.LocalRoot, cancellationToken);
+        if (!branch.IsSuccess)
+        {
+            return CreateCommandFailure<GitRepositoryCommit>(branch);
+        }
+        if (options.ProtectedBranches.Contains(branch.StandardOutput, StringComparer.Ordinal))
+        {
+            return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.ProtectedBranch);
+        }
+        if (!options.DirectPushBranches.Contains(branch.StandardOutput, StringComparer.Ordinal))
+        {
+            return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.BranchNotAllowed);
+        }
+
+        var status = await _commandClient.GetStatusAsync(options.LocalRoot, cancellationToken);
+        if (!status.IsSuccess)
+        {
+            return CreateCommandFailure<GitRepositoryCommit>(status);
+        }
+        if (status.StandardOutput.Length == 0)
+        {
+            return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.NothingToCommit);
+        }
+
+        var add = await _commandClient.AddAllAsync(options.LocalRoot, cancellationToken);
+        if (!add.IsSuccess)
+        {
+            return CreateCommandFailure<GitRepositoryCommit>(add);
+        }
+
+        var commit = await _commandClient.CommitAsync(options.LocalRoot, message, cancellationToken);
+        if (!commit.IsSuccess)
+        {
+            return CreateCommandFailure<GitRepositoryCommit>(commit);
+        }
+        var head = await _commandClient.GetHeadAsync(options.LocalRoot, cancellationToken);
+        return head.IsSuccess
+            ? GitGatewayResult<GitRepositoryCommit>.Success(new(head.StandardOutput))
+            : CreateCommandFailure<GitRepositoryCommit>(head);
+    }
+
     public async Task<GitGatewayResult<Unit>> FetchAsync(string repository, CancellationToken cancellationToken)
     {
         var resolved = Resolve(repository);

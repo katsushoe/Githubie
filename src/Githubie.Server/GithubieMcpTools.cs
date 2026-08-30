@@ -84,6 +84,27 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("repository_status", repository, result);
     }
 
+    [McpServerTool(Name = "github_repository_diff", ReadOnly = true, UseStructuredContent = true)]
+    [Description("登録Repositoryのworking tree差分を取得します。")]
+    public async Task<GithubieToolResult<GitRepositoryDiff>> GetRepositoryDiffAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitGateway.GetDiffAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_diff", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_commit", Destructive = true, UseStructuredContent = true)]
+    [Description("Policyで許可されたbranchにLocal Commitを作成します。")]
+    public async Task<GithubieToolResult<GitRepositoryCommit>> CommitRepositoryAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Commit message")] string message,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitGateway.CommitAsync(repository, message, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_commit", repository, result);
+    }
+
     [McpServerTool(Name = "github_repository_description_get", ReadOnly = true, UseStructuredContent = true)]
     [Description("登録済みリポジトリのDescriptionを取得します。")]
     public async Task<GithubieToolResult<GitHubRepositoryInfo>> GetRepositoryDescriptionAsync(
@@ -209,7 +230,7 @@ public sealed class GithubieMcpTools(
             return GithubieToolResult<GitHubProviderCapabilities>.Failure(
                 "provider_capabilities", repository, GithubieToolResultMapper.MapError(repositoryResult.Error!.Value));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
-            "provider_capabilities", repository, new(true, true, true, true, true, true, true));
+            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true));
     }
 
     [McpServerTool(Name = "github_branch_get", ReadOnly = true, UseStructuredContent = true)]

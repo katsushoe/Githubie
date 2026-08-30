@@ -29,6 +29,15 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> GetStatusAsync(string repositoryRoot, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["status", "--porcelain"], cancellationToken);
 
+    public Task<GitCommandResult> GetDiffAsync(string repositoryRoot, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["diff", "--no-ext-diff", "--binary", "HEAD", "--"], cancellationToken);
+
+    public Task<GitCommandResult> AddAllAsync(string repositoryRoot, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["add", "--all", "--"], cancellationToken);
+
+    public Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["commit", "-m", message, "--"], cancellationToken);
+
     public Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["remote", "get-url", "--", remote], cancellationToken);
 
