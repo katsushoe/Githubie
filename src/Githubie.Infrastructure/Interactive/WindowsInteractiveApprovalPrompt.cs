@@ -13,7 +13,7 @@ namespace Githubie.Infrastructure.Interactive;
 /// <summary>対話Desktopへ承認Dialogを表示するWindows実装です。</summary>
 [SupportedOSPlatform("windows")]
 public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILogger<WindowsInteractiveApprovalPrompt> logger)
-    : IInteractiveApprovalPrompt
+    : IInteractiveApprovalPrompt, IInteractiveTokenPrompt
 {
     public async Task<ApprovalPromptOutcome> RequestApprovalAsync(
         ApprovalPromptRequest request, TimeSpan timeout, CancellationToken cancellationToken)
@@ -61,6 +61,57 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
                 {
                     logger.LogError(ex, "Approval prompt pipe protocol failed in session {SessionId}.", sessionId);
                     return ApprovalPromptOutcome.Failure(ApprovalOutcome.ProtocolError);
+                }
+            }
+        }
+    }
+
+    public async Task<InteractiveTokenPromptResult> RequestTokenAsync(
+        TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        if (!TryGetSession(out var token, out var sid, out var sessionId) || token is null || sid is null)
+        {
+            logger.LogError("Token prompt session lookup failed: no active interactive user session was found.");
+            return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.NoInteractiveSession);
+        }
+
+        using (token)
+        {
+            var pipeSession = CreatePipe(sid);
+            await using (var pipe = pipeSession.Stream)
+            {
+                if (!TryLaunch(token, executablePath, pipeSession.Name, true, out var launchError))
+                {
+                    logger.LogError("Token prompt process launch failed for session {SessionId}: {Error}", sessionId, launchError);
+                    return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.LaunchFailed);
+                }
+
+                logger.LogInformation("Token prompt process launched in interactive session {SessionId}.", sessionId);
+                using var timeoutSource = new CancellationTokenSource(timeout);
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
+                try
+                {
+                    await pipe.WaitForConnectionAsync(linked.Token);
+                    var response = await ApprovalPipeProtocol.ReadFrameAsync<TokenPromptResponse>(pipe, linked.Token);
+                    if (response is null)
+                    {
+                        logger.LogError("Token prompt returned an empty response in session {SessionId}.", sessionId);
+                        return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.ProtocolError);
+                    }
+
+                    return response.Accepted && !string.IsNullOrWhiteSpace(response.Token)
+                        ? InteractiveTokenPromptResult.Accepted(response.Token.Trim().ToCharArray())
+                        : InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.Skipped);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    logger.LogWarning("Token prompt timed out in session {SessionId}.", sessionId);
+                    return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.TimedOut);
+                }
+                catch (IOException ex)
+                {
+                    logger.LogError(ex, "Token prompt pipe protocol failed in session {SessionId}.", sessionId);
+                    return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.ProtocolError);
                 }
             }
         }
@@ -147,7 +198,12 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
         return sessionId == uint.MaxValue ? [] : [sessionId];
     }
 
-    private static bool TryLaunch(SafeAccessTokenHandle token, string path, string pipeName, out string error)
+    private static bool TryLaunch(
+        SafeAccessTokenHandle token, string path, string pipeName, out string error) =>
+        TryLaunch(token, path, pipeName, false, out error);
+
+    private static bool TryLaunch(
+        SafeAccessTokenHandle token, string path, string pipeName, bool tokenPrompt, out string error)
     {
         error = string.Empty;
         if (!File.Exists(path)) { error = $"executable not found: {path}"; return false; }
@@ -160,7 +216,9 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
         try
         {
             var startup = new NativeMethods.StartupInfo { Size = Marshal.SizeOf<NativeMethods.StartupInfo>(), Desktop = @"winsta0\default" };
-            var commandLine = $"\"{path}\" \"{pipeName}\"";
+            var commandLine = tokenPrompt
+                ? $"\"{path}\" --token \"{pipeName}\""
+                : $"\"{path}\" \"{pipeName}\"";
             if (!NativeMethods.CreateProcessAsUser(token, null, commandLine, IntPtr.Zero, IntPtr.Zero, false,
                     NativeMethods.CreateUnicodeEnvironment, environment, Path.GetDirectoryName(path), ref startup, out var process))
             {

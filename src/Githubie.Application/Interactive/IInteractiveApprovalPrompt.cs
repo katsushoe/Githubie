@@ -9,6 +9,36 @@ public interface IInteractiveApprovalPrompt
         CancellationToken cancellationToken);
 }
 
+/// <summary>対話セッションの人間から秘密値を安全なPipe経由で受け取ります。</summary>
+public interface IInteractiveTokenPrompt
+{
+    Task<InteractiveTokenPromptResult> RequestTokenAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken);
+}
+
+public enum InteractiveTokenPromptOutcome
+{
+    Accepted,
+    Skipped,
+    TimedOut,
+    NoInteractiveSession,
+    LaunchFailed,
+    ProtocolError,
+}
+
+/// <summary>Token本体は利用後に呼び出し側で消去します。</summary>
+public sealed record InteractiveTokenPromptResult(
+    InteractiveTokenPromptOutcome Outcome,
+    char[]? Token)
+{
+    public static InteractiveTokenPromptResult Accepted(char[] token) =>
+        new(InteractiveTokenPromptOutcome.Accepted, token);
+
+    public static InteractiveTokenPromptResult Failure(InteractiveTokenPromptOutcome outcome) =>
+        new(outcome, null);
+}
+
 public enum ApprovalOutcome
 {
     Approved,

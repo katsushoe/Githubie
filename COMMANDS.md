@@ -73,7 +73,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 
 | Tool | Parameters | State and constraints |
 | --- | --- | --- |
-| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?` | Derives GitHub identity from the local remote and registers it only after desktop approval |
+| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?` | Registers after desktop approval, then optionally stores a token in a separate foreground dialog; returns `token_configured` and `token_status` without exposing the token |
 | `github_repository_update` | `repository`, branch policy fields | Updates branch policy only after desktop approval; identity and paths remain unchanged |
 | `github_repository_unregister` | `repository` | Removes the entry from Githubie configuration and the live allowlist without deleting GitHub or local data |
 | `github_repository_rename` | `old_repository`, `new_repository` | Migrates configuration and encrypted token together; keeps the old ID usable if migration fails |

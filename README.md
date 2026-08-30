@@ -38,7 +38,7 @@ Use `githubie.exe` for configuration, credentials, diagnostics, and Windows Serv
 
 The `githubie_usage` MCP prompt gives agents a concise guide to Githubie's purpose, repository ID usage, the inspect-before-mutate workflow, protected branches, credentials, and history-rewrite safety. MCP clients that support prompts can select it at the start of repository work.
 
-`github_repository_register` derives the GitHub owner/repository from an existing local remote, requires desktop approval, persists the configuration, and updates the running allowlist without a service restart.
+`github_repository_register` derives the GitHub owner/repository from an existing local remote, requires desktop approval, persists the configuration, and updates the running allowlist without a service restart. After approval, a separate foreground dialog optionally stores the repository token; skipping or failing token storage does not roll back registration.
 
 Agents call `list_projects` to select a registered repository ID and repeat that check immediately before every `github_push`. A push attempted with an unregistered ID returns the registered IDs as candidates.
 
@@ -61,7 +61,7 @@ Release tools list, inspect, update, and retry asset publication. Approved asset
 
 ## Security
 
-The MCP endpoint listens only on loopback. Keep Personal Access Tokens out of configuration and MCP client settings; store them with `githubie.exe auth set`, which uses a foreground GUI by default. Use `--console` only when masked terminal input is required. A fine-grained PAT limited to the configured repository with `Contents: Read and write` and `Pull requests: Read and write` is recommended. See [Security](SECURITY.md).
+The MCP endpoint listens only on loopback. Keep Personal Access Tokens out of configuration and MCP client settings; store them in the foreground dialog after repository approval or with `githubie.exe auth set`. Use `--console` only when masked terminal input is required. A fine-grained PAT limited to the configured repository with `Contents: Read and write` and `Pull requests: Read and write` is recommended. See [Security](SECURITY.md).
 
 ## License
 

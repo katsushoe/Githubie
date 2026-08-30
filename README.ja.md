@@ -38,7 +38,7 @@ dotnet test Githubie.slnx
 
 MCP Prompt `githubie_usage`は、Githubieを使用する目的、Repository IDの指定、状態確認から同期・変更へ進む基本手順、保護Branch、認証情報、履歴訂正の安全条件をAgent向けに返します。Promptに対応するMCP Clientでは、作業開始時の利用ガイドとして選択できます。
 
-`github_repository_register`は既存Local Repositoryのremote URLからGitHub Owner／Repositoryを導出し、対話Desktopでの承認後に設定を保存して、Service再起動なしで実行中Allowlistへ反映します。
+`github_repository_register`は既存Local Repositoryのremote URLからGitHub Owner／Repositoryを導出し、対話Desktopでの承認後に設定を保存して、Service再起動なしで実行中Allowlistへ反映します。承認後は別の最前面画面でTokenを任意登録でき、スキップまたは保存失敗でもRepository登録は維持します。
 
 Agentは`list_projects`で登録済みRepository IDから対象を選択し、各会話の`github_push`直前にも再確認します。未登録IDでpushした場合は、エラーに登録済みIDの候補一覧を含めます。
 
@@ -61,7 +61,7 @@ Release Toolは一覧・詳細取得・更新・成果物の再試行可能な�
 
 ## セキュリティ
 
-MCP EndpointはLoopbackだけで待ち受けます。Personal Access Tokenを設定やMCP Clientへ保存せず、`githubie.exe auth set`で登録してください。対象Repositoryだけに限定したFine-grained PATへ`Contents: Read and write`と`Pull requests: Read and write`を付与する方法を推奨します。詳細は[セキュリティ](SECURITY.ja.md)を参照してください。
+MCP EndpointはLoopbackだけで待ち受けます。Personal Access Tokenを設定やMCP Clientへ保存せず、Repository登録承認後の最前面画面または`githubie.exe auth set`で登録してください。対象Repositoryだけに限定したFine-grained PATへ`Contents: Read and write`と`Pull requests: Read and write`を付与する方法を推奨します。詳細は[セキュリティ](SECURITY.ja.md)を参照してください。
 
 ## ライセンス
 
