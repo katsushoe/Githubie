@@ -49,6 +49,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 
 | Tool | Parameters | Data source and result |
 | --- | --- | --- |
+| `list_projects` | None | Registered repository IDs from the live allowlist; call before selecting a repository and immediately before `github_push` |
 | `github_repository_status` | `repository` | Local/remote HEAD, ahead/behind, and working-tree state from Git |
 | `github_repository_diff` | `repository` | Working-tree diff for the registered repository |
 | `github_repository_commit` | `repository`, `message` | Create a local commit on a policy-allowed branch |

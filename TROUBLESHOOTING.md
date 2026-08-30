@@ -6,7 +6,7 @@
 
 | Error | Cause and recovery |
 | --- | --- |
-| `repository_not_found` / `repository_not_allowed` | Use an ID registered under `repositories` in [Configuration](CONFIG.md). |
+| `repository_not_found` / `repository_not_allowed` | Call `list_projects` and use a registered ID. A failed `github_push` also returns registered IDs in `error.candidates`. |
 | `local_root_not_found` / `git_metadata_not_found` | Correct `local_root` and ensure its `.git` directory exists. |
 | `reparse_point_detected` | Configure the physical path without a symlink or junction. |
 | `remote_mismatch` | Make the Git remote match the configured GitHub owner and repository. |
