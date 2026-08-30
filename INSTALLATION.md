@@ -20,7 +20,7 @@ githubie.exe doctor
 
 The initial MSI install, major-upgrade, and uninstall validation was completed for version `1.0.0.0`. Version `1.6.0.5` was additionally validated by upgrading the MSI at `C:\Githubie`, preserving the existing configuration and repository database, and confirming the installed file version, Windows Service, CLI configuration check, and MCP operation.
 
-Version `1.6.0.6` was validated by upgrading the MSI at `C:\Githubie`, preserving configuration and repository data, and confirming the installed version, running Windows Service, CLI configuration check, and the new repository diff/commit MCP schemas.
+Version `1.7.0.0` was validated by upgrading the MSI at `C:\Githubie`, preserving configuration and repository data, and confirming the installed version, running Windows Service, CLI configuration check, `list_projects`, and registered candidates for an unregistered push.
 
 ## Portable ZIP
 
