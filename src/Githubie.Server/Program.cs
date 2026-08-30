@@ -42,6 +42,7 @@ var innerGitGateway = applicationServices.GetRequiredService<IGitGateway>();
 var innerGitHubGateway = applicationServices.GetRequiredService<IGitHubRepositoryGateway>();
 var innerRegistrationService = applicationServices.GetRequiredService<IRepositoryRegistrationService>();
 var innerManagementService = applicationServices.GetRequiredService<IRepositoryManagementService>();
+var repositoryAllowlist = applicationServices.GetRequiredService<RepositoryAllowlist>();
 
 builder.Services.AddSingleton<IGithubieAuditLogger, GithubieAuditLogger>();
 builder.Services.AddSingleton<IGitGateway>(sp => new AuditedGitGateway(innerGitGateway, sp.GetRequiredService<IGithubieAuditLogger>()));
@@ -50,6 +51,7 @@ builder.Services.AddSingleton<IRepositoryRegistrationService>(sp =>
     new AuditedRepositoryRegistrationService(innerRegistrationService, sp.GetRequiredService<IGithubieAuditLogger>()));
 builder.Services.AddSingleton<IRepositoryManagementService>(sp =>
     new AuditedRepositoryManagementService(innerManagementService, sp.GetRequiredService<IGithubieAuditLogger>()));
+builder.Services.AddSingleton(repositoryAllowlist);
 builder.Services.AddSingleton<GithubieMcpTools>();
 
 builder.Services

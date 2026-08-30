@@ -19,7 +19,7 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.6.0.6`です（2026-08-30、Policyに従うRepository working tree diff／local commit操作、標準response/error contract、監査ログ、Provider Capability対応）。
+現在のDisplay Versionは`1.7.0.0`です（2026-08-30、登録済みRepository IDを列挙する`list_projects`、push前の候補確認指示、未登録push時の候補提示に対応）。
 
 ## Gitタグ
 
@@ -60,3 +60,5 @@ Version `1.6.0.5`では、明示的なLocal Tag pushの診断を原因別にし�
 Version `1.6.0.5`では、自動テスト291件の全件成功、MSI／Portable ZIPのBuildとSHA-256、`C:\Githubie`へのMSI Upgrade、Install済みファイルのVersion、既存設定とRepository Dataの保持、Windows Service起動、CLI設定検査、MCP応答をWindows実機で検証しました。
 
 Version `1.6.0.6`では、Policyに従うRepository working tree diff／local commit操作を追加し、標準response/error contract、監査ログ、Provider Capabilityへ反映しました。自動テスト292件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのMSI Upgrade、Install済みVersion、既存設定とRepository Dataの保持、Windows Service起動、CLI設定検査、新ToolのMCP SchemaをWindows実機で検証しました。
+
+Version `1.7.0.0`では、`list_projects`、push前の候補確認指示、未登録push時の候補提示を追加しました。自動テスト294件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのMSI Upgrade、Install済みVersion、既存設定とRepository Dataの保持、Windows Service起動、CLI設定検査、`list_projects`応答、未登録pushの`error.candidates`をWindows実機で検証しました。

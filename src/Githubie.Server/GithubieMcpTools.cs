@@ -8,15 +8,27 @@ using ModelContextProtocol.Server;
 namespace Githubie.Server;
 
 /// <summary>
-/// Githubieが公開するMCP Toolです。Tool名には`github_`Prefixを付け、変更系操作は<c>Destructive = true</c>を明示します。
+/// Githubieが公開するMCP Toolです。Tool名には原則`github_`Prefixを付け、変更系操作は<c>Destructive = true</c>を明示します。
 /// </summary>
 [McpServerToolType]
 public sealed class GithubieMcpTools(
     IGitGateway gitGateway,
     IGitHubRepositoryGateway gitHubGateway,
     IRepositoryRegistrationService registrationService,
-    IRepositoryManagementService managementService)
+    IRepositoryManagementService managementService,
+    RepositoryAllowlist repositoryAllowlist)
 {
+    [McpServerTool(Name = "list_projects", ReadOnly = true, UseStructuredContent = true)]
+    [Description("Githubieに登録済みのRepository ID一覧を取得します。")]
+    public GithubieToolResult<IReadOnlyList<string>> ListProjects()
+    {
+        var repositories = repositoryAllowlist.RepositoryIds
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return GithubieToolResult<IReadOnlyList<string>>.Success(
+            "list_projects", string.Empty, repositories);
+    }
+
     [McpServerTool(Name = "github_repository_register", Destructive = true, UseStructuredContent = true)]
     [Description("ローカルGit remoteからGitHub接続先を導出し、対話承認後にRepositoryを登録します。")]
     public async Task<GithubieToolResult<RepositoryRegistrationInfo>> RegisterRepositoryAsync(
@@ -195,7 +207,16 @@ public sealed class GithubieMcpTools(
         CancellationToken cancellationToken)
     {
         var result = await gitGateway.PushAsync(repository, cancellationToken);
-        return GithubieToolResultMapper.Map("push", repository, result);
+        var mapped = GithubieToolResultMapper.Map("push", repository, result);
+        if (mapped.Error?.Code is "repository_not_found" or "repository_not_allowed")
+        {
+            var candidates = repositoryAllowlist.RepositoryIds
+                .Order(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            return mapped with { Error = mapped.Error with { Candidates = candidates } };
+        }
+
+        return mapped;
     }
 
     [McpServerTool(Name = "github_history_rewrite", Destructive = true, UseStructuredContent = true)]

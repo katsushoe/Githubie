@@ -15,6 +15,7 @@ public sealed class GithubieMcpToolsTests
 {
     private static readonly string[] ExpectedToolNames =
     [
+        "list_projects",
         "github_repository_status",
         "github_repository_diff",
         "github_repository_commit",
@@ -62,6 +63,7 @@ public sealed class GithubieMcpToolsTests
 
     private static readonly string[] ExpectedReadOnlyTools =
     [
+        "list_projects",
         "github_repository_status",
         "github_repository_diff",
         "github_repository_description_get",
@@ -106,11 +108,12 @@ public sealed class GithubieMcpToolsTests
     }
 
     [Fact]
-    public void AllToolNames_HaveGithubPrefixOrAreGetVersion()
+    public void AllToolNames_HaveGithubPrefixOrAreDocumentedExceptions()
     {
         foreach (var (_, attribute) in GetToolMethods())
         {
-            (attribute.Name!.StartsWith("github_", StringComparison.Ordinal) || attribute.Name == "get_version")
+            (attribute.Name!.StartsWith("github_", StringComparison.Ordinal)
+                || attribute.Name is "get_version" or "list_projects")
                 .Should().BeTrue($"tool '{attribute.Name}' should use the github_ prefix");
         }
     }

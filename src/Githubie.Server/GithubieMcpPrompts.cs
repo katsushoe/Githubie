@@ -15,7 +15,7 @@ public sealed class GithubieMcpPrompts
     public const string ServerInstructions = """
         Githubie is a policy-enforcing gateway for operating allowlisted local Git repositories and GitHub.com from an MCP client. It exposes typed operations instead of arbitrary Git commands, repository URLs, or credentials.
 
-        Pass the configured Githubie repository ID to every repository-scoped tool. Start read-only work with github_repository_status, then use the narrowest tool that satisfies the request. Use github_fetch before comparing remote state, and use github_pull only for an allowed branch when a fast-forward update is intended. Use github_push for ordinary development-branch publication; protected branches reject direct pushes.
+        Pass the configured Githubie repository ID to every repository-scoped tool. In every conversation, call list_projects before github_push and select the intended repository ID from its candidates. Start other read-only work with github_repository_status, then use the narrowest tool that satisfies the request. Use github_fetch before comparing remote state, and use github_pull only for an allowed branch when a fast-forward update is intended. Use github_push for ordinary development-branch publication; protected branches reject direct pushes.
 
         Treat tools marked destructive as state-changing. Obtain explicit user intent before creating, updating, closing, merging, deleting, dispatching, pushing, or rewriting history. For github_history_rewrite, call it with dry_run=true first, show the plan, preserve a recovery ref, and proceed only after explicit approval. Repository registration, policy changes, renaming, unregistration, and history rewriting can also require approval in the interactive Windows session.
 
@@ -34,11 +34,11 @@ public sealed class GithubieMcpPrompts
         Use Githubie as the controlled boundary between the MCP client, an allowlisted local Git repository, and GitHub.com.
 
         Recommended workflow:
-        1. Identify the configured Githubie repository ID. Do not pass a path or GitHub URL where a repository ID is required.
+        1. Call list_projects to discover the configured Githubie repository IDs, then select the intended candidate. Do not pass a path or GitHub URL where a repository ID is required.
         2. Call github_repository_status to inspect the current branch, local and remote heads, ahead/behind counts, and working-tree changes.
         3. For remote synchronization, call github_fetch first. Call github_pull only when a fast-forward update of an allowed branch is intended.
         4. Use the dedicated typed tools for branches, pull requests, reviews, comments, tags, releases, repository descriptions, and GitHub Actions. Prefer read-only list/get/diff tools before mutations.
-        5. Use github_push only after local validation and only when the user intends to publish committed changes. Direct pushes to protected branches are rejected.
+        5. In every conversation, call list_projects again immediately before github_push and verify the selected repository ID. Use github_push only after local validation and only when the user intends to publish committed changes. If the repository is not registered, the push error includes registered candidates. Direct pushes to protected branches are rejected.
         6. Use github_history_rewrite only for an explicitly requested correction: dry-run first, review every old/new SHA, save a recovery ref, then obtain approval for the real operation.
 
         Githubie intentionally does not expose arbitrary Git commands, arbitrary repository URLs, or authentication secrets. Configure repositories and credentials with the Githubie CLI or the approval-protected repository management tools. Never ask the user to provide a Personal Access Token in chat or in a tool argument.

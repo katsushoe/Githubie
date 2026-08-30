@@ -34,6 +34,8 @@ public sealed record GithubieToolError(string Code, string Message, bool Retryab
     public string? Diagnostic { get; init; }
 
     public int? ExitCode { get; init; }
+
+    public IReadOnlyList<string>? Candidates { get; init; }
 }
 
 /// <summary>

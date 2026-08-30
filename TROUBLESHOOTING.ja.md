@@ -18,8 +18,8 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 
 | error.code | 原因 | 対処 |
 | --- | --- | --- |
-| `repository_not_found` | `repository`パラメータが未登録のRepository ID | `githubie.exe repo list`で登録済みIDを確認する |
-| `repository_not_allowed` | Repository IDの形式は正しいがAllowlistに存在しない | `githubie.json`の`repositories`にエントリを追加する（[CONFIG.md](CONFIG.md)） |
+| `repository_not_found` | `repository`パラメータが未登録のRepository ID | `list_projects`で登録済みIDを確認する。`github_push`のエラーでは`error.candidates`も確認する |
+| `repository_not_allowed` | Repository IDの形式は正しいがAllowlistに存在しない | `list_projects`で候補を確認し、必要ならRepositoryを登録する |
 | `local_root_not_found` | 設定済み`local_root`がファイルシステム上に存在しない | パスを修正するか、リポジトリを再クローンする |
 | `git_metadata_not_found` | `local_root`直下に`.git`がない | 正しいGitリポジトリのルートを指しているか確認する |
 | `reparse_point_detected` | `local_root`の経路にsymlink/junctionが含まれる | Local Path Security上意図的に拒否している。実体パスを直接指定する |
