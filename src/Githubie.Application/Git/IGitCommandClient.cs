@@ -16,6 +16,12 @@ public interface IGitCommandClient
 
     Task<GitCommandResult> GetStatusAsync(string repositoryRoot, CancellationToken cancellationToken);
 
+    Task<GitCommandResult> GetDiffAsync(string repositoryRoot, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> AddAllAsync(string repositoryRoot, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, CancellationToken cancellationToken);
+
     Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken);
 
     Task<GitCommandResult> FetchAsync(string repositoryRoot, string repositoryId, string remote, CancellationToken cancellationToken);

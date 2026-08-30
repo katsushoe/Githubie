@@ -20,6 +20,8 @@ githubie.exe doctor
 
 The initial MSI install, major-upgrade, and uninstall validation was completed for version `1.0.0.0`. Version `1.6.0.5` was additionally validated by upgrading the MSI at `C:\Githubie`, preserving the existing configuration and repository database, and confirming the installed file version, Windows Service, CLI configuration check, and MCP operation.
 
+Version `1.6.0.6` was validated by upgrading the MSI at `C:\Githubie`, preserving configuration and repository data, and confirming the installed version, running Windows Service, CLI configuration check, and the new repository diff/commit MCP schemas.
+
 ## Portable ZIP
 
 Extract the ZIP to a fixed directory, copy `githubie.example.json` to `config\githubie.json`, and run `githubie.exe service install` before starting the service. The ZIP does not register the service automatically.

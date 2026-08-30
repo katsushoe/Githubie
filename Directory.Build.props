@@ -5,10 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <LangVersion>13</LangVersion>
-    <Version>1.6.0.5</Version>
-    <AssemblyVersion>1.6.0.5</AssemblyVersion>
-    <FileVersion>1.6.0.5</FileVersion>
-    <InformationalVersion>1.6.0.5</InformationalVersion>
+    <Version>1.6.0.6</Version>
+    <AssemblyVersion>1.6.0.6</AssemblyVersion>
+    <FileVersion>1.6.0.6</FileVersion>
+    <InformationalVersion>1.6.0.6</InformationalVersion>
     <Company>Akatsukisoft</Company>
   </PropertyGroup>
 </Project>

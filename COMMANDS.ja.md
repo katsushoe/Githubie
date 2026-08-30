@@ -83,6 +83,8 @@ Tool名は`github_`を接頭辞とする（`get_version`のみ例外）。すべ
 | Tool | パラメータ | 説明 |
 | --- | --- | --- |
 | `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得 |
+| `github_repository_diff` | `repository` | 登録Repositoryのworking tree差分を取得 |
+| `github_repository_commit` | `repository`, `message` | Policyで許可されたbranchにlocal commitを作成 |
 | `github_repository_description_get` | `repository` | Repository Descriptionを取得 |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run状態を取得。log本文は返さない |
 | `github_workflow_run_list` | `repository`、任意filter、`limit` | Workflow runを最大100件取得。log本文は返さない |

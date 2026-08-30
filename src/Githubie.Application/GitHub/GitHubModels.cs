@@ -29,7 +29,9 @@ public sealed record GitHubProviderCapabilities(
     bool BranchDelete,
     bool TagCreate,
     bool TagDelete,
-    bool TagPush);
+    bool TagPush,
+    bool RepositoryDiff,
+    bool RepositoryCommit);
 
 public sealed record GitHubTagInfo(string Name, string TargetCommitSha, string? Message, string? Tagger, DateTimeOffset? Date);
 

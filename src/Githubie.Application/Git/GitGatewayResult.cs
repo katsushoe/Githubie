@@ -17,6 +17,12 @@ public sealed record GitRepositoryStatus(
 /// <summary>作業Treeで検出した変更の状態コードと相対Pathです。内容は含みません。</summary>
 public sealed record GitWorkingTreeChange(string Status, string Path);
 
+/// <summary>登録Repositoryのworking tree差分です。</summary>
+public sealed record GitRepositoryDiff(string Diff);
+
+/// <summary>作成したLocal Commitです。</summary>
+public sealed record GitRepositoryCommit(string CommitSha);
+
 public sealed record GitHistoryRewriteRef(string Ref, string NewLocalSha, string ExpectedRemoteSha);
 
 public sealed record GitHistoryRewriteRefResult(string Ref, string OldSha, string NewSha, bool Success, string? RejectionReason);
@@ -74,6 +80,7 @@ public enum GitGatewayError
     AuthenticationFailed,
 
     WorkingTreeDirty,
+    NothingToCommit,
     BranchNotAllowed,
     ProtectedBranch,
 
