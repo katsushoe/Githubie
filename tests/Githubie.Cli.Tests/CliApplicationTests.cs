@@ -6,6 +6,24 @@ namespace Githubie.Cli.Tests;
 
 public sealed class CliApplicationTests
 {
+    [Theory]
+    [InlineData("initialize", 5)]
+    [InlineData("tools/list", 5)]
+    public void ResolveMcpTimeout_QueryMethod_ReturnsFiveSeconds(string method, int expectedSeconds)
+    {
+        var timeout = CliApplication.ResolveMcpTimeout(method);
+
+        timeout.Should().Be(TimeSpan.FromSeconds(expectedSeconds));
+    }
+
+    [Fact]
+    public void ResolveMcpTimeout_ToolCall_ReturnsElevenMinutes()
+    {
+        var timeout = CliApplication.ResolveMcpTimeout("tools/call");
+
+        timeout.Should().Be(TimeSpan.FromMinutes(11));
+    }
+
     [Fact]
     public async Task RunAsync_Help_DescribesConsoleAuthOption()
     {
