@@ -19,7 +19,7 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.0.0`です（2026-08-31、Repository登録承認後の任意Token設定、スキップ・保存失敗時の登録維持に対応）。
+現在のDisplay Versionは`1.8.1.0`です（2026-08-31、対話型MCP Tool呼び出しの待機時間修正に対応）。
 
 ## Gitタグ
 
@@ -66,3 +66,5 @@ Version `1.7.0.0`では、`list_projects`、push前の候補確認指示、未�
 Version `1.8.0.0`では、Repository登録承認後の最前面画面による任意Token設定を追加し、Token入力のスキップまたは保存失敗時もRepository登録を維持します。
 
 Version `1.8.0.0`では、自動テスト296件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのMSI Upgrade、Install済みVersion、既存設定とRepository Dataの保持、Windows Service起動、CLI設定検査、MCP応答、Repository登録結果の`token_configured`／`token_status` SchemaをWindows実機で検証しました。
+
+Version `1.8.1.0`では、CLIの`tools/call`を11分待機へ延長し、疎通確認とTool一覧の5秒待機を維持することで、承認画面とToken入力画面がClient Cancellationで閉じる問題を修正しました。自動テスト299件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのUpgrade、Install済みVersion、Windows Service自動起動、CLI設定検査、MCP Version応答、登録済みProjectの保持をWindows実機で検証しました。

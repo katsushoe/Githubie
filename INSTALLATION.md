@@ -22,6 +22,8 @@ The initial MSI install, major-upgrade, and uninstall validation was completed f
 
 Version `1.8.0.0` was validated by upgrading the MSI at `C:\Githubie`, preserving configuration and repository data, and confirming the installed version, running Windows Service, CLI configuration check, MCP response, and repository-registration token-status output schema.
 
+Version `1.8.1.0` updates interactive MCP tool-call timeout handling. Its MSI upgrade at `C:\Githubie`, installed version, automatic Windows Service startup, configuration check, MCP version response, and preservation of registered projects were validated on a Windows machine.
+
 ## Portable ZIP
 
 Extract the ZIP to a fixed directory, copy `githubie.example.json` to `config\githubie.json`, and run `githubie.exe service install` before starting the service. The ZIP does not register the service automatically.
