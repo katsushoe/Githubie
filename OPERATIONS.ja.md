@@ -4,7 +4,7 @@
 
 ## Repository登録
 
-未使用のRepository IDと既存Local Repositoryの絶対Pathを`github_repository_register`へ渡す。GithubieはLocal remoteからGitHub接続先を導出し、Owner／Repository、Local Root、remote、Branch経路を対話Desktopへ表示する。承認後、Network操作にTokenが必要なら`githubie auth set <repository>`を実行し、`github_repository_status`と`github_fetch`で確認する。
+未使用のRepository IDと既存Local Repositoryの絶対Pathを`github_repository_register`へ渡す。GithubieはLocal remoteからGitHub接続先を導出し、Owner／Repository、Local Root、remote、Branch経路を対話Desktopへ表示する。承認後、別の最前面画面でTokenを任意登録する。スキップまたは保存失敗でもRepository登録は維持され、後から`githubie auth set <repository>`を実行できる。`github_repository_status`と`github_fetch`で確認する。
 
 ## 履歴訂正
 

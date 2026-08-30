@@ -25,7 +25,9 @@ public sealed record RepositoryRegistrationInfo(
     string LocalRoot,
     string Remote,
     string DevelopBranch,
-    string MainBranch);
+    string MainBranch,
+    bool TokenConfigured,
+    string TokenStatus);
 
 /// <summary>Repository登録の固定エラーです。</summary>
 public enum RepositoryRegistrationError

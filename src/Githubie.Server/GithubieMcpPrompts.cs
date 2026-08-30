@@ -19,7 +19,7 @@ public sealed class GithubieMcpPrompts
 
         Treat tools marked destructive as state-changing. Obtain explicit user intent before creating, updating, closing, merging, deleting, dispatching, pushing, or rewriting history. For github_history_rewrite, call it with dry_run=true first, show the plan, preserve a recovery ref, and proceed only after explicit approval. Repository registration, policy changes, renaming, unregistration, and history rewriting can also require approval in the interactive Windows session.
 
-        Never request or expose a Personal Access Token through MCP. Credentials are stored separately with the Githubie CLI. Do not bypass Githubie with arbitrary git commands or direct GitHub API calls when operating a repository managed by this server.
+        Never request or expose a Personal Access Token through MCP. Repository registration can open a separate foreground token dialog after approval; credentials can also be stored with the Githubie CLI. Do not bypass Githubie with arbitrary git commands or direct GitHub API calls when operating a repository managed by this server.
 
         Use the githubie_usage prompt for a concise workflow and tool-selection guide.
         """;
@@ -41,6 +41,6 @@ public sealed class GithubieMcpPrompts
         5. In every conversation, call list_projects again immediately before github_push and verify the selected repository ID. Use github_push only after local validation and only when the user intends to publish committed changes. If the repository is not registered, the push error includes registered candidates. Direct pushes to protected branches are rejected.
         6. Use github_history_rewrite only for an explicitly requested correction: dry-run first, review every old/new SHA, save a recovery ref, then obtain approval for the real operation.
 
-        Githubie intentionally does not expose arbitrary Git commands, arbitrary repository URLs, or authentication secrets. Configure repositories and credentials with the Githubie CLI or the approval-protected repository management tools. Never ask the user to provide a Personal Access Token in chat or in a tool argument.
+        Githubie intentionally does not expose arbitrary Git commands, arbitrary repository URLs, or authentication secrets. Repository registration opens an optional foreground token dialog after approval; skipped or failed token storage does not roll back registration. Credentials can also be configured with the Githubie CLI. Never ask the user to provide a Personal Access Token in chat or in a tool argument.
         """;
 }

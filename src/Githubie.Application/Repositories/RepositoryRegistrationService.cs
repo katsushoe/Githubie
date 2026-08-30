@@ -1,4 +1,5 @@
 using Githubie.Application.Configuration;
+using Githubie.Application.Credentials;
 using Githubie.Application.Git;
 using Githubie.Application.Interactive;
 
@@ -10,7 +11,9 @@ public sealed class RepositoryRegistrationService(
     LocalPathValidator pathValidator,
     IGitCommandClient gitCommandClient,
     IInteractiveApprovalPrompt approvalPrompt,
-    IRepositoryConfigurationStore configurationStore) : IRepositoryRegistrationService
+    IRepositoryConfigurationStore configurationStore,
+    IInteractiveTokenPrompt tokenPrompt,
+    IApiTokenStore tokenStore) : IRepositoryRegistrationService
 {
     private static readonly TimeSpan ApprovalTimeout = TimeSpan.FromMinutes(5);
     private const string DefaultRemote = "origin";
@@ -95,12 +98,37 @@ public sealed class RepositoryRegistrationService(
             if (!allowlist.TryAdd(repositoryId, options))
                 return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.DuplicateRepositoryId);
 
+            var tokenResult = await ConfigureTokenAsync(repositoryId, cancellationToken);
             return RepositoryRegistrationResult.Success(new RepositoryRegistrationInfo(
-                true, repositoryId, parsed.Value.Owner, parsed.Value.Repo, localRoot, remote, develop, main));
+                true, repositoryId, parsed.Value.Owner, parsed.Value.Repo, localRoot, remote, develop, main,
+                tokenResult.Configured, tokenResult.Status));
         }
         finally
         {
             _registrationLock.Release();
+        }
+    }
+
+    private async Task<(bool Configured, string Status)> ConfigureTokenAsync(
+        string repositoryId,
+        CancellationToken cancellationToken)
+    {
+        var promptResult = await tokenPrompt.RequestTokenAsync(ApprovalTimeout, cancellationToken);
+        if (promptResult.Outcome != InteractiveTokenPromptOutcome.Accepted || promptResult.Token is null)
+        {
+            return (false, promptResult.Outcome == InteractiveTokenPromptOutcome.Skipped
+                ? "skipped"
+                : "prompt_unavailable");
+        }
+
+        try
+        {
+            var saveResult = tokenStore.Save(repositoryId, promptResult.Token);
+            return saveResult.IsSuccess ? (true, "saved") : (false, "save_failed");
+        }
+        finally
+        {
+            Array.Clear(promptResult.Token);
         }
     }
 

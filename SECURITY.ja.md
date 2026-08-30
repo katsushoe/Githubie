@@ -32,7 +32,7 @@ MCP Endpointへのリクエストは`Origin`ヘッダを検証し、送信され
 ## Personal Access Token
 
 - 推奨: **Fine-grained PAT**（対象Repositoryを限定し、`Contents: Read and write` / `Pull requests: Read and write`を付与）。Repository Description更新には`Administration: Read and write`、Workflow起動・run取得には`Actions: Read and write`が追加で必要。Classic PAT（`ghp_...`、Repository横断の`repo`スコープ）は新規登録では使用しない。
-- 保存: `githubie.json`へ平文保存しない。`githubie.exe auth set <repository>`でDPAPI（`DataProtectionScope.LocalMachine`）暗号化のうえ`data\secrets\<repository-id>.token`へ1ファイル/Repositoryで保存する。LocalMachineスコープを用いるのは、Windows Service（LocalSystem）実行時にも復号できる必要があるため。
+- 保存: `githubie.json`へ平文保存しない。Repository登録承認後の最前面画面または`githubie.exe auth set <repository>`からSID制限付きNamed Pipeで受け取り、DPAPI（`DataProtectionScope.LocalMachine`）暗号化のうえ`data\secrets\<repository-id>.token`へ1ファイル/Repositoryで保存する。Token本体はMCP引数・応答・ログ・コマンドラインへ含めない。LocalMachineスコープを用いるのは、Windows Service（LocalSystem）実行時にも復号できる必要があるため。
 - Repository登録用の`data\githubie.db`にはTokenを保存しない。
 - ディレクトリACL: `data\secrets`は継承を切ったうえで、LocalSystem / Administrators / 現在のユーザーのみにFullControlを限定する（[WindowsSecretDirectorySecurity](src/Githubie.Infrastructure/Credentials/WindowsSecretDirectorySecurity.cs)）。
 - 認証Header: `Authorization: Bearer <token>`を都度生成し、AgentやAudit Logへ露出しない。使用直後にメモリをゼロクリアする。

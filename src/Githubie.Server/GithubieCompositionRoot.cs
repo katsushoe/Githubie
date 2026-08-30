@@ -81,7 +81,11 @@ public static class GithubieCompositionRoot
         services.AddSingleton<IProcessExecutor, ProcessExecutor>();
         services.AddSingleton<IGitCommandClient>(sp =>
             new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath));
-        services.AddSingleton<IInteractiveApprovalPrompt>(sp => CreateApprovalPrompt(sp, approvalPromptExecutablePath));
+#pragma warning disable CA1416
+        services.AddSingleton(sp => CreateApprovalPrompt(sp, approvalPromptExecutablePath));
+        services.AddSingleton<IInteractiveApprovalPrompt>(sp => sp.GetRequiredService<WindowsInteractiveApprovalPrompt>());
+        services.AddSingleton<IInteractiveTokenPrompt>(sp => sp.GetRequiredService<WindowsInteractiveApprovalPrompt>());
+#pragma warning restore CA1416
         services.AddSingleton<IRepositoryConfigurationStore>(configurationStore);
         services.AddSingleton<IRepositoryRegistrationService, RepositoryRegistrationService>();
         services.AddSingleton<IRepositoryManagementService, RepositoryManagementService>();
@@ -108,7 +112,7 @@ public static class GithubieCompositionRoot
     }
 
 #pragma warning disable CA1416
-    private static IInteractiveApprovalPrompt CreateApprovalPrompt(IServiceProvider services, string executablePath) =>
+    private static WindowsInteractiveApprovalPrompt CreateApprovalPrompt(IServiceProvider services, string executablePath) =>
         new WindowsInteractiveApprovalPrompt(
             executablePath,
             services.GetRequiredService<ILogger<WindowsInteractiveApprovalPrompt>>());

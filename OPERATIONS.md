@@ -4,7 +4,7 @@
 
 ## Repository registration
 
-Call `github_repository_register` with an unused repository ID and an existing absolute local root. Githubie derives the GitHub identity from the local remote and displays the resulting owner/repository, root, remote, and branch route for desktop approval. After approval, run `githubie auth set <repository>` when network operations need a token, then verify `github_repository_status` and `github_fetch`.
+Call `github_repository_register` with an unused repository ID and an existing absolute local root. Githubie derives the GitHub identity from the local remote and displays the resulting owner/repository, root, remote, and branch route for desktop approval. A second foreground dialog optionally stores the token through a protected pipe. If skipped or unsuccessful, registration remains valid and `githubie auth set <repository>` can be used later. Verify with `github_repository_status` and `github_fetch`.
 
 ## History rewrite
 
