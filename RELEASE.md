@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.7.0.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.0.0`.
 
 ## Tags
 
@@ -69,3 +69,7 @@ Version `1.6.0.6` passed all 292 automated tests. Its MSI build and SHA-256 mani
 Version `1.7.0.0` adds `list_projects` for discovering registered repository IDs, instructs agents to verify the selected project before every push, and returns registered candidates when a push targets an unregistered project.
 
 Version `1.7.0.0` passed all 294 automated tests. Its MSI build and SHA-256 manifest, MSI upgrade at `C:\Githubie`, installed file version, preservation of existing configuration and repository data, Windows Service startup, CLI configuration check, `list_projects` response, and unregistered-push `error.candidates` were validated on a Windows machine.
+
+Version `1.8.0.0` adds optional foreground token setup after repository registration approval, while keeping registration successful when token entry is skipped or storage fails.
+
+Version `1.8.0.0` passed all 296 automated tests. Its MSI build and SHA-256 manifest, MSI upgrade at `C:\Githubie`, installed file version, preservation of existing configuration and repository data, Windows Service startup, CLI configuration check, MCP response, and repository-registration `token_configured`/`token_status` output schema were validated on a Windows machine.
