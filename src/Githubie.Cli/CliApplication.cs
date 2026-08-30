@@ -18,6 +18,9 @@ namespace Githubie.Cli;
 /// </summary>
 public static class CliApplication
 {
+    private static readonly TimeSpan McpQueryTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan McpCallTimeout = TimeSpan.FromMinutes(11);
+
     public static async Task<int> RunAsync(string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken)
     {
         var (configPath, remaining) = ExtractConfigOption(args);
@@ -522,7 +525,7 @@ public static class CliApplication
     private static async Task<string?> SendMcpRequestAsync(
         GithubieOptions options, string method, CancellationToken cancellationToken, object? parameters = null)
     {
-        using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        using var httpClient = new HttpClient { Timeout = ResolveMcpTimeout(method) };
         var uri = new Uri($"http://127.0.0.1:{options.McpPort}{options.McpPath}");
 
         object payload = method == "initialize"
@@ -563,6 +566,9 @@ public static class CliApplication
             return null;
         }
     }
+
+    internal static TimeSpan ResolveMcpTimeout(string method) =>
+        string.Equals(method, "tools/call", StringComparison.Ordinal) ? McpCallTimeout : McpQueryTimeout;
 
     private static string ExtractMcpJson(string response)
     {
