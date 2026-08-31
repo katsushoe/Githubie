@@ -5,10 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <LangVersion>13</LangVersion>
-    <Version>1.8.2.0</Version>
-    <AssemblyVersion>1.8.2.0</AssemblyVersion>
-    <FileVersion>1.8.2.0</FileVersion>
-    <InformationalVersion>1.8.2.0</InformationalVersion>
+    <Version>1.8.3.0</Version>
+    <AssemblyVersion>1.8.3.0</AssemblyVersion>
+    <FileVersion>1.8.3.0</FileVersion>
+    <InformationalVersion>1.8.3.0</InformationalVersion>
     <Company>Akatsukisoft</Company>
   </PropertyGroup>
 </Project>

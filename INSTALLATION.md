@@ -24,7 +24,7 @@ Version `1.8.0.0` was validated by upgrading the MSI at `C:\Githubie`, preservin
 
 Version `1.8.1.0` updates interactive MCP tool-call timeout handling. Its MSI upgrade at `C:\Githubie`, installed version, automatic Windows Service startup, configuration check, MCP version response, and preservation of registered projects were validated on a Windows machine.
 
-Version `1.8.2.0` adds repository context to the token dialog. Its MSI upgrade at `C:\Githubie`, installed and MCP versions, automatic Windows Service startup, configuration check, and preservation of registered projects were validated on a Windows machine.
+Version `1.8.3.0` also resolves and shows the registered repository URL when the token dialog is opened with `githubie auth set`. Its MSI installation at `C:\Githubie`, installed version, automatic Windows Service startup, configuration check, and preservation of registered projects were validated on a Windows machine.
 
 ## Portable ZIP
 
