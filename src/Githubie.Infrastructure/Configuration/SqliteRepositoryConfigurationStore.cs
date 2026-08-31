@@ -26,6 +26,31 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IR
         Pooling = false,
     }.ToString();
 
+    /// <summary>登録IDに対応するRepository設定を取得します。</summary>
+    public async Task<RepositoryOptions?> GetRepositoryAsync(
+        string repositoryId,
+        CancellationToken cancellationToken)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryId);
+        try
+        {
+            await using var connection = await OpenAsync(cancellationToken);
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT options_json FROM repositories WHERE repository_id = $repository_id;";
+            command.Parameters.AddWithValue("$repository_id", repositoryId);
+            var json = await command.ExecuteScalarAsync(cancellationToken) as string;
+            return json is null ? null : Deserialize(json);
+        }
+        catch (SqliteException ex)
+        {
+            throw new IOException("Repository configuration could not be read.", ex);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("Repository database contains invalid JSON.", ex);
+        }
+    }
+
     /// <summary>Schemaを初期化し、未移行の場合だけJSON由来の登録を取り込みます。</summary>
     public async Task<IReadOnlyDictionary<string, RepositoryOptions>> InitializeAsync(
         IReadOnlyDictionary<string, RepositoryOptions> legacyRepositories,
@@ -191,6 +216,10 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IR
 
         return repositories;
     }
+
+    private static RepositoryOptions Deserialize(string json) =>
+        JsonSerializer.Deserialize<RepositoryOptions>(json, SerializerOptions)
+        ?? throw new JsonException("Repository options were empty.");
 
     private static async Task<bool> HasMetadataAsync(
         SqliteConnection connection,

@@ -18,7 +18,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie repo description get <repository>` | Gets the repository description |
 | `githubie repo description update <repository> <description>` | Updates the description; an empty string removes it |
 | `githubie repo rename <old> <new>` | Atomically migrates repository configuration and its encrypted token to a new ID |
-| `githubie auth set <repository> [--console]` | Replaces the DPAPI-encrypted token using the foreground GUI by default; `--console` uses masked terminal input |
+| `githubie auth set <repository> [--console]` | Replaces the DPAPI-encrypted token using the foreground GUI, showing the registered project name and repository URL; `--console` uses masked terminal input |
 | `githubie auth test <repository>` | Calls GitHub with the stored token and reports authentication status |
 | `githubie auth delete <repository>` | Deletes the stored token |
 | `githubie mcp status` / `mcp test` | Sends MCP `initialize` and reports connectivity |
