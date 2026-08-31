@@ -6,14 +6,15 @@ namespace Githubie.Cli;
 
 internal sealed class TokenPromptClient(string executablePath)
 {
-    public async Task<char[]?> RequestAsync(CancellationToken cancellationToken)
+    public async Task<char[]?> RequestAsync(TokenPromptRequest request, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
         if (!File.Exists(executablePath)) return null;
 
         var pipeName = $"githubie-token-{Guid.NewGuid():N}";
         await using var pipe = new NamedPipeServerStream(
             pipeName,
-            PipeDirection.In,
+            PipeDirection.InOut,
             1,
             PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
@@ -30,6 +31,7 @@ internal sealed class TokenPromptClient(string executablePath)
         try
         {
             await pipe.WaitForConnectionAsync(cancellationToken);
+            await ApprovalPipeProtocol.WriteFrameAsync(pipe, request, cancellationToken);
             var response = await ApprovalPipeProtocol.ReadFrameAsync<TokenPromptResponse>(pipe, cancellationToken);
             return response is { Accepted: true } && !string.IsNullOrWhiteSpace(response.Token)
                 ? response.Token.Trim().ToCharArray()

@@ -61,7 +61,7 @@ Release Toolは一覧・詳細取得・更新・成果物の再試行可能な�
 
 ## セキュリティ
 
-MCP EndpointはLoopbackだけで待ち受けます。Personal Access Tokenを設定やMCP Clientへ保存せず、Repository登録承認後の最前面画面または`githubie.exe auth set`で登録してください。対象Repositoryだけに限定したFine-grained PATへ`Contents: Read and write`と`Pull requests: Read and write`を付与する方法を推奨します。詳細は[セキュリティ](SECURITY.ja.md)を参照してください。
+MCP EndpointはLoopbackだけで待ち受けます。Personal Access Tokenを設定やMCP Clientへ保存せず、Repository登録承認後の最前面画面または`githubie.exe auth set`で登録してください。Repository登録承認後のToken画面には、入力前に登録元Project名と登録対象Repository URLを表示します。対象Repositoryだけに限定したFine-grained PATへ`Contents: Read and write`と`Pull requests: Read and write`を付与する方法を推奨します。詳細は[セキュリティ](SECURITY.ja.md)を参照してください。
 
 ## ライセンス
 

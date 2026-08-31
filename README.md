@@ -61,7 +61,7 @@ Release tools list, inspect, update, and retry asset publication. Approved asset
 
 ## Security
 
-The MCP endpoint listens only on loopback. Keep Personal Access Tokens out of configuration and MCP client settings; store them in the foreground dialog after repository approval or with `githubie.exe auth set`. Use `--console` only when masked terminal input is required. A fine-grained PAT limited to the configured repository with `Contents: Read and write` and `Pull requests: Read and write` is recommended. See [Security](SECURITY.md).
+The MCP endpoint listens only on loopback. Keep Personal Access Tokens out of configuration and MCP client settings; store them in the foreground dialog after repository approval or with `githubie.exe auth set`. After repository approval, the token dialog shows the source project name and target repository URL before token entry. Use `--console` only when masked terminal input is required. A fine-grained PAT limited to the configured repository with `Contents: Read and write` and `Pull requests: Read and write` is recommended. See [Security](SECURITY.md).
 
 ## License
 

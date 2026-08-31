@@ -33,12 +33,14 @@ internal static class Program
 
     private static async Task RunTokenAsync(string pipeName)
     {
-        await using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.Out, PipeOptions.Asynchronous);
+        await using var pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         try { await pipe.ConnectAsync(timeout.Token); }
         catch (Exception exception) when (exception is IOException or OperationCanceledException) { return; }
 
-        using var form = new TokenForm();
+        var request = await ApprovalPipeProtocol.ReadFrameAsync<TokenPromptRequest>(pipe, CancellationToken.None);
+        if (request is null) return;
+        using var form = new TokenForm(request);
         var accepted = form.ShowDialog() == DialogResult.OK;
         var response = new TokenPromptResponse(accepted, accepted ? form.Token : string.Empty);
         try { await ApprovalPipeProtocol.WriteFrameAsync(pipe, response, CancellationToken.None); }
