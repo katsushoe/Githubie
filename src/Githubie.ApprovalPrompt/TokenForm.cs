@@ -4,9 +4,14 @@ namespace Githubie.ApprovalPrompt;
 
 internal sealed partial class TokenForm : Form
 {
-    public TokenForm()
+    public TokenForm(TokenPromptRequest request)
     {
+        ArgumentNullException.ThrowIfNull(request);
         InitializeComponent();
+        projectNameValueLabel.Text = request.ProjectName;
+        repositoryUrlValueLabel.Text = string.IsNullOrWhiteSpace(request.RepositoryUrl)
+            ? "登録情報から取得できません"
+            : request.RepositoryUrl;
         ActiveControl = tokenTextBox;
     }
 

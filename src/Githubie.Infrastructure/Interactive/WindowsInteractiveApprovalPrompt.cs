@@ -67,8 +67,10 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
     }
 
     public async Task<InteractiveTokenPromptResult> RequestTokenAsync(
+        TokenPromptRequest request,
         TimeSpan timeout, CancellationToken cancellationToken)
     {
+        ArgumentNullException.ThrowIfNull(request);
         if (!TryGetSession(out var token, out var sid, out var sessionId) || token is null || sid is null)
         {
             logger.LogError("Token prompt session lookup failed: no active interactive user session was found.");
@@ -92,6 +94,7 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
                 try
                 {
                     await pipe.WaitForConnectionAsync(linked.Token);
+                    await ApprovalPipeProtocol.WriteFrameAsync(pipe, request, linked.Token);
                     var response = await ApprovalPipeProtocol.ReadFrameAsync<TokenPromptResponse>(pipe, linked.Token);
                     if (response is null)
                     {

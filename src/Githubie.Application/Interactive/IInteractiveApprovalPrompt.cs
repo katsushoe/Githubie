@@ -13,9 +13,13 @@ public interface IInteractiveApprovalPrompt
 public interface IInteractiveTokenPrompt
 {
     Task<InteractiveTokenPromptResult> RequestTokenAsync(
+        TokenPromptRequest request,
         TimeSpan timeout,
         CancellationToken cancellationToken);
 }
+
+/// <summary>Token画面へ表示する秘密値を含まないRepository情報です。</summary>
+public sealed record TokenPromptRequest(string ProjectName, string RepositoryUrl);
 
 public enum InteractiveTokenPromptOutcome
 {

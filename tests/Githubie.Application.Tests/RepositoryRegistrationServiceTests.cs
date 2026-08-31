@@ -30,7 +30,7 @@ public sealed class RepositoryRegistrationServiceTests
             .Returns(GitCommandResult.Success("https://github.com/derived-owner/derived-repo.git"));
         _approval.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(ApprovalPromptOutcome.Approved());
-        _tokenPrompt.RequestTokenAsync(Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+        _tokenPrompt.RequestTokenAsync(Arg.Any<TokenPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.Skipped));
     }
 
@@ -54,13 +54,17 @@ public sealed class RepositoryRegistrationServiceTests
         options.ProtectedBranches.Should().Equal("main");
         await _store.Received(1).SaveRepositoryAsync("sample", Arg.Is<RepositoryOptions>(x =>
             x.GitHubOwner == "derived-owner" && x.GitHubRepo == "derived-repo"), Arg.Any<CancellationToken>());
+        await _tokenPrompt.Received(1).RequestTokenAsync(
+            Arg.Is<TokenPromptRequest>(x => x.ProjectName == "sample" &&
+                x.RepositoryUrl == "https://github.com/derived-owner/derived-repo"),
+            Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
     public async Task RegisterAsync_TokenAccepted_SavesTokenWithoutReturningIt()
     {
         var token = "secret-token".ToCharArray();
-        _tokenPrompt.RequestTokenAsync(Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+        _tokenPrompt.RequestTokenAsync(Arg.Any<TokenPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(InteractiveTokenPromptResult.Accepted(token));
         var service = CreateService();
 
@@ -81,7 +85,7 @@ public sealed class RepositoryRegistrationServiceTests
     public async Task RegisterAsync_TokenSaveFails_KeepsRepositoryRegistered()
     {
         _tokenStore.SaveError = ApiTokenStoreError.AccessDenied;
-        _tokenPrompt.RequestTokenAsync(Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+        _tokenPrompt.RequestTokenAsync(Arg.Any<TokenPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(InteractiveTokenPromptResult.Accepted("secret-token".ToCharArray()));
         var service = CreateService();
 

@@ -349,7 +349,8 @@ public static class CliApplication
         else
         {
             var prompt = new TokenPromptClient(Path.Combine(binDirectory, "Githubie.ApprovalPrompt.exe"));
-            token = await prompt.RequestAsync(cancellationToken);
+            token = await prompt.RequestAsync(
+                new Application.Interactive.TokenPromptRequest(repository, string.Empty), cancellationToken);
             if (token is null)
             {
                 output.WriteLine("[CANCELLED] token was not saved");

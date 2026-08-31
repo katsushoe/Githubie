@@ -98,7 +98,10 @@ public sealed class RepositoryRegistrationService(
             if (!allowlist.TryAdd(repositoryId, options))
                 return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.DuplicateRepositoryId);
 
-            var tokenResult = await ConfigureTokenAsync(repositoryId, cancellationToken);
+            var tokenResult = await ConfigureTokenAsync(
+                repositoryId,
+                $"https://github.com/{parsed.Value.Owner}/{parsed.Value.Repo}",
+                cancellationToken);
             return RepositoryRegistrationResult.Success(new RepositoryRegistrationInfo(
                 true, repositoryId, parsed.Value.Owner, parsed.Value.Repo, localRoot, remote, develop, main,
                 tokenResult.Configured, tokenResult.Status));
@@ -111,9 +114,11 @@ public sealed class RepositoryRegistrationService(
 
     private async Task<(bool Configured, string Status)> ConfigureTokenAsync(
         string repositoryId,
+        string repositoryUrl,
         CancellationToken cancellationToken)
     {
-        var promptResult = await tokenPrompt.RequestTokenAsync(ApprovalTimeout, cancellationToken);
+        var promptResult = await tokenPrompt.RequestTokenAsync(
+            new TokenPromptRequest(repositoryId, repositoryUrl), ApprovalTimeout, cancellationToken);
         if (promptResult.Outcome != InteractiveTokenPromptOutcome.Accepted || promptResult.Token is null)
         {
             return (false, promptResult.Outcome == InteractiveTokenPromptOutcome.Skipped
