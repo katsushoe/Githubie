@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Githubie.Application.Interactive;
 
 namespace Githubie.ApprovalPrompt;
 
