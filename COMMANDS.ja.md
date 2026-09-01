@@ -85,7 +85,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | Tool | パラメータ | 説明 |
 | --- | --- | --- |
 | `list_projects` | — | 実行中Allowlistに登録済みのRepository ID一覧を取得。Repository選択時と`github_push`直前に呼び出す |
-| `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得 |
+| `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得。初回Commit前はlocal headを空、ahead/behindを0として返す |
 | `github_repository_diff` | `repository` | 登録Repositoryのworking tree差分を取得 |
 | `github_repository_commit` | `repository`, `message` | Policyで許可されたbranchにlocal commitを作成 |
 | `github_repository_description_get` | `repository` | Repository Descriptionを取得 |

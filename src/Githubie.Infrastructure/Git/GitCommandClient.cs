@@ -14,11 +14,19 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     private readonly IProcessExecutor _processExecutor = processExecutor;
     private readonly string _askPassExecutablePath = askPassExecutablePath;
 
-    public Task<GitCommandResult> GetCurrentBranchAsync(string repositoryRoot, CancellationToken cancellationToken) =>
-        ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--abbrev-ref", "HEAD"], cancellationToken);
+    public async Task<GitCommandResult> GetCurrentBranchAsync(string repositoryRoot, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--abbrev-ref", "HEAD"], cancellationToken);
+        return result.IsSuccess
+            ? result
+            : await ExecuteLocalAsync(repositoryRoot, ["symbolic-ref", "--short", "HEAD"], cancellationToken);
+    }
 
-    public Task<GitCommandResult> GetHeadAsync(string repositoryRoot, CancellationToken cancellationToken) =>
-        ExecuteLocalAsync(repositoryRoot, ["rev-parse", "HEAD"], cancellationToken);
+    public async Task<GitCommandResult> GetHeadAsync(string repositoryRoot, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--verify", "--quiet", "HEAD"], cancellationToken);
+        return IsUnbornHead(result) ? GitCommandResult.Success(string.Empty) : result;
+    }
 
     public Task<GitCommandResult> GetRemoteHeadAsync(string repositoryRoot, string remote, string branch, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["rev-parse", $"refs/remotes/{remote}/{branch}"], cancellationToken);
@@ -107,4 +115,11 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     }
 
     private static string NormalizeSafeDirectory(string repositoryRoot) => repositoryRoot.Replace('\\', '/');
+
+    private static bool IsUnbornHead(GitCommandResult result) =>
+        !result.IsSuccess &&
+        result.Failure == GitCommandFailure.Failed &&
+        result.ExitCode == 1 &&
+        result.StandardOutput.Length == 0 &&
+        result.StandardError.Length == 0;
 }
