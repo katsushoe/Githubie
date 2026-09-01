@@ -71,4 +71,4 @@ Version `1.8.1.0`では、CLIの`tools/call`を11分待機へ延長し、疎通�
 
 Version `1.8.3.0`では、単独の`githubie auth set`からToken画面を開く場合も、登録済みRepository URLを解決して表示します。自動テスト301件の全件成功、MSI／Portable ZIPのBuildとSHA-256、`C:\Githubie`へのInstall、Install済みVersion、Windows Service自動起動、CLI設定検査、登録済みProjectの保持をWindows実機で検証しました。
 
-Version `1.8.3.1`では、実PATによるHTTPS pull／tag push経路、自動テスト301件の全件成功、MSI BuildとSHA-256、`C:\Githubie`への同一3部版Upgrade、Install済みVersionとMCP Version、Windows Service自動起動、CLI設定検査、登録済み9 Projectの保持をWindows実機で検証しました。
+Version `1.8.3.1`では、実PATによるHTTPS pull／tag push経路、自動テスト301件の全件成功、MSI BuildとSHA-256、`C:\Githubie`への同一3部版Upgrade、Install済みVersionとMCP Version、Windows Service自動起動、CLI設定検査、登録済み9 Projectの保持、手動Uninstall／ReinstallをWindows実機で検証しました。手動UninstallでServiceとProcessが消去され、設定・Database・Secret Directoryが保持されること、ReinstallでServiceが再作成・起動することを確認しました。
