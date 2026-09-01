@@ -8,7 +8,7 @@ Repository registration and policy were persisted by replacing the complete `rep
 
 ## Decision
 
-Store repository registrations and policies in `<install-root>\data\githubie.db`. Use `Microsoft.Data.Sqlite` directly, one row per repository ID, parameterized SQL, explicit transactions for schema migration and rename, a five-second busy timeout, and WAL journaling. Keep MCP endpoint startup settings in `githubie.json` and keep Personal Access Tokens in DPAPI-encrypted files.
+Store repository registrations and policies in `<install-root>\data\githubie.db`. Use `Microsoft.Data.Sqlite` directly, one row per repository ID, parameterized SQL, explicit transactions for schema migration and rename, a five-second normal-operation busy timeout, and WAL journaling. Keep MCP endpoint startup settings in `githubie.json` and keep Personal Access Tokens in DPAPI-encrypted files. Diagnostic reads use a 30-second busy timeout and never initialize or migrate the schema.
 
 On the first database initialization, import the validated `repositories` object from `githubie.json` in the same transaction that records the `legacy_json_import_v1` migration marker. Existing database rows win through `INSERT OR IGNORE`. Later startups never re-import JSON repository entries. The legacy JSON remains unchanged as a rollback and migration record; runtime repository commands and `repo list` use SQLite as the source of truth.
 

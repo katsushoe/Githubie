@@ -7,6 +7,21 @@ namespace Githubie.Infrastructure.Tests;
 
 public sealed class GitCommandClientIntegrationTests
 {
+    [Fact]
+    public async Task GetBranchAndHeadAsync_EmptyRepository_ReturnsUnbornBranchAndEmptyHead()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+
+        var branch = await client.GetCurrentBranchAsync(repository.Root, TestContext.Current.CancellationToken);
+        var head = await client.GetHeadAsync(repository.Root, TestContext.Current.CancellationToken);
+
+        branch.IsSuccess.Should().BeTrue(branch.StandardError);
+        branch.StandardOutput.Should().Be("develop");
+        head.IsSuccess.Should().BeTrue(head.StandardError);
+        head.StandardOutput.Should().BeEmpty();
+    }
+
     [Theory]
     [InlineData("git@github.com:katsushoe/Shiori.git")]
     [InlineData("https://github.com/katsushoe/Shiori.git")]
@@ -105,6 +120,13 @@ public sealed class GitCommandClientIntegrationTests
             var root = Directory.CreateTempSubdirectory("githubie-git-").FullName;
             await RunGitAsync(root, "init");
             await RunGitAsync(root, "remote", "add", "origin", remoteUrl);
+            return new TemporaryGitRepository(root);
+        }
+
+        public static async Task<TemporaryGitRepository> CreateEmptyAsync()
+        {
+            var root = Directory.CreateTempSubdirectory("githubie-empty-").FullName;
+            await RunGitAsync(root, "init", "--initial-branch=develop");
             return new TemporaryGitRepository(root);
         }
 

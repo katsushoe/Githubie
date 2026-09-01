@@ -4,6 +4,10 @@
 
 Githubieではx64 MSI、Portable ZIP、ソースからのBuildを利用できます。推奨する配布形式はMSIです。初回のMSI Install／Major Upgrade／Uninstall検証はVersion `1.0.0.0`で完了しています。Version `1.8.3.2`では、単独の`githubie auth set`からToken登録画面を開く場合も登録済みRepository URLを解決して表示し、`C:\Githubie`へのMSI Install、Install済みVersion、Windows Service自動起動、CLI設定検査、登録済みProjectの保持、実PATによるHTTPS pull／tag push経路、手動Uninstall／ReinstallをWindows実機で検証しました。UninstallでServiceを消去しながら設定とDataを保持し、ReinstallでServiceを再作成・起動することを確認しています。Version `1.8.4.0`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、設定検査、登録済み9 Projectの保持、Issue一覧・詳細Toolの公開を実機検証しました。`logs`には組み込みUsersの読み取り・書き込み・走査権限を付与し、一般ユーザーの管理CLIが昇格なしで監査ログを追記できるようにします。Secret ACLは別に制限します。
 
+Version `1.8.5.0`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、設定検査、登録済み9 Projectの保持、初回Commit前のRepository状態取得を実機検証しました。
+
+Version `1.8.6.2`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、外部`ready`状態、読み取り専用doctor Composition、登録済み9 Projectの保持、初回Commit前のRepository状態取得を実機検証しました。RepositoryのToken未登録は独立したdoctor失敗として扱われます。
+
 ## 前提
 
 - Windows 10/11 または Windows Server（DPAPI / Windows Service / `sc.exe`を使用するためWindows専用）

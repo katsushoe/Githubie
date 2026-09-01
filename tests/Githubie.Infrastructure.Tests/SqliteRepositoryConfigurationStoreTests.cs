@@ -92,6 +92,31 @@ public sealed class SqliteRepositoryConfigurationStoreTests
     }
 
     [Fact]
+    public async Task LoadExistingAsync_ExistingDatabase_ReadsWithoutImportingLegacyRepositories()
+    {
+        var root = CreateRoot();
+        var databasePath = Path.Combine(root, "githubie.db");
+        try
+        {
+            var store = new SqliteRepositoryConfigurationStore(databasePath, busyTimeoutSeconds: 30);
+            await store.InitializeAsync(
+                new Dictionary<string, RepositoryOptions>
+                {
+                    ["existing"] = CreateOptions("owner", "existing", "C:\\existing"),
+                },
+                TestContext.Current.CancellationToken);
+
+            var repositories = await store.LoadExistingAsync(TestContext.Current.CancellationToken);
+
+            repositories.Keys.Should().Equal("existing");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task SaveRepositoryAsync_TwoStoreInstances_PreserveIndependentWrites()
     {
         var root = CreateRoot();

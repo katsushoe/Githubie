@@ -19,7 +19,9 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.4.0`です（2026-09-01、GitHub Issue一覧・詳細の読み取り機能を反映）。
+現在のDisplay Versionは`1.8.6.2`です（2026-09-02、Service準備状態と読み取り専用doctor診断を反映）。
+
+Version `1.8.6.2`では、Service準備状態をDatabase外へ原子的に保存し、`doctor`が`ready`を最大30秒待ってからRepository Databaseを読み取り専用で診断します。自動テスト311件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのUpgrade、Install済みVersionとMCP Version、Windows Service自動起動、Service readinessとComposition、登録済み9 Projectの保持、unborn branchの状態出力をWindows実機で検証しました。Token未登録Repositoryがある場合、readinessとDatabaseが正常でも`doctor`全体は非0終了します。
 
 ## Gitタグ
 
@@ -76,3 +78,5 @@ Version `1.8.3.1`では、実PATによるHTTPS pull／tag push経路、自動テ
 Version `1.8.3.2`では、MSIによるService消去ライフサイクルの確認結果と、WiX ServiceControlの変更が不要という結論を反映します。自動テスト301件の全件成功、MSI BuildとSHA-256、`C:\Githubie`への同一3部版Upgrade、Install済みVersionとMCP Version、Windows Service自動起動、CLI設定検査、登録済み9 Projectの保持をWindows実機で検証しました。
 
 Version `1.8.4.0`では、GitHub Issue一覧・詳細の読み取り操作をMCPとCLIへ追加します。自動テスト305件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのUpgrade、Install済みVersionとMCP Version、Windows Service自動起動、設定検査、登録済み9 Projectの保持、Issue Tool 2件の公開をWindows実機で検証しました。
+
+Version `1.8.5.0`では、初回Commit前のRepository状態取得と初回Local Commitに対応します。自動テスト307件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのUpgrade、Install済みVersionとMCP Version、Windows Service自動起動、設定検査、登録済み9 Projectの保持、unborn branchの状態出力をWindows実機で検証しました。

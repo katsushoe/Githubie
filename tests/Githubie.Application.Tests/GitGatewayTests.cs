@@ -534,6 +534,31 @@ public sealed class GitGatewayTests
     }
 
     [Fact]
+    public async Task GetStatusAsync_EmptyRepository_ReturnsUnbornBranchAndWorkingTreeChanges()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetRemoteHeadAsync(LocalRoot, "origin", Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed));
+        _commandClient.GetAheadBehindAsync(LocalRoot, "origin", "develop", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("?? initial.txt"));
+
+        var result = await _gateway.GetStatusAsync(RepositoryId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.LocalBranch.Should().Be("develop");
+        result.Value.LocalHead.Should().BeEmpty();
+        result.Value.RemoteDevelopHead.Should().BeEmpty();
+        result.Value.RemoteMainHead.Should().BeEmpty();
+        result.Value.Ahead.Should().Be(0);
+        result.Value.Behind.Should().Be(0);
+        result.Value.WorkingTreeClean.Should().BeFalse();
+        result.Value.WorkingTreeChanges.Should().Equal(new GitWorkingTreeChange("??", "initial.txt"));
+    }
+
+    [Fact]
     public async Task GetStatusAsync_DirtyTree_ReturnsOnlyStatusAndRelativePaths()
     {
         _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));

@@ -7,9 +7,8 @@ using Microsoft.Data.Sqlite;
 namespace Githubie.Infrastructure.Configuration;
 
 /// <summary>Repository設定をSQLiteへ行単位で永続化します。</summary>
-public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IRepositoryConfigurationStore
+public sealed class SqliteRepositoryConfigurationStore(string databasePath, int busyTimeoutSeconds = 5) : IRepositoryConfigurationStore
 {
-    private const int BusyTimeoutSeconds = 5;
     private const string LegacyImportKey = "legacy_json_import_v1";
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -17,14 +16,10 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IR
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
     };
 
-    private readonly string _connectionString = new SqliteConnectionStringBuilder
-    {
-        DataSource = Path.GetFullPath(databasePath),
-        Mode = SqliteOpenMode.ReadWriteCreate,
-        Cache = SqliteCacheMode.Shared,
-        DefaultTimeout = BusyTimeoutSeconds,
-        Pooling = false,
-    }.ToString();
+    private readonly string _databasePath = Path.GetFullPath(databasePath);
+    private readonly int _busyTimeoutSeconds = busyTimeoutSeconds > 0
+        ? busyTimeoutSeconds
+        : throw new ArgumentOutOfRangeException(nameof(busyTimeoutSeconds));
 
     /// <summary>登録IDに対応するRepository設定を取得します。</summary>
     public async Task<RepositoryOptions?> GetRepositoryAsync(
@@ -97,6 +92,28 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IR
         catch (SqliteException ex)
         {
             throw new IOException("Repository database initialization failed.", ex);
+        }
+        catch (JsonException ex)
+        {
+            throw new InvalidDataException("Repository database contains invalid JSON.", ex);
+        }
+    }
+
+    /// <summary>既存Schemaを変更せず、登録済みRepository設定を読み取ります。</summary>
+    public async Task<IReadOnlyDictionary<string, RepositoryOptions>> LoadExistingAsync(
+        CancellationToken cancellationToken)
+    {
+        if (!File.Exists(_databasePath))
+            throw new IOException("Repository database does not exist.");
+
+        try
+        {
+            await using var connection = await OpenAsync(SqliteOpenMode.ReadOnly, cancellationToken);
+            return await LoadAllAsync(connection, cancellationToken);
+        }
+        catch (SqliteException ex)
+        {
+            throw new IOException("Repository database could not be read.", ex);
         }
         catch (JsonException ex)
         {
@@ -182,13 +199,25 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath) : IR
         }
     }
 
-    private async Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken)
+    private Task<SqliteConnection> OpenAsync(CancellationToken cancellationToken) =>
+        OpenAsync(SqliteOpenMode.ReadWriteCreate, cancellationToken);
+
+    private async Task<SqliteConnection> OpenAsync(
+        SqliteOpenMode mode,
+        CancellationToken cancellationToken)
     {
-        var connection = new SqliteConnection(_connectionString);
+        var connection = new SqliteConnection(new SqliteConnectionStringBuilder
+        {
+            DataSource = _databasePath,
+            Mode = mode,
+            Cache = SqliteCacheMode.Shared,
+            DefaultTimeout = _busyTimeoutSeconds,
+            Pooling = false,
+        }.ToString());
         try
         {
             await connection.OpenAsync(cancellationToken);
-            await ExecuteAsync(connection, $"PRAGMA busy_timeout = {BusyTimeoutSeconds * 1000};", cancellationToken);
+            await ExecuteAsync(connection, $"PRAGMA busy_timeout = {_busyTimeoutSeconds * 1000};", cancellationToken);
             return connection;
         }
         catch
