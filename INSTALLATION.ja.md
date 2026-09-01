@@ -6,7 +6,7 @@ Githubieではx64 MSI、Portable ZIP、ソースからのBuildを利用できま
 
 Version `1.8.5.0`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、設定検査、登録済み9 Projectの保持、初回Commit前のRepository状態取得を実機検証しました。
 
-Version `1.8.6.2`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、外部`ready`状態、読み取り専用doctor Composition、登録済み9 Projectの保持、初回Commit前のRepository状態取得を実機検証しました。RepositoryのToken未登録は独立したdoctor失敗として扱われます。
+Version `1.8.6.3`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、外部`ready`状態、読み取り専用doctor Composition、登録済み9 Projectの保持、初回Commit前のRepository差分取得を実機検証しました。RepositoryのToken未登録は独立したdoctor失敗として扱われます。
 
 ## 前提
 
