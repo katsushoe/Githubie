@@ -36,6 +36,12 @@ public interface IGitHubApiClient
 
     Task<GitHubResult<GitHubPullRequestInfo>> GetPullRequestAsync(string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken);
 
+    Task<GitHubResult<IReadOnlyList<GitHubIssueInfo>>> ListIssuesAsync(
+        string repositoryId, string owner, string repo, GitHubIssueState? state, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubIssueInfo>> GetIssueAsync(
+        string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken);
+
     Task<GitHubResult<GitHubPullRequestDiff>> GetPullRequestDiffAsync(string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubPullRequestInfo>> CreatePullRequestAsync(

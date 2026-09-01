@@ -106,6 +106,26 @@ public sealed record GitHubPullRequestReview(
 
 public sealed record GitHubPullRequestDiff(string Diff, int FilesChanged, int Additions, int Deletions);
 
+public enum GitHubIssueState
+{
+    Open,
+    Closed,
+}
+
+public sealed record GitHubIssueInfo(
+    int Number,
+    string Title,
+    string? Body,
+    GitHubIssueState State,
+    string Author,
+    IReadOnlyList<string> Labels,
+    IReadOnlyList<string> Assignees,
+    int Comments,
+    bool Locked,
+    DateTimeOffset Created,
+    DateTimeOffset Updated,
+    string Url);
+
 public sealed record GitHubReleaseCreate(
     string Tag,
     string Name,

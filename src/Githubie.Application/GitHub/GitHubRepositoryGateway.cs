@@ -204,6 +204,26 @@ public sealed class GitHubRepositoryGateway(
         return await _apiClient.GetPullRequestAsync(repository, resolved.Options!.GitHubOwner, resolved.Options.GitHubRepo, number, cancellationToken);
     }
 
+    public async Task<GitHubResult<IReadOnlyList<GitHubIssueInfo>>> ListIssuesAsync(
+        string repository, GitHubIssueState? state, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null)
+            return GitHubResult<IReadOnlyList<GitHubIssueInfo>>.Failure(resolved.Error.Value);
+
+        return await _apiClient.ListIssuesAsync(
+            repository, resolved.Options!.GitHubOwner, resolved.Options.GitHubRepo, state, cancellationToken);
+    }
+
+    public async Task<GitHubResult<GitHubIssueInfo>> GetIssueAsync(
+        string repository, int number, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<GitHubIssueInfo>.Failure(resolved.Error.Value);
+        return await _apiClient.GetIssueAsync(
+            repository, resolved.Options!.GitHubOwner, resolved.Options.GitHubRepo, number, cancellationToken);
+    }
+
     public async Task<GitHubResult<GitHubPullRequestDiff>> GetPullRequestDiffAsync(string repository, int number, CancellationToken cancellationToken)
     {
         var resolved = Resolve(repository);

@@ -37,7 +37,7 @@ public sealed class GithubieMcpPrompts
         1. Call list_projects to discover the configured Githubie repository IDs, then select the intended candidate. Do not pass a path or GitHub URL where a repository ID is required.
         2. Call github_repository_status to inspect the current branch, local and remote heads, ahead/behind counts, and working-tree changes.
         3. For remote synchronization, call github_fetch first. Call github_pull only when a fast-forward update of an allowed branch is intended.
-        4. Use the dedicated typed tools for branches, pull requests, reviews, comments, tags, releases, repository descriptions, and GitHub Actions. Prefer read-only list/get/diff tools before mutations.
+        4. Use the dedicated typed tools for branches, issues, pull requests, reviews, comments, tags, releases, repository descriptions, and GitHub Actions. Prefer read-only list/get/diff tools before mutations.
         5. In every conversation, call list_projects again immediately before github_push and verify the selected repository ID. Use github_push only after local validation and only when the user intends to publish committed changes. If the repository is not registered, the push error includes registered candidates. Direct pushes to protected branches are rejected.
         6. Use github_history_rewrite only for an explicitly requested correction: dry-run first, review every old/new SHA, save a recovery ref, then obtain approval for the real operation.
 

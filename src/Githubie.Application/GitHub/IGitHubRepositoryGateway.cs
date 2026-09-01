@@ -34,6 +34,11 @@ public interface IGitHubRepositoryGateway
 
     Task<GitHubResult<GitHubPullRequestInfo>> GetPullRequestAsync(string repository, int number, CancellationToken cancellationToken);
 
+    Task<GitHubResult<IReadOnlyList<GitHubIssueInfo>>> ListIssuesAsync(
+        string repository, GitHubIssueState? state, CancellationToken cancellationToken);
+
+    Task<GitHubResult<GitHubIssueInfo>> GetIssueAsync(string repository, int number, CancellationToken cancellationToken);
+
     Task<GitHubResult<GitHubPullRequestDiff>> GetPullRequestDiffAsync(string repository, int number, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubPullRequestInfo>> CreatePullRequestAsync(string repository, GitHubPullRequestCreate request, CancellationToken cancellationToken);

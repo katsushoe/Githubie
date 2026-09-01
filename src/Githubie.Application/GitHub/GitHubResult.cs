@@ -48,6 +48,8 @@ public enum GitHubError
     PullRequestCommentInvalid,
     PullRequestReviewInvalid,
 
+    IssueNotFound,
+
     TagNotFound,
     TagInvalid,
     TagAlreadyExists,

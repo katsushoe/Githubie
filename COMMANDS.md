@@ -18,6 +18,8 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie repo description get <repository>` | Gets the repository description |
 | `githubie repo description update <repository> <description>` | Updates the description; an empty string removes it |
 | `githubie repo rename <old> <new>` | Atomically migrates repository configuration and its encrypted token to a new ID |
+| `githubie issue list <repository> [--state open|closed]` | Lists issues, excluding pull requests; omitting state returns all states |
+| `githubie issue get <repository> <number>` | Gets issue details; a pull-request number returns `IssueNotFound` |
 | `githubie auth set <repository> [--console]` | Replaces the DPAPI-encrypted token using the foreground GUI, showing the registered project name and repository URL; `--console` uses masked terminal input |
 | `githubie auth test <repository>` | Calls GitHub with the stored token and reports authentication status |
 | `githubie auth delete <repository>` | Deletes the stored token |
@@ -61,6 +63,8 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_provider_capabilities` | `repository` | Repository Contract operations supported by this Githubie instance |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull requests matching the optional filters |
 | `github_pr_get` | `repository`, `pull_request_number` | Pull-request metadata for an existing number |
+| `github_issue_list` | `repository`, `state?` | Issues matching the optional state filter; excludes pull requests |
+| `github_issue_get` | `repository`, `issue_number` | Issue metadata; rejects pull-request numbers |
 | `github_pr_diff` | `repository`, `pull_request_number` | Diff and change statistics for an existing pull request |
 | `github_pr_comment_list` | `repository`, `pull_request_number` | Conversation comments for an existing pull request |
 | `github_tag_list` | `repository` | Repository tags visible through GitHub |

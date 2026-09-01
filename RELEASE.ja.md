@@ -19,7 +19,7 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.3.2`です（2026-09-01、MSIのService消去ライフサイクル検証結果を反映）。
+現在のDisplay Versionは`1.8.4.0`です（2026-09-01、GitHub Issue一覧・詳細の読み取り機能を反映）。
 
 ## Gitタグ
 
@@ -74,3 +74,5 @@ Version `1.8.3.0`では、単独の`githubie auth set`からToken画面を開く
 Version `1.8.3.1`では、実PATによるHTTPS pull／tag push経路、自動テスト301件の全件成功、MSI BuildとSHA-256、`C:\Githubie`への同一3部版Upgrade、Install済みVersionとMCP Version、Windows Service自動起動、CLI設定検査、登録済み9 Projectの保持、手動Uninstall／ReinstallをWindows実機で検証しました。手動UninstallでServiceとProcessが消去され、設定・Database・Secret Directoryが保持されること、ReinstallでServiceが再作成・起動することを確認しました。
 
 Version `1.8.3.2`では、MSIによるService消去ライフサイクルの確認結果と、WiX ServiceControlの変更が不要という結論を反映します。自動テスト301件の全件成功、MSI BuildとSHA-256、`C:\Githubie`への同一3部版Upgrade、Install済みVersionとMCP Version、Windows Service自動起動、CLI設定検査、登録済み9 Projectの保持をWindows実機で検証しました。
+
+Version `1.8.4.0`では、GitHub Issue一覧・詳細の読み取り操作をMCPとCLIへ追加します。自動テスト305件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのUpgrade、Install済みVersionとMCP Version、Windows Service自動起動、設定検査、登録済み9 Projectの保持、Issue Tool 2件の公開をWindows実機で検証しました。

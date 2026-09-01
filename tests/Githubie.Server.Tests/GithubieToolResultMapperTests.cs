@@ -80,6 +80,7 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.PullRequestStateNotAllowed] = "pull_request_state_not_allowed",
         [GitHubError.PullRequestCommentInvalid] = "pull_request_comment_invalid",
         [GitHubError.PullRequestReviewInvalid] = "pull_request_review_invalid",
+        [GitHubError.IssueNotFound] = "issue_not_found",
         [GitHubError.TagNotFound] = "tag_not_found",
         [GitHubError.TagInvalid] = "tag_invalid",
         [GitHubError.TagAlreadyExists] = "tag_already_exists",

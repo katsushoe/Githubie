@@ -45,6 +45,15 @@ public static class CliApplication
             ["repo", "rename", var oldRepo, var newRepo] => await RepoRenameAsync(
                 effectiveConfigPath, binDirectory, oldRepo, newRepo, output, error, cancellationToken),
 
+            ["issue", "list", var repo] => await IssueListAsync(
+                effectiveConfigPath, binDirectory, repo, null, output, error, cancellationToken),
+            ["issue", "list", var repo, "--state", "open"] => await IssueListAsync(
+                effectiveConfigPath, binDirectory, repo, GitHubIssueState.Open, output, error, cancellationToken),
+            ["issue", "list", var repo, "--state", "closed"] => await IssueListAsync(
+                effectiveConfigPath, binDirectory, repo, GitHubIssueState.Closed, output, error, cancellationToken),
+            ["issue", "get", var repo, var number] when int.TryParse(number, out var issueNumber) => await IssueGetAsync(
+                effectiveConfigPath, binDirectory, repo, issueNumber, output, error, cancellationToken),
+
             ["auth", "test", var repo] => await AuthTestAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
             ["auth", "set", var repo] => await AuthSetAsync(layout, binDirectory, repo, false, output, error, cancellationToken),
             ["auth", "set", var repo, "--console"] => await AuthSetAsync(layout, binDirectory, repo, true, output, error, cancellationToken),
@@ -107,6 +116,9 @@ public static class CliApplication
               repo description get <repository>
               repo description update <repository> <description>
               repo rename <old-repository> <new-repository>
+
+              issue list <repository> [--state open|closed]
+              issue get <repository> <number>
 
               auth test <repository>
               auth set <repository> [--console]
@@ -303,6 +315,41 @@ public static class CliApplication
         var result = await gateway.UpdateRepositoryDescriptionAsync(repository, description, cancellationToken);
         if (!result.IsSuccess) { error.WriteLine($"[NG] {result.Error}"); return 1; }
         output.WriteLine(result.Value!.Description ?? string.Empty);
+        return 0;
+    }
+
+    private static async Task<int> IssueListAsync(
+        string configPath, string binDirectory, string repository, GitHubIssueState? state,
+        TextWriter output, TextWriter error, CancellationToken cancellationToken)
+    {
+        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
+        if (!composition.IsSuccess) { foreach (var item in composition.Errors) error.WriteLine(item); return 1; }
+        var gateway = (IGitHubRepositoryGateway)composition.Services!.GetService(typeof(IGitHubRepositoryGateway))!;
+        var result = await gateway.ListIssuesAsync(repository, state, cancellationToken);
+        if (!result.IsSuccess) { error.WriteLine($"[NG] {result.Error}"); return 1; }
+        foreach (var issue in result.Value!)
+            output.WriteLine($"#{issue.Number} [{issue.State.ToString().ToLowerInvariant()}] {issue.Title} ({issue.Url})");
+        return 0;
+    }
+
+    private static async Task<int> IssueGetAsync(
+        string configPath, string binDirectory, string repository, int number,
+        TextWriter output, TextWriter error, CancellationToken cancellationToken)
+    {
+        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
+        if (!composition.IsSuccess) { foreach (var item in composition.Errors) error.WriteLine(item); return 1; }
+        var gateway = (IGitHubRepositoryGateway)composition.Services!.GetService(typeof(IGitHubRepositoryGateway))!;
+        var result = await gateway.GetIssueAsync(repository, number, cancellationToken);
+        if (!result.IsSuccess) { error.WriteLine($"[NG] {result.Error}"); return 1; }
+        var issue = result.Value!;
+        output.WriteLine($"number: {issue.Number}");
+        output.WriteLine($"state: {issue.State.ToString().ToLowerInvariant()}");
+        output.WriteLine($"title: {issue.Title}");
+        output.WriteLine($"author: {issue.Author}");
+        output.WriteLine($"url: {issue.Url}");
+        output.WriteLine($"labels: {string.Join(", ", issue.Labels)}");
+        output.WriteLine($"assignees: {string.Join(", ", issue.Assignees)}");
+        output.WriteLine($"body: {issue.Body ?? string.Empty}");
         return 0;
     }
 

@@ -196,6 +196,13 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
     public Task<GitHubResult<GitHubPullRequestInfo>> GetPullRequestAsync(string repository, int number, CancellationToken cancellationToken) =>
         RunAsync("github_pr_get", repository, null, number, () => inner.GetPullRequestAsync(repository, number, cancellationToken));
 
+    public Task<GitHubResult<IReadOnlyList<GitHubIssueInfo>>> ListIssuesAsync(
+        string repository, GitHubIssueState? state, CancellationToken cancellationToken) =>
+        RunAsync("github_issue_list", repository, null, null, () => inner.ListIssuesAsync(repository, state, cancellationToken));
+
+    public Task<GitHubResult<GitHubIssueInfo>> GetIssueAsync(string repository, int number, CancellationToken cancellationToken) =>
+        RunAsync("github_issue_get", repository, null, number, () => inner.GetIssueAsync(repository, number, cancellationToken));
+
     public Task<GitHubResult<GitHubPullRequestDiff>> GetPullRequestDiffAsync(string repository, int number, CancellationToken cancellationToken) =>
         RunAsync("github_pr_diff", repository, null, number, () => inner.GetPullRequestDiffAsync(repository, number, cancellationToken));
 
