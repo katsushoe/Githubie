@@ -19,7 +19,7 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.3.0`です（2026-08-31、単独の`githubie auth set`でも登録済みRepository URLをToken登録画面へ表示）。
+現在のDisplay Versionは`1.8.3.1`です（2026-09-01、実PATによるHTTPS pull／tag push経路を検証）。
 
 ## Gitタグ
 
@@ -70,3 +70,5 @@ Version `1.8.0.0`では、自動テスト296件の全件成功、MSI BuildとSHA
 Version `1.8.1.0`では、CLIの`tools/call`を11分待機へ延長し、疎通確認とTool一覧の5秒待機を維持することで、承認画面とToken入力画面がClient Cancellationで閉じる問題を修正しました。自動テスト299件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのUpgrade、Install済みVersion、Windows Service自動起動、CLI設定検査、MCP Version応答、登録済みProjectの保持をWindows実機で検証しました。
 
 Version `1.8.3.0`では、単独の`githubie auth set`からToken画面を開く場合も、登録済みRepository URLを解決して表示します。自動テスト301件の全件成功、MSI／Portable ZIPのBuildとSHA-256、`C:\Githubie`へのInstall、Install済みVersion、Windows Service自動起動、CLI設定検査、登録済みProjectの保持をWindows実機で検証しました。
+
+Version `1.8.3.1`では、実PATによるHTTPS pull／tag push経路、自動テスト301件の全件成功、MSI BuildとSHA-256、`C:\Githubie`への同一3部版Upgrade、Install済みVersionとMCP Version、Windows Service自動起動、CLI設定検査、登録済み9 Projectの保持をWindows実機で検証しました。
