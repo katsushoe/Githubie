@@ -26,7 +26,7 @@ Granting `Administrators`/`SYSTEM` `GenericAll` at install time is not a weakeni
 
 ## Operational conditions
 
-Verified through the actual MSI lifecycle on real Windows hardware: fresh `/i` install, `auth set` (failed pre-fix with `IoError`, succeeded post-fix), a `MajorUpgrade`-driven in-place upgrade (`/i` over an existing installation with a different rebuilt `ProductCode`), and `/x` uninstall. The uninstall step also revealed that `ServiceControl Remove="uninstall"` did not reliably deregister the Windows Service from the Service Control Manager during a manual `/x` run in this environment; the leftover registration had to be removed with `sc delete` before the service could be re-created pointing at a different `binPath`. This is tracked as a known rough edge for manual uninstall/reinstall cycles rather than fixed in this ADR, since the documented supported upgrade path is the in-place `MajorUpgrade` (`/i` with a newer build), not uninstall-then-reinstall.
+Verified through the actual MSI lifecycle on real Windows hardware: fresh `/i` install, `auth set` (failed pre-fix with `IoError`, succeeded post-fix), a `MajorUpgrade`-driven in-place upgrade (`/i` over an existing installation with a different rebuilt `ProductCode`), and `/x` uninstall. An early manual `/x` run once left the Windows Service registration behind, but the Version `1.8.3.1` lifecycle verification did not reproduce it: `StopServices` and `DeleteServices` both succeeded, the service and process were absent immediately after uninstall, configuration/database/secret directories remained, and reinstall recreated and started the service. The current WiX `ServiceControl Remove="uninstall"` contract therefore remains unchanged.
 
 ## Implementation, tests, and documentation
 
