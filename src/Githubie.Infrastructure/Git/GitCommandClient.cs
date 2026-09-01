@@ -37,8 +37,19 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> GetStatusAsync(string repositoryRoot, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["status", "--porcelain"], cancellationToken);
 
-    public Task<GitCommandResult> GetDiffAsync(string repositoryRoot, CancellationToken cancellationToken) =>
-        ExecuteLocalAsync(repositoryRoot, ["diff", "--no-ext-diff", "--binary", "HEAD", "--"], cancellationToken);
+    public async Task<GitCommandResult> GetDiffAsync(string repositoryRoot, CancellationToken cancellationToken)
+    {
+        var head = await GetHeadAsync(repositoryRoot, cancellationToken);
+        if (!head.IsSuccess)
+        {
+            return head;
+        }
+
+        var arguments = head.StandardOutput.Length == 0
+            ? new[] { "diff", "--no-ext-diff", "--binary", "--cached", "--" }
+            : new[] { "diff", "--no-ext-diff", "--binary", "HEAD", "--" };
+        return await ExecuteLocalAsync(repositoryRoot, arguments, cancellationToken);
+    }
 
     public Task<GitCommandResult> AddAllAsync(string repositoryRoot, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["add", "--all", "--"], cancellationToken);

@@ -22,6 +22,24 @@ public sealed class GitCommandClientIntegrationTests
         head.StandardOutput.Should().BeEmpty();
     }
 
+    [Fact]
+    public async Task GetDiffAsync_UnbornRepository_ReturnsStagedChangesAgainstEmptyTree()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        await File.WriteAllTextAsync(
+            Path.Combine(repository.Root, "first.txt"),
+            "first line",
+            TestContext.Current.CancellationToken);
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "add", "first.txt");
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+
+        var result = await client.GetDiffAsync(repository.Root, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue(result.StandardError);
+        result.StandardOutput.Should().Contain("new file mode");
+        result.StandardOutput.Should().Contain("+first line");
+    }
+
     [Theory]
     [InlineData("git@github.com:katsushoe/Shiori.git")]
     [InlineData("https://github.com/katsushoe/Shiori.git")]
