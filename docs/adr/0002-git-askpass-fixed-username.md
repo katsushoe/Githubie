@@ -32,4 +32,4 @@ A dedicated executable (`Githubie.AskPass.exe`) is set as `GIT_ASKPASS` (with `G
 
 ## Implementation, tests, and documentation
 
-`Githubie.Application.Git.GitAskPassProtocol` / `GitAskPassResponder`; `Githubie.AskPass.Program`. Verified indirectly during real-machine verification (local-only Git operations); full HTTPS push/pull with a live Personal Access Token requires a follow-up manual test.
+`Githubie.Application.Git.GitAskPassProtocol` / `GitAskPassResponder`; `Githubie.AskPass.Program`. Verified on real Windows hardware with a live Personal Access Token in Version `1.8.3.0`: HTTPS pull completed successfully, and an HTTPS local-tag push was confirmed remotely before both temporary tag refs were removed.
