@@ -6,6 +6,7 @@ using Githubie.Application.Configuration;
 using Githubie.Application.Credentials;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
+using Githubie.Application.Repositories;
 using Githubie.Infrastructure.Configuration;
 using Githubie.Infrastructure.Credentials;
 using Githubie.Server;
@@ -348,9 +349,33 @@ public static class CliApplication
         }
         else
         {
+            if (!RepositoryId.TryNormalize(repository, out repository))
+            {
+                error.WriteLine("[NG] invalid repository ID");
+                return 1;
+            }
+
+            RepositoryOptions? options;
+            try
+            {
+                var configurationStore = new SqliteRepositoryConfigurationStore(layout.RepositoryDatabasePath);
+                options = await configurationStore.GetRepositoryAsync(repository, cancellationToken);
+            }
+            catch (Exception exception) when (exception is IOException or InvalidDataException)
+            {
+                error.WriteLine($"[NG] {exception.Message}");
+                return 1;
+            }
+            if (options is null)
+            {
+                error.WriteLine("[NG] repository is not registered");
+                return 1;
+            }
+
             var prompt = new TokenPromptClient(Path.Combine(binDirectory, "Githubie.ApprovalPrompt.exe"));
             token = await prompt.RequestAsync(
-                new Application.Interactive.TokenPromptRequest(repository, string.Empty), cancellationToken);
+                new Application.Interactive.TokenPromptRequest(
+                    repository, $"https://github.com/{options.GitHubOwner}/{options.GitHubRepo}"), cancellationToken);
             if (token is null)
             {
                 output.WriteLine("[CANCELLED] token was not saved");

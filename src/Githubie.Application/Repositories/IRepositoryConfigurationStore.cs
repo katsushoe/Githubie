@@ -5,6 +5,8 @@ namespace Githubie.Application.Repositories;
 /// <summary>Repository設定を永続化します。</summary>
 public interface IRepositoryConfigurationStore
 {
+    Task<RepositoryOptions?> GetRepositoryAsync(string repositoryId, CancellationToken cancellationToken);
+
     Task SaveRepositoryAsync(
         string repositoryId,
         RepositoryOptions options,

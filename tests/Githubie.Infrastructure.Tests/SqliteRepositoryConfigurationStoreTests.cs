@@ -8,6 +8,54 @@ namespace Githubie.Infrastructure.Tests;
 public sealed class SqliteRepositoryConfigurationStoreTests
 {
     [Fact]
+    public async Task GetRepositoryAsync_UnregisteredId_ReturnsNull()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var store = new SqliteRepositoryConfigurationStore(Path.Combine(root, "repositories.db"));
+            await store.InitializeAsync(
+                new Dictionary<string, RepositoryOptions>(),
+                TestContext.Current.CancellationToken);
+
+            var options = await store.GetRepositoryAsync("missing", TestContext.Current.CancellationToken);
+
+            Assert.Null(options);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
+    public async Task GetRepositoryAsync_RegisteredId_ReturnsRepositoryOptions()
+    {
+        var root = CreateRoot();
+        var databasePath = Path.Combine(root, "githubie.db");
+        try
+        {
+            var store = new SqliteRepositoryConfigurationStore(databasePath);
+            await store.InitializeAsync(
+                new Dictionary<string, RepositoryOptions>
+                {
+                    ["sample"] = CreateOptions("example-owner", "example-repo", "C:\\sample"),
+                },
+                TestContext.Current.CancellationToken);
+
+            var options = await store.GetRepositoryAsync("sample", TestContext.Current.CancellationToken);
+
+            options.Should().NotBeNull();
+            options!.GitHubOwner.Should().Be("example-owner");
+            options.GitHubRepo.Should().Be("example-repo");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task InitializeAsync_FirstRun_ImportsLegacyRepositoriesOnce()
     {
         var root = CreateRoot();
