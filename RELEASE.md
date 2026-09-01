@@ -4,7 +4,7 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.3.2`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.4.0`.
 
 ## Tags
 
@@ -81,3 +81,5 @@ Version `1.8.3.0` also resolves and shows the registered repository URL when `gi
 Version `1.8.3.1` records successful live-PAT HTTPS pull and tag-push verification. All 301 automated tests passed. Its MSI build and SHA-256 manifest, same-three-part upgrade at `C:\Githubie`, installed and MCP versions, automatic Windows Service startup, configuration check, preservation of nine registered projects, and manual uninstall/reinstall lifecycle were validated on a Windows machine. Manual uninstall removed the service and process while retaining configuration, database, and secret directories; reinstall recreated and started the service.
 
 Version `1.8.3.2` records the confirmed MSI service-removal lifecycle and the conclusion that no WiX service-control change is required. All 301 automated tests passed. Its MSI build and SHA-256 manifest, same-three-part upgrade at `C:\Githubie`, installed and MCP versions, automatic Windows Service startup, configuration check, and preservation of nine registered projects were validated on a Windows machine.
+
+Version `1.8.4.0` adds read-only GitHub Issue list/get operations to MCP and CLI. All 305 automated tests passed. Its MSI build and SHA-256 manifest, upgrade at `C:\Githubie`, installed and MCP versions, automatic Windows Service startup, configuration check, preservation of nine registered projects, and both Issue tools were validated on a Windows machine.

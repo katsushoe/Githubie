@@ -2,8 +2,8 @@
   <PropertyGroup>
     <OutputType>Package</OutputType>
     <Platform>x64</Platform>
-    <ProductVersion Condition="'$(ProductVersion)' == ''">1.8.3</ProductVersion>
-    <DisplayVersion Condition="'$(DisplayVersion)' == ''">1.6.0.6</DisplayVersion>
+    <ProductVersion Condition="'$(ProductVersion)' == ''">1.8.4</ProductVersion>
+    <DisplayVersion Condition="'$(DisplayVersion)' == ''">1.8.4.0</DisplayVersion>
     <PublishDir Condition="'$(PublishDir)' == ''">$(MSBuildThisFileDirectory)..\..\.local\installer\publish</PublishDir>
     <OutputName>Githubie-$(DisplayVersion)-win-x64</OutputName>
     <DefineConstants>ProductVersion=$(ProductVersion);PublishDir=$(PublishDir);$(DefineConstants)</DefineConstants>

@@ -26,6 +26,8 @@ Version `1.8.1.0` updates interactive MCP tool-call timeout handling. Its MSI up
 
 Version `1.8.3.2` resolves and shows the registered repository URL when the token dialog is opened with `githubie auth set`. Its MSI installation at `C:\Githubie`, installed version, automatic Windows Service startup, configuration check, preservation of registered projects, live-PAT HTTPS pull/tag-push paths, and manual uninstall/reinstall lifecycle were validated on a Windows machine. Uninstall removed the service while preserving configuration and data; reinstall recreated and started it.
 
+Version `1.8.4.0` was upgrade-installed at `C:\Githubie`; the installed CLI and MCP versions, automatic running service, configuration check, nine registered projects, and the new Issue list/get tools were verified.
+
 ## Portable ZIP
 
 Extract the ZIP to a fixed directory, copy `githubie.example.json` to `config\githubie.json`, and run `githubie.exe service install` before starting the service. The ZIP does not register the service automatically.
