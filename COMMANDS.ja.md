@@ -65,7 +65,7 @@
 
 | コマンド | 説明 |
 | --- | --- |
-| `githubie doctor` | Configuration・Git実行可否・Service Composition・各Repositoryの認証Token/Git状態を`[OK]`/`[NG]`形式で診断する |
+| `githubie doctor` | Serviceの準備完了を最大30秒待ち、Configuration・Git実行可否・読み取り専用Service Composition・各Repositoryの認証Token/Git状態を`[OK]`/`[NG]`形式で診断する |
 
 ### サービス管理
 

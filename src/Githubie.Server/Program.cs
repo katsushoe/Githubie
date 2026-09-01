@@ -12,10 +12,14 @@ using Microsoft.Extensions.Logging;
 
 var binDirectory = AppContext.BaseDirectory;
 var configPath = args.Length > 0 ? args[0] : Path.Combine(GithubiePathLayout.FromBinDirectory(binDirectory).ConfigDirectory, "githubie.json");
+var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
+var readinessStore = new ServiceReadinessStore(layout.ServiceStatePath);
+await readinessStore.WriteInitializingAsync(CancellationToken.None);
 
 var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, CancellationToken.None);
 if (!composition.IsSuccess)
 {
+    await readinessStore.WriteFailedAsync("service composition failed", CancellationToken.None);
     foreach (var error in composition.Errors)
     {
         Console.Error.WriteLine(error);
@@ -26,7 +30,6 @@ if (!composition.IsSuccess)
 
 var applicationServices = composition.Services!;
 var options = applicationServices.GetRequiredService<GithubieOptions>();
-var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
 
 var builder = WebApplication.CreateSlimBuilder(args);
 
@@ -79,6 +82,16 @@ app.Use(async (context, next) =>
 
 app.MapMcp(options.McpPath);
 
-await app.StartAsync();
+try
+{
+    await app.StartAsync();
+    await readinessStore.WriteReadyAsync(CancellationToken.None);
+}
+catch (Exception ex) when (ex is IOException or InvalidOperationException)
+{
+    await readinessStore.WriteFailedAsync($"service startup failed: {ex.GetType().Name}", CancellationToken.None);
+    Console.Error.WriteLine($"service startup failed: {ex.Message}");
+    return 1;
+}
 await app.WaitForShutdownAsync();
 return 0;

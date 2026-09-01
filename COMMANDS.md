@@ -27,7 +27,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie mcp tools` | Sends `tools/list` and prints the exposed definitions |
 | `githubie mcp call <tool> [<arguments-json>]` | Calls any exposed MCP tool through the running server; arguments default to `{}` |
 | `githubie mcp call <tool> --file <path>` | Calls an MCP tool with a JSON object read from a file |
-| `githubie doctor` | Reports configuration, Git, service composition, token, and repository checks |
+| `githubie doctor` | Waits up to 30 seconds for service readiness, then reports configuration, Git, read-only service composition, token, and repository checks |
 | `githubie start` / `stop` / `restart` / `status` | Changes or reads the Windows Service state |
 | `githubie service install` / `uninstall` / `status` | Registers, unregisters, or reads the Windows Service |
 

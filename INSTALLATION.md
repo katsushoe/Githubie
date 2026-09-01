@@ -28,6 +28,10 @@ Version `1.8.3.2` resolves and shows the registered repository URL when the toke
 
 Version `1.8.4.0` was upgrade-installed at `C:\Githubie`; the installed CLI and MCP versions, automatic running service, configuration check, nine registered projects, and the new Issue list/get tools were verified.
 
+Version `1.8.5.0` was upgrade-installed at `C:\Githubie`; the installed CLI and MCP versions, automatic running service, configuration check, nine registered projects, and repository status before the initial commit were verified.
+
+Version `1.8.6.2` was upgrade-installed at `C:\Githubie`; the installed CLI and MCP versions, automatic running service, external `ready` state, read-only doctor composition, nine registered projects, and repository status before the initial commit were verified. Missing repository tokens remain independent doctor failures.
+
 ## Portable ZIP
 
 Extract the ZIP to a fixed directory, copy `githubie.example.json` to `config\githubie.json`, and run `githubie.exe service install` before starting the service. The ZIP does not register the service automatically.

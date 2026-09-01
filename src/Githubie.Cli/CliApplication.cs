@@ -673,6 +673,8 @@ public static class CliApplication
 
     private static async Task<int> DoctorAsync(string configPath, string binDirectory, TextWriter output, CancellationToken cancellationToken)
     {
+        var readinessTimeout = TimeSpan.FromSeconds(30);
+        var readinessPollInterval = TimeSpan.FromMilliseconds(250);
         var failures = 0;
 
         var options = await TryLoadOptionsAsync(configPath, output, cancellationToken);
@@ -691,7 +693,27 @@ public static class CliApplication
             failures++;
         }
 
-        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
+        var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
+        ServiceReadinessResult readiness;
+        try
+        {
+            readiness = await new ServiceReadinessStore(layout.ServiceStatePath).WaitForReadyAsync(
+                readinessTimeout,
+                readinessPollInterval,
+                cancellationToken);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
+        {
+            output.WriteLine($"[NG] Service readiness ({ex.Message})");
+            return failures + 1;
+        }
+
+        output.WriteLine(readiness.IsReady
+            ? "[OK] Service readiness"
+            : $"[NG] Service readiness ({readiness.Error})");
+        if (!readiness.IsReady) return failures + 1;
+
+        var composition = await GithubieCompositionRoot.BuildForDoctorAsync(configPath, binDirectory, cancellationToken);
         if (!composition.IsSuccess)
         {
             output.WriteLine("[NG] Service composition");

@@ -21,7 +21,24 @@ namespace Githubie.Server;
 /// </summary>
 public static class GithubieCompositionRoot
 {
+    private const int DefaultDatabaseBusyTimeoutSeconds = 5;
+    private const int DoctorDatabaseBusyTimeoutSeconds = 30;
+
     public static async Task<GithubieCompositionResult> BuildAsync(string configPath, string binDirectory, CancellationToken cancellationToken)
+        => await BuildAsync(configPath, binDirectory, initializeDatabase: true, cancellationToken);
+
+    /// <summary>Databaseを変更せず、診断用のサービスグラフを構築します。</summary>
+    public static async Task<GithubieCompositionResult> BuildForDoctorAsync(
+        string configPath,
+        string binDirectory,
+        CancellationToken cancellationToken) =>
+        await BuildAsync(configPath, binDirectory, initializeDatabase: false, cancellationToken);
+
+    private static async Task<GithubieCompositionResult> BuildAsync(
+        string configPath,
+        string binDirectory,
+        bool initializeDatabase,
+        CancellationToken cancellationToken)
     {
         if (!File.Exists(configPath))
         {
@@ -50,8 +67,12 @@ public static class GithubieCompositionRoot
         IReadOnlyDictionary<string, RepositoryOptions> repositories;
         try
         {
-            configurationStore = new SqliteRepositoryConfigurationStore(layout.RepositoryDatabasePath);
-            repositories = await configurationStore.InitializeAsync(options.Repositories, cancellationToken);
+            configurationStore = new SqliteRepositoryConfigurationStore(
+                layout.RepositoryDatabasePath,
+                initializeDatabase ? DefaultDatabaseBusyTimeoutSeconds : DoctorDatabaseBusyTimeoutSeconds);
+            repositories = initializeDatabase
+                ? await configurationStore.InitializeAsync(options.Repositories, cancellationToken)
+                : await configurationStore.LoadExistingAsync(cancellationToken);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
