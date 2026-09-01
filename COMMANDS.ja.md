@@ -36,6 +36,8 @@
 | `githubie repo description get <repository>` | Repository Descriptionを取得する |
 | `githubie repo description update <repository> <description>` | Descriptionを更新する。空文字列で削除する |
 | `githubie repo rename <old> <new>` | Repository設定と暗号化Tokenを新IDへ一括移行する |
+| `githubie issue list <repository> [--state open|closed]` | Issue一覧を取得する。Pull Requestを除外し、state省略時は全状態を返す |
+| `githubie issue get <repository> <number>` | Issue詳細を取得する。Pull Request番号は`IssueNotFound`を返す |
 
 ### 認証
 
@@ -94,6 +96,8 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_provider_capabilities` | `repository` | Githubieが対応するRepository Contract操作を返す |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull Request一覧を取得 |
 | `github_pr_get` | `repository`, `pull_request_number` | Pull Request詳細を取得 |
+| `github_issue_list` | `repository`, `state?` | Issue一覧を取得。Pull Requestは除外する |
+| `github_issue_get` | `repository`, `issue_number` | Issue詳細を取得。Pull Request番号は拒否する |
 | `github_pr_diff` | `repository`, `pull_request_number` | diff・変更統計を取得 |
 | `github_pr_comment_list` | `repository`, `pull_request_number` | PR全体の会話コメント一覧を取得 |
 | `github_tag_list` | `repository` | Tag一覧を取得 |

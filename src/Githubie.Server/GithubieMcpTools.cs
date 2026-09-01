@@ -307,6 +307,29 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("pr_get", repository, result);
     }
 
+    [McpServerTool(Name = "github_issue_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("GitHub Issue一覧を取得します。Pull Requestは含みません。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitHubIssueInfo>>> ListIssuesAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("状態フィルタ(open/closed)。省略時は全状態")]
+        GitHubIssueState? state,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.ListIssuesAsync(repository, state, cancellationToken);
+        return GithubieToolResultMapper.Map("issue_list", repository, result);
+    }
+
+    [McpServerTool(Name = "github_issue_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("GitHub Issueの詳細を取得します。Pull Request番号はIssueとして返しません。")]
+    public async Task<GithubieToolResult<GitHubIssueInfo>> GetIssueAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Issue番号")] int issue_number,
+        CancellationToken cancellationToken)
+    {
+        var result = await gitHubGateway.GetIssueAsync(repository, issue_number, cancellationToken);
+        return GithubieToolResultMapper.Map("issue_get", repository, result);
+    }
+
     [McpServerTool(Name = "github_pr_diff", ReadOnly = true, UseStructuredContent = true)]
     [Description("Pull Requestの差分(diff・変更統計)を取得します。")]
     public async Task<GithubieToolResult<GitHubPullRequestDiff>> GetPullRequestDiffAsync(

@@ -34,7 +34,7 @@ Githubie reads endpoint settings from `<install-root>\config\githubie.json` and 
 
 ## Usage
 
-Use `githubie.exe` for configuration, credentials, diagnostics, and Windows Service management. MCP clients receive 44 typed tools for repository discovery, approval-backed repository registration, repository status/description, GitHub Actions workflow dispatch/run inspection, fetch/pull/push, approval-backed history rewrite, branches, pull requests, tags, releases, and version information. See [Commands](COMMANDS.md).
+Use `githubie.exe` for configuration, credentials, diagnostics, and Windows Service management. MCP clients receive 46 typed tools for repository discovery, approval-backed repository registration, repository status/description, GitHub Actions workflow dispatch/run inspection, fetch/pull/push, approval-backed history rewrite, branches, issues, pull requests, tags, releases, and version information. See [Commands](COMMANDS.md).
 
 The `githubie_usage` MCP prompt gives agents a concise guide to Githubie's purpose, repository ID usage, the inspect-before-mutate workflow, protected branches, credentials, and history-rewrite safety. MCP clients that support prompts can select it at the start of repository work.
 

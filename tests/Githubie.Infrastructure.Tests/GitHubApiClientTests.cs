@@ -164,6 +164,55 @@ public sealed class GitHubApiClientTests
         result.Error.Should().Be(GitHubError.PullRequestNotFound);
     }
 
+    [Fact]
+    public async Task ListIssuesAsync_ExcludesPullRequestsAndMapsMetadata()
+    {
+        var client = CreateClient(request =>
+        {
+            request.RequestUri!.PathAndQuery.Should().Be("/repos/owner/repo/issues?state=open&per_page=100");
+            return Json(HttpStatusCode.OK, """
+                [
+                  {"number":7,"title":"Issue","body":"details","state":"open","user":{"login":"author"},"labels":[{"name":"bug"}],"assignees":[{"login":"owner"}],"comments":2,"locked":false,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-02T00:00:00Z","html_url":"https://example.com/issues/7"},
+                  {"number":8,"title":"PR","state":"open","user":{"login":"author"},"labels":[],"assignees":[],"comments":0,"locked":false,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","html_url":"https://example.com/pull/8","pull_request":{}}
+                ]
+                """);
+        });
+
+        var result = await client.ListIssuesAsync(
+            "repo-id", "owner", "repo", GitHubIssueState.Open, TestContext.Current.CancellationToken);
+
+        var issue = result.Value.Should().ContainSingle().Subject;
+        issue.Number.Should().Be(7);
+        issue.Labels.Should().Equal("bug");
+        issue.Assignees.Should().Equal("owner");
+        issue.Comments.Should().Be(2);
+    }
+
+    [Fact]
+    public async Task GetIssueAsync_WhenNumberIsPullRequest_ReturnsIssueNotFound()
+    {
+        var client = CreateClient(_ => Json(HttpStatusCode.OK, """
+            {"number":8,"title":"PR","state":"open","user":{"login":"author"},"labels":[],"assignees":[],"comments":0,"locked":false,"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z","html_url":"https://example.com/pull/8","pull_request":{}}
+            """));
+
+        var result = await client.GetIssueAsync(
+            "repo-id", "owner", "repo", 8, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(GitHubError.IssueNotFound);
+    }
+
+    [Fact]
+    public async Task GetIssueAsync_MapsNotFoundToIssueNotFound()
+    {
+        var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.NotFound));
+
+        var result = await client.GetIssueAsync(
+            "repo-id", "owner", "repo", 9999, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.IssueNotFound);
+    }
+
     [Theory]
     [InlineData(null, "unknown", GitHubMergeabilityStatus.CalculatingRetryable, 2)]
     [InlineData(true, "clean", GitHubMergeabilityStatus.Mergeable, null)]

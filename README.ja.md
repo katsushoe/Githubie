@@ -34,7 +34,7 @@ dotnet test Githubie.slnx
 
 ## 使用方法
 
-設定、認証情報、診断、Windows Service管理には`githubie.exe`を使います。MCP ClientにはRepository一覧、承認付きRepository登録、Repository Status／Description、GitHub Actions workflow起動・run取得、fetch／pull／push、承認付き履歴訂正、Branch、Pull Request、Tag、Release、Version取得の44個の型付きToolを公開します。詳細は[コマンド](COMMANDS.ja.md)を参照してください。
+設定、認証情報、診断、Windows Service管理には`githubie.exe`を使います。MCP ClientにはRepository一覧、承認付きRepository登録、Repository Status／Description、GitHub Actions workflow起動・run取得、fetch／pull／push、承認付き履歴訂正、Branch、Issue、Pull Request、Tag、Release、Version取得の46個の型付きToolを公開します。詳細は[コマンド](COMMANDS.ja.md)を参照してください。
 
 MCP Prompt `githubie_usage`は、Githubieを使用する目的、Repository IDの指定、状態確認から同期・変更へ進む基本手順、保護Branch、認証情報、履歴訂正の安全条件をAgent向けに返します。Promptに対応するMCP Clientでは、作業開始時の利用ガイドとして選択できます。
 

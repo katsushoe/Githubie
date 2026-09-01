@@ -224,6 +224,29 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         return GitHubResult<GitHubPullRequestInfo>.Success(ToPullRequestInfo(body));
     }
 
+    public async Task<GitHubResult<IReadOnlyList<GitHubIssueInfo>>> ListIssuesAsync(
+        string repositoryId, string owner, string repo, GitHubIssueState? state, CancellationToken cancellationToken)
+    {
+        var stateQuery = state is null ? "all" : state == GitHubIssueState.Open ? "open" : "closed";
+        var path = $"repos/{owner}/{repo}/issues?state={stateQuery}";
+        var page = await GetAllPagesAsync<IssueResponse>(repositoryId, path, cancellationToken);
+        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubIssueInfo>>.Failure(page.Error!.Value);
+        var issues = page.Value!.Where(x => x.PullRequest is null && IsValidIssue(x)).Select(ToIssueInfo).ToArray();
+        return GitHubResult<IReadOnlyList<GitHubIssueInfo>>.Success(issues);
+    }
+
+    public async Task<GitHubResult<GitHubIssueInfo>> GetIssueAsync(
+        string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/issues/{number}", null,
+            cancellationToken, notFoundError: GitHubError.IssueNotFound);
+        if (!response.IsSuccess) return GitHubResult<GitHubIssueInfo>.Failure(response.Error!.Value);
+        var body = await ReadAsync<IssueResponse>(response.Value!, cancellationToken);
+        if (body is null || body.PullRequest is not null || !IsValidIssue(body))
+            return GitHubResult<GitHubIssueInfo>.Failure(GitHubError.IssueNotFound);
+        return GitHubResult<GitHubIssueInfo>.Success(ToIssueInfo(body));
+    }
+
     public async Task<GitHubResult<GitHubPullRequestDiff>> GetPullRequestDiffAsync(string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken)
     {
         var stats = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/pulls/{number}", null, cancellationToken, notFoundError: GitHubError.PullRequestNotFound);
@@ -869,6 +892,17 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         ClassifyMergeability(pr.Mergeable, pr.MergeableState),
         IsRetryableMergeability(pr.Mergeable, pr.MergeableState) ? 2 : null);
 
+    private static bool IsValidIssue(IssueResponse issue) =>
+        issue.Number > 0 && issue.Title is not null && issue.State is "open" or "closed" &&
+        issue.User?.Login is not null && issue.HtmlUrl is not null;
+
+    private static GitHubIssueInfo ToIssueInfo(IssueResponse issue) => new(
+        issue.Number, issue.Title!, issue.Body,
+        string.Equals(issue.State, "open", StringComparison.Ordinal) ? GitHubIssueState.Open : GitHubIssueState.Closed,
+        issue.User!.Login!, issue.Labels?.Select(x => x.Name).Where(x => x is not null).Select(x => x!).ToArray() ?? [],
+        issue.Assignees?.Select(x => x.Login).Where(x => x is not null).Select(x => x!).ToArray() ?? [],
+        issue.Comments, issue.Locked, issue.CreatedAt, issue.UpdatedAt, issue.HtmlUrl!);
+
     private static string ClassifyMergeability(bool? mergeable, string? state)
     {
         if (mergeable is null || string.Equals(state, "unknown", StringComparison.OrdinalIgnoreCase))
@@ -967,6 +1001,23 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private sealed record PullRequestRef(string? Ref);
 
     private sealed record UserRef(string? Login);
+
+    private sealed record IssueResponse(
+        int Number,
+        string? Title,
+        string? Body,
+        string? State,
+        UserRef? User,
+        IReadOnlyList<LabelRef>? Labels,
+        IReadOnlyList<UserRef>? Assignees,
+        int Comments,
+        bool Locked,
+        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
+        [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
+        [property: JsonPropertyName("html_url")] string? HtmlUrl,
+        [property: JsonPropertyName("pull_request")] object? PullRequest);
+
+    private sealed record LabelRef(string? Name);
 
     private sealed record TagResponse(string? Name, CommitRef? Commit);
 
