@@ -30,7 +30,7 @@ Version `1.8.4.0` was upgrade-installed at `C:\Githubie`; the installed CLI and 
 
 Version `1.8.5.0` was upgrade-installed at `C:\Githubie`; the installed CLI and MCP versions, automatic running service, configuration check, nine registered projects, and repository status before the initial commit were verified.
 
-Version `1.8.6.2` was upgrade-installed at `C:\Githubie`; the installed CLI and MCP versions, automatic running service, external `ready` state, read-only doctor composition, nine registered projects, and repository status before the initial commit were verified. Missing repository tokens remain independent doctor failures.
+Version `1.8.6.3` was upgrade-installed at `C:\Githubie`; the installed CLI and MCP versions, automatic running service, external `ready` state, read-only doctor composition, nine registered projects, and repository diff before the initial commit were verified. Missing repository tokens remain independent doctor failures.
 
 ## Portable ZIP
 
