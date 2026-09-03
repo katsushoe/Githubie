@@ -4,9 +4,9 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.7.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.8.0`.
 
-Version `1.8.7.0` requires an explicit literal branch or full commit SHA for tag creation and never falls back to a configured default. All 358 automated tests passed. Its MSI build and SHA-256 manifest, upgrade at `C:\Githubie`, installed CLI and MCP versions, automatic Windows Service startup, service readiness, and preservation of nine registered projects were validated on a Windows machine. The standalone `doctor` composition check remains nonzero because the repository database could not be read, while the running MCP service can read and list all nine projects.
+Version `1.8.8.0` adds the Moyai-compatible GitHub Release create, get, publish, and withdraw lifecycle. A version maps to `v{version}`; withdrawal deletes the Release while retaining its tag. All 361 automated tests passed.
 
 ## Tags
 

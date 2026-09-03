@@ -533,6 +533,24 @@ public sealed class GitHubApiClientTests
     }
 
     [Fact]
+    public async Task DeleteReleaseAsync_UsesReleaseDeleteEndpoint()
+    {
+        HttpRequestMessage? captured = null;
+        var client = CreateCapturingClient((request, _) =>
+        {
+            captured = request;
+            return new HttpResponseMessage(HttpStatusCode.NoContent);
+        });
+
+        var result = await client.DeleteReleaseAsync(
+            "repo-id", "owner", "repo", 42, TestContext.Current.CancellationToken);
+
+        result.Value.Should().BeTrue();
+        captured!.Method.Should().Be(HttpMethod.Delete);
+        captured.RequestUri!.AbsolutePath.Should().Be("/repos/owner/repo/releases/42");
+    }
+
+    [Fact]
     public async Task CreateReleaseAsync_AssetOutsideRepositoryRoot_IsRejectedBeforeApiCall()
     {
         var client = CreateClient(_ => throw new InvalidOperationException("API must not be called"));

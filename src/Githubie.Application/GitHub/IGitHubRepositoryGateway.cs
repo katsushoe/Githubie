@@ -75,6 +75,8 @@ public interface IGitHubRepositoryGateway
 
     Task<GitHubResult<GitHubReleaseInfo>> UpdateReleaseAsync(string repository, long releaseId, GitHubReleaseUpdate request, CancellationToken cancellationToken);
 
+    Task<GitHubResult<bool>> DeleteReleaseAsync(string repository, long releaseId, CancellationToken cancellationToken);
+
     Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(string repository, GitHubReleaseAssetUpload request, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(

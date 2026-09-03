@@ -544,6 +544,15 @@ public sealed class GitHubRepositoryGateway(
         return await _apiClient.UpdateReleaseAsync(repository, options.GitHubOwner, options.GitHubRepo, releaseId, request, cancellationToken);
     }
 
+    public async Task<GitHubResult<bool>> DeleteReleaseAsync(
+        string repository, long releaseId, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<bool>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        return await _apiClient.DeleteReleaseAsync(repository, options.GitHubOwner, options.GitHubRepo, releaseId, cancellationToken);
+    }
+
     public async Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
         string repository, GitHubReleaseAssetUpload request, CancellationToken cancellationToken)
     {

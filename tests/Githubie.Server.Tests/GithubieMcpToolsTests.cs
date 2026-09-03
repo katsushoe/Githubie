@@ -46,6 +46,42 @@ public sealed class GithubieMcpToolsTests
         audit.Received(1).Write(Arg.Is<GithubieAuditEvent>(e => e.Tool == "github_branch_create" && e.Result == "success" && e.Source == source));
     }
 
+    [Fact]
+    public async Task ReleaseCreate_MoyaiVersionContract_CreatesDraftForVTag()
+    {
+        var gateway = Substitute.For<IGitHubRepositoryGateway>();
+        gateway.CreateReleaseAsync("sample", Arg.Any<GitHubReleaseCreate>(), Arg.Any<CancellationToken>())
+            .Returns(call => GitHubResult<GitHubReleaseInfo>.Success(new(
+                1, call.ArgAt<GitHubReleaseCreate>(1).Tag, "1.2.3", true, false, "https://example.com", [])));
+        var tools = CreateTools(gateway);
+
+        var result = await tools.CreateReleaseAsync(
+            "sample", version: "1.2.3", notes: "notes", project: "sample",
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        result.Ok.Should().BeTrue();
+        await gateway.Received(1).CreateReleaseAsync("sample",
+            Arg.Is<GitHubReleaseCreate>(request => request.Tag == "v1.2.3" && request.Draft && request.Body == "notes"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReleaseWithdraw_DeletesReleaseButNotTag()
+    {
+        var gateway = Substitute.For<IGitHubRepositoryGateway>();
+        gateway.GetReleaseAsync("sample", "v1.2.3", Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubReleaseInfo>.Success(new(7, "v1.2.3", "1.2.3", false, false, "https://example.com", [])));
+        gateway.DeleteReleaseAsync("sample", 7, Arg.Any<CancellationToken>()).Returns(GitHubResult<bool>.Success(true));
+        var tools = CreateTools(gateway);
+
+        var result = await tools.WithdrawReleaseAsync(
+            "sample", "1.2.3", "sample", TestContext.Current.CancellationToken);
+
+        result.Ok.Should().BeTrue();
+        await gateway.Received(1).DeleteReleaseAsync("sample", 7, Arg.Any<CancellationToken>());
+        await gateway.DidNotReceive().DeleteTagAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
     [Theory]
     [InlineData(GitHubError.BranchSourceInvalid, "branch_source_invalid")]
     [InlineData(GitHubError.BranchSourceNotFound, "branch_source_not_found")]
@@ -105,6 +141,8 @@ public sealed class GithubieMcpToolsTests
         "github_release_update",
         "github_release_asset_upload",
         "github_release_create",
+        "github_release_publish",
+        "github_release_withdraw",
         "get_version",
     ];
 
