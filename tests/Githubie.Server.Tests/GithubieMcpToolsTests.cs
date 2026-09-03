@@ -49,6 +49,8 @@ public sealed class GithubieMcpToolsTests
     [Theory]
     [InlineData(GitHubError.BranchSourceInvalid, "branch_source_invalid")]
     [InlineData(GitHubError.BranchSourceNotFound, "branch_source_not_found")]
+    [InlineData(GitHubError.TagSourceInvalid, "tag_source_invalid")]
+    [InlineData(GitHubError.TagSourceNotFound, "tag_source_not_found")]
     public void BranchCreate_MapsSourceErrors(GitHubError error, string code) =>
         GithubieToolResultMapper.MapError(error).Code.Should().Be(code);
 

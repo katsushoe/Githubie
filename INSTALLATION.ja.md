@@ -8,6 +8,8 @@ Version `1.8.5.0`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、
 
 Version `1.8.6.3`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、外部`ready`状態、読み取り専用doctor Composition、登録済み9 Projectの保持、初回Commit前のRepository差分取得を実機検証しました。RepositoryのToken未登録は独立したdoctor失敗として扱われます。
 
+Version `1.8.7.0`では`C:\Githubie`へのUpgrade Install、Install済みCLI／MCP Version `1.8.7.0`、Service自動起動、Service readiness、登録済み9 Projectの保持を実機検証しました。単体`doctor`のComposition確認はRepository Databaseを読み取れませんでしたが、稼働中MCP Serviceは9 Projectを正常に列挙しました。
+
 ## 前提
 
 - Windows 10/11 または Windows Server（DPAPI / Windows Service / `sc.exe`を使用するためWindows専用）

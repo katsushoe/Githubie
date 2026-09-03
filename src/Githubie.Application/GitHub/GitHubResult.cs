@@ -54,6 +54,8 @@ public enum GitHubError
     TagInvalid,
     TagAlreadyExists,
     TagTargetNotAllowed,
+    TagSourceInvalid,
+    TagSourceNotFound,
     TagDeleteFailed,
 
     ReleaseAlreadyExists,

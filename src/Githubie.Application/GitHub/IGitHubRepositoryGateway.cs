@@ -65,7 +65,7 @@ public interface IGitHubRepositoryGateway
 
     Task<GitHubResult<GitHubTagInfo>> GetTagAsync(string repository, string tag, CancellationToken cancellationToken);
 
-    Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string? message, CancellationToken cancellationToken);
+    Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string source, string? message, CancellationToken cancellationToken);
 
     Task<GitHubResult<bool>> DeleteTagAsync(string repository, string tag, CancellationToken cancellationToken);
 

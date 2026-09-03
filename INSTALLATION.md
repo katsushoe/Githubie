@@ -32,6 +32,8 @@ Version `1.8.5.0` was upgrade-installed at `C:\Githubie`; the installed CLI and 
 
 Version `1.8.6.3` was upgrade-installed at `C:\Githubie`; the installed CLI and MCP versions, automatic running service, external `ready` state, read-only doctor composition, nine registered projects, and repository diff before the initial commit were verified. Missing repository tokens remain independent doctor failures.
 
+Version `1.8.7.0` was upgrade-installed at `C:\Githubie`; installed CLI and MCP version `1.8.7.0`, automatic running service, service readiness, and preservation of nine registered projects were verified. The standalone `doctor` composition check could not read the repository database, although the running MCP service listed all nine projects successfully.
+
 ## Portable ZIP
 
 Extract the ZIP to a fixed directory, copy `githubie.example.json` to `config\githubie.json`, and run `githubie.exe service install` before starting the service. The ZIP does not register the service automatically.

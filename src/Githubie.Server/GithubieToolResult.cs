@@ -166,6 +166,8 @@ public static class GithubieToolResultMapper
         GitHubError.BranchAlreadyExists => new("branch_already_exists", "Branch already exists."),
         GitHubError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed by repository policy."),
         GitHubError.ProtectedBranch => new("protected_branch", "Protected branch cannot be deleted."),
+        GitHubError.TagSourceInvalid => new("tag_source_invalid", "An explicit source branch or full commit SHA is required."),
+        GitHubError.TagSourceNotFound => new("tag_source_not_found", "Source branch or commit was not found."),
         GitHubError.AuthenticationFailed => new("authentication_failed", "GitHub authentication failed."),
         GitHubError.PermissionDenied => new("permission_denied", "GitHub denied the operation."),
         GitHubError.TokenScopeMissing => new("token_scope_missing", "Personal Access Token is missing required permissions."),

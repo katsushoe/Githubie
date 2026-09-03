@@ -87,6 +87,8 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.TagInvalid] = "tag_invalid",
         [GitHubError.TagAlreadyExists] = "tag_already_exists",
         [GitHubError.TagTargetNotAllowed] = "tag_target_not_allowed",
+        [GitHubError.TagSourceInvalid] = "tag_source_invalid",
+        [GitHubError.TagSourceNotFound] = "tag_source_not_found",
         [GitHubError.TagDeleteFailed] = "tag_delete_failed",
         [GitHubError.ReleaseAlreadyExists] = "release_already_exists",
         [GitHubError.ReleaseNotFound] = "release_not_found",

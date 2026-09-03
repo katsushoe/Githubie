@@ -4,9 +4,9 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.6.3`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.7.0`.
 
-Version `1.8.6.3` makes repository diff succeed before the initial commit by comparing staged changes with the empty tree. All 312 automated tests passed. Its MSI build and SHA-256 manifest, upgrade at `C:\Githubie`, installed and MCP versions, automatic Windows Service startup, readiness and composition checks, preservation of nine registered projects, and unborn-repository diff output were validated on a Windows machine. The complete `doctor` command remains nonzero when configured repositories have no stored token, independently of readiness and database health.
+Version `1.8.7.0` requires an explicit literal branch or full commit SHA for tag creation and never falls back to a configured default. All 358 automated tests passed. Its MSI build and SHA-256 manifest, upgrade at `C:\Githubie`, installed CLI and MCP versions, automatic Windows Service startup, service readiness, and preservation of nine registered projects were validated on a Windows machine. The standalone `doctor` composition check remains nonzero because the repository database could not be read, while the running MCP service can read and list all nine projects.
 
 ## Tags
 

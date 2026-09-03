@@ -241,8 +241,10 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
     public Task<GitHubResult<GitHubTagInfo>> GetTagAsync(string repository, string tag, CancellationToken cancellationToken) =>
         RunAsync("github_tag_get", repository, null, null, () => inner.GetTagAsync(repository, tag, cancellationToken), tag);
 
-    public Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string? message, CancellationToken cancellationToken) =>
-        RunAsync("github_tag_create", repository, null, null, () => inner.CreateTagAsync(repository, tag, message, cancellationToken), tag);
+    public Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(
+        string repository, string tag, string source, string? message, CancellationToken cancellationToken) =>
+        RunAsync("github_tag_create", repository, null, null,
+            () => inner.CreateTagAsync(repository, tag, source, message, cancellationToken), tag, source);
 
     public Task<GitHubResult<bool>> DeleteTagAsync(string repository, string tag, CancellationToken cancellationToken) =>
         RunAsync("github_tag_delete", repository, null, null, () => inner.DeleteTagAsync(repository, tag, cancellationToken), tag);

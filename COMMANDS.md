@@ -105,7 +105,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | Adds a non-empty conversation comment to an existing pull request |
 | `github_pr_review_approve` | `repository`, `pull_request_number`, `body?` | Approves an open pull request with an optional review body |
 | `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | Requests changes on an open pull request with a required review body |
-| `github_tag_create` | `repository`, `tag`, `message?` | Creates and publishes an annotated tag on GitHub at the configured target branch HEAD; it does not create a local tag |
+| `github_tag_create` | `repository`, `tag`, `source`, `message?` | Creates an annotated tag from an explicit branch name or full 40-character commit SHA; omission and invalid sources fail without a default fallback |
 | `github_tag_delete` | `repository`, `tag` | Deletes a policy-compliant tag; returns `tag_not_found` when absent |
 | `github_tag_push` | `repository`, `tag` | Pushes one existing local policy-compliant lightweight or annotated tag explicitly; never pushes all tags or overwrites a conflicting remote tag |
 | `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | Creates or resumes a matching draft, uploads all missing assets, then publishes only after success |
@@ -114,4 +114,4 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 
 ## Audit Log
 
-Each call records client, tool, repository, relevant branch/PR/tag fields, result, duration, and error code in `<install-root>\logs\githubie-yyyyMMdd.log`. Tokens, authorization headers, and raw error messages are excluded.
+Each call records client, tool, repository, relevant branch/PR/tag/source fields, result, duration, and error code in `<install-root>\logs\githubie-yyyyMMdd.log`. Tokens, authorization headers, and raw error messages are excluded.
