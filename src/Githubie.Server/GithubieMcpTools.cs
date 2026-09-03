@@ -507,10 +507,14 @@ public sealed class GithubieMcpTools(
     [Description("TagからRelease詳細を取得します。")]
     public async Task<GithubieToolResult<GitHubReleaseInfo>> GetReleaseAsync(
         [Description("Githubie内部のRepository ID")] string repository,
-        [Description("Tag名")] string tag,
-        CancellationToken cancellationToken)
+        [Description("Tag名（version指定時は省略可）")] string? tag = null,
+        [Description("Release版（v接頭辞なし）")] string? version = null,
+        [Description("Moyai互換のProject ID。repositoryと一致する場合のみ許可")] string? project = null,
+        CancellationToken cancellationToken = default)
     {
-        var result = await gitHubGateway.GetReleaseAsync(repository, tag, cancellationToken);
+        var input = ResolveLifecycleInput(repository, project, tag, version);
+        if (input is null) return InvalidRelease(repository, "release_get");
+        var result = await gitHubGateway.GetReleaseAsync(repository, input, cancellationToken);
         return GithubieToolResultMapper.Map("release_get", repository, result);
     }
 
@@ -544,22 +548,82 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("release_asset_upload", repository, result);
     }
 
-    [McpServerTool(Name = "github_release_create", Destructive = true, UseStructuredContent = true)]
-    [Description("既存Tagからdraft Releaseを作成し、Repository配下のMSI/ZIP/SHA-256を添付後に公開します。")]
+    [McpServerTool(Name = "github_release_create", Destructive = true, Idempotent = true, UseStructuredContent = true)]
+    [Description("既存TagからReleaseを作成します。Moyaiのversion指定ではdraftとして作成します。")]
     public async Task<GithubieToolResult<GitHubReleaseInfo>> CreateReleaseAsync(
         [Description("Githubie内部のRepository ID")] string repository,
-        [Description("既存Tag名")] string tag,
-        [Description("Release名")] string name,
-        [Description("Release note")] string? body,
-        [Description("Draftのまま保持するか")] bool draft,
-        [Description("Pre-releaseとして扱うか")] bool prerelease,
-        [Description("Repository local root配下の添付ファイル絶対パス一覧")] IReadOnlyList<string> assets,
-        CancellationToken cancellationToken)
+        [Description("既存Tag名（version指定時は省略可）")] string? tag = null,
+        [Description("Release名")] string? name = null,
+        [Description("Release note")] string? body = null,
+        [Description("Draftのまま保持するか")] bool? draft = null,
+        [Description("Pre-releaseとして扱うか")] bool prerelease = false,
+        [Description("Repository local root配下の添付ファイル絶対パス一覧")] IReadOnlyList<string>? assets = null,
+        [Description("Release版（v接頭辞なし）")] string? version = null,
+        [Description("単一の成果物パス")] string? artifact_path = null,
+        [Description("Release notes")] string? notes = null,
+        [Description("Moyai互換のProject ID。repositoryと一致する場合のみ許可")] string? project = null,
+        CancellationToken cancellationToken = default)
     {
+        var resolvedTag = ResolveLifecycleInput(repository, project, tag, version);
+        if (resolvedTag is null) return InvalidRelease(repository, "release_create");
+        var resolvedAssets = assets?.ToList() ?? [];
+        if (!string.IsNullOrWhiteSpace(artifact_path)) resolvedAssets.Add(artifact_path);
         var result = await gitHubGateway.CreateReleaseAsync(
-            repository, new GitHubReleaseCreate(tag, name, body, draft, prerelease, assets), cancellationToken);
+            repository, new GitHubReleaseCreate(resolvedTag, name ?? version ?? resolvedTag, notes ?? body,
+                draft ?? version is not null, prerelease, resolvedAssets), cancellationToken);
         return GithubieToolResultMapper.Map("release_create", repository, result);
     }
+
+    [McpServerTool(Name = "github_release_publish", Destructive = true, Idempotent = true, UseStructuredContent = true)]
+    [Description("versionに対応するdraft Releaseを公開し、任意の成果物を添付します。")]
+    public async Task<GithubieToolResult<GitHubReleaseInfo>> PublishReleaseAsync(
+        string repository, string version, string? artifact_path = null, string? notes = null,
+        string? project = null, CancellationToken cancellationToken = default)
+    {
+        var tag = ResolveLifecycleInput(repository, project, null, version);
+        if (tag is null) return InvalidRelease(repository, "release_publish");
+        var current = await gitHubGateway.GetReleaseAsync(repository, tag, cancellationToken);
+        if (!current.IsSuccess) return GithubieToolResultMapper.Map("release_publish", repository, current);
+        var release = current;
+        if (!string.IsNullOrWhiteSpace(artifact_path))
+            release = await gitHubGateway.UploadReleaseAssetsAsync(repository,
+                new GitHubReleaseAssetUpload(current.Value!.Id, [artifact_path], true), cancellationToken);
+        if (!release.IsSuccess) return GithubieToolResultMapper.Map("release_publish", repository, release);
+        var result = await gitHubGateway.UpdateReleaseAsync(repository, current.Value!.Id,
+            new GitHubReleaseUpdate(null, notes, false, null), cancellationToken);
+        return GithubieToolResultMapper.Map("release_publish", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_withdraw", Destructive = true, Idempotent = false, UseStructuredContent = true)]
+    [Description("versionに対応するReleaseを削除します。Tagは保持します。")]
+    public async Task<GithubieToolResult<bool>> WithdrawReleaseAsync(
+        string repository, string version, string? project = null, CancellationToken cancellationToken = default)
+    {
+        var tag = ResolveLifecycleInput(repository, project, null, version);
+        if (tag is null) return GithubieToolResult<bool>.Failure("release_withdraw", repository,
+            new GithubieToolError("invalid_release", "The release input is invalid."));
+        var current = await gitHubGateway.GetReleaseAsync(repository, tag, cancellationToken);
+        if (!current.IsSuccess)
+            return GithubieToolResultMapper.Map<bool>("release_withdraw", repository,
+                GitHubResult<bool>.Failure(current.Error!.Value));
+        var result = await gitHubGateway.DeleteReleaseAsync(repository, current.Value!.Id, cancellationToken);
+        return GithubieToolResultMapper.Map("release_withdraw", repository, result);
+    }
+
+    private static string? ResolveLifecycleInput(string repository, string? project, string? tag, string? version)
+    {
+        if (!string.IsNullOrWhiteSpace(project) && !string.Equals(project, repository, StringComparison.Ordinal)) return null;
+        if (!string.IsNullOrWhiteSpace(tag) && !string.IsNullOrWhiteSpace(version))
+            return string.Equals(tag, $"v{version}", StringComparison.Ordinal) ? tag : null;
+        if (!string.IsNullOrWhiteSpace(tag)) return tag;
+        if (string.IsNullOrWhiteSpace(version) || version.StartsWith('v') || version.Length > 128 ||
+            version.Any(char.IsWhiteSpace) || version.Any(char.IsControl)) return null;
+        return $"v{version}";
+    }
+
+    private static GithubieToolResult<GitHubReleaseInfo> InvalidRelease(string repository, string operation) =>
+        GithubieToolResult<GitHubReleaseInfo>.Failure(operation, repository,
+            new GithubieToolError("invalid_release", "The release input is invalid."));
 
     [McpServerTool(Name = "get_version", ReadOnly = true, UseStructuredContent = true)]
     [Description("Githubie Serverのバージョンを取得します。")]

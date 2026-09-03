@@ -80,6 +80,8 @@ public interface IGitHubApiClient
 
     Task<GitHubResult<GitHubReleaseInfo>> UpdateReleaseAsync(string repositoryId, string owner, string repo, long releaseId, GitHubReleaseUpdate request, CancellationToken cancellationToken);
 
+    Task<GitHubResult<bool>> DeleteReleaseAsync(string repositoryId, string owner, string repo, long releaseId, CancellationToken cancellationToken);
+
     Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(string repositoryId, string owner, string repo, string localRoot, GitHubReleaseAssetUpload request, CancellationToken cancellationToken);
 
     Task<GitHubResult<GitHubReleaseInfo>> CreateReleaseAsync(

@@ -509,6 +509,18 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             : GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
     }
 
+    public async Task<GitHubResult<bool>> DeleteReleaseAsync(
+        string repositoryId, string owner, string repo, long releaseId, CancellationToken cancellationToken)
+    {
+        if (releaseId <= 0) return GitHubResult<bool>.Failure(GitHubError.ReleaseNotFound);
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Delete, $"repos/{owner}/{repo}/releases/{releaseId}", null, cancellationToken,
+            notFoundError: GitHubError.ReleaseNotFound);
+        if (!response.IsSuccess) return GitHubResult<bool>.Failure(response.Error!.Value);
+        response.Value!.Dispose();
+        return GitHubResult<bool>.Success(true);
+    }
+
     public async Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
         string repositoryId, string owner, string repo, string localRoot, GitHubReleaseAssetUpload request, CancellationToken cancellationToken)
     {
