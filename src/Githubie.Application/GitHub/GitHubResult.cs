@@ -54,6 +54,8 @@ public enum GitHubError
     TagInvalid,
     TagAlreadyExists,
     TagTargetNotAllowed,
+    TagSourceInvalid,
+    TagSourceNotFound,
     TagDeleteFailed,
 
     ReleaseAlreadyExists,
@@ -65,4 +67,6 @@ public enum GitHubError
 
     NetworkError,
     Timeout,
+    BranchSourceInvalid,
+    BranchSourceNotFound,
 }

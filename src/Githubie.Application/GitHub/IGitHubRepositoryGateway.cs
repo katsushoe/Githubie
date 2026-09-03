@@ -25,7 +25,7 @@ public interface IGitHubRepositoryGateway
 
     Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repository, string branch, CancellationToken cancellationToken);
 
-    Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(string repository, string branch, CancellationToken cancellationToken);
+    Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(string repository, string branch, string source, CancellationToken cancellationToken);
 
     Task<GitHubResult<bool>> DeleteBranchAsync(string repository, string branch, CancellationToken cancellationToken);
 
@@ -65,7 +65,7 @@ public interface IGitHubRepositoryGateway
 
     Task<GitHubResult<GitHubTagInfo>> GetTagAsync(string repository, string tag, CancellationToken cancellationToken);
 
-    Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string? message, CancellationToken cancellationToken);
+    Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string source, string? message, CancellationToken cancellationToken);
 
     Task<GitHubResult<bool>> DeleteTagAsync(string repository, string tag, CancellationToken cancellationToken);
 

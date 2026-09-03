@@ -34,6 +34,7 @@ public sealed class CliApplicationTests
 
         exitCode.Should().Be(0);
         output.ToString().Should().Contain("auth set <repository> [--console]");
+        output.ToString().Should().Contain("source (required; no default)");
     }
 
     [Fact]

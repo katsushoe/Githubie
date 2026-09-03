@@ -151,6 +151,21 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         return GitHubResult<GitHubBranchInfo>.Success(new GitHubBranchInfo(body.Name!, body.Commit!.Sha!, body.Protected));
     }
 
+    /// <summary>完全なコミットSHAを解決し、作成元の存在を検証します。</summary>
+    public async Task<GitHubResult<string>> GetCommitShaAsync(
+        string repositoryId, string owner, string repo, string sha, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(repositoryId, HttpMethod.Get,
+            $"repos/{owner}/{repo}/git/commits/{Uri.EscapeDataString(sha)}", null, cancellationToken,
+            notFoundError: GitHubError.BranchSourceNotFound);
+        if (!response.IsSuccess) return GitHubResult<string>.Failure(response.Error!.Value);
+        var body = await ReadAsync<CommitRef>(response.Value!, cancellationToken);
+        return body?.Sha is { Length: 40 } resolved && resolved.All(Uri.IsHexDigit)
+            && string.Equals(resolved, sha, StringComparison.OrdinalIgnoreCase)
+            ? GitHubResult<string>.Success(resolved)
+            : GitHubResult<string>.Failure(GitHubError.InvalidResponse);
+    }
+
     public async Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(
         string repositoryId, string owner, string repo, string branch, string sourceSha, CancellationToken cancellationToken)
     {

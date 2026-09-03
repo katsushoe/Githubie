@@ -155,17 +155,28 @@ public sealed class GitHubRepositoryGateway(
     }
 
     public async Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(
-        string repository, string branch, CancellationToken cancellationToken)
+        string repository, string branch, string source, CancellationToken cancellationToken)
     {
         var resolved = Resolve(repository);
         if (resolved.Error is not null) return GitHubResult<GitHubBranchInfo>.Failure(resolved.Error.Value);
         var options = resolved.Options!;
         if (!IsAllowedBranch(options, branch)) return GitHubResult<GitHubBranchInfo>.Failure(GitHubError.BranchNotAllowed);
-        var source = await _apiClient.GetBranchAsync(
-            repository, options.GitHubOwner, options.GitHubRepo, options.MainBranch, cancellationToken);
-        if (!source.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(source.Error!.Value);
+        if (string.IsNullOrWhiteSpace(source)) return GitHubResult<GitHubBranchInfo>.Failure(GitHubError.BranchSourceInvalid);
+        string sourceSha;
+        if (source.Length == 40 && source.All(Uri.IsHexDigit))
+        {
+            var commit = await _apiClient.GetCommitShaAsync(repository, options.GitHubOwner, options.GitHubRepo, source, cancellationToken);
+            if (!commit.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(commit.Error!.Value);
+            sourceSha = commit.Value!;
+        }
+        else
+        {
+            var sourceBranch = await _apiClient.GetBranchAsync(repository, options.GitHubOwner, options.GitHubRepo, source, cancellationToken);
+            if (!sourceBranch.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(sourceBranch.Error!.Value);
+            sourceSha = sourceBranch.Value!.HeadSha;
+        }
         return await _apiClient.CreateBranchAsync(
-            repository, options.GitHubOwner, options.GitHubRepo, branch, source.Value!.HeadSha, cancellationToken);
+            repository, options.GitHubOwner, options.GitHubRepo, branch, sourceSha, cancellationToken);
     }
 
     public async Task<GitHubResult<bool>> DeleteBranchAsync(
@@ -439,7 +450,8 @@ public sealed class GitHubRepositoryGateway(
         return await _apiClient.GetTagAsync(repository, resolved.Options!.GitHubOwner, resolved.Options.GitHubRepo, tag, cancellationToken);
     }
 
-    public async Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(string repository, string tag, string? message, CancellationToken cancellationToken)
+    public async Task<GitHubResult<GitHubTagInfo>> CreateTagAsync(
+        string repository, string tag, string source, string? message, CancellationToken cancellationToken)
     {
         var resolved = Resolve(repository);
         if (resolved.Error is not null)
@@ -455,17 +467,45 @@ public sealed class GitHubRepositoryGateway(
             return GitHubResult<GitHubTagInfo>.Failure(MapPolicyError(tagPolicyResult.ErrorCode!.Value));
         }
 
-        var targetBranch = await _apiClient.GetBranchAsync(repository, options.GitHubOwner, options.GitHubRepo, options.TagTargetBranch, cancellationToken);
-        if (!targetBranch.IsSuccess)
+        if (string.IsNullOrWhiteSpace(source))
         {
-            return GitHubResult<GitHubTagInfo>.Failure(targetBranch.Error!.Value);
+            return GitHubResult<GitHubTagInfo>.Failure(GitHubError.TagSourceInvalid);
+        }
+
+        string targetCommitSha;
+        if (source.Length == 40 && source.All(Uri.IsHexDigit))
+        {
+            var commit = await _apiClient.GetCommitShaAsync(
+                repository, options.GitHubOwner, options.GitHubRepo, source, cancellationToken);
+            if (!commit.IsSuccess)
+            {
+                return GitHubResult<GitHubTagInfo>.Failure(MapTagSourceError(commit.Error!.Value));
+            }
+
+            targetCommitSha = commit.Value!;
+        }
+        else
+        {
+            if (!IsValidBranchSource(source))
+            {
+                return GitHubResult<GitHubTagInfo>.Failure(GitHubError.TagSourceInvalid);
+            }
+
+            var targetBranch = await _apiClient.GetBranchAsync(
+                repository, options.GitHubOwner, options.GitHubRepo, source, cancellationToken);
+            if (!targetBranch.IsSuccess)
+            {
+                return GitHubResult<GitHubTagInfo>.Failure(MapTagSourceError(targetBranch.Error!.Value));
+            }
+
+            targetCommitSha = targetBranch.Value!.HeadSha;
         }
 
         return await _apiClient.CreateTagAsync(
             repository,
             options.GitHubOwner,
             options.GitHubRepo,
-            new GitHubTagCreate(tag, targetBranch.Value!.HeadSha, message),
+            new GitHubTagCreate(tag, targetCommitSha, message),
             cancellationToken);
     }
 
@@ -541,6 +581,23 @@ public sealed class GitHubRepositoryGateway(
     private static bool IsAllowedBranch(Configuration.RepositoryOptions options, string branch) =>
         options.DirectPushBranches.Contains(branch, StringComparer.Ordinal) ||
         options.PullBranches.Contains(branch, StringComparer.Ordinal);
+
+    private static bool IsValidBranchSource(string source) =>
+        source.Length <= 255 &&
+        source is not "." &&
+        !source.StartsWith('/') &&
+        !source.EndsWith('/') &&
+        !source.EndsWith('.') &&
+        !source.Contains("..", StringComparison.Ordinal) &&
+        !source.Contains("@{", StringComparison.Ordinal) &&
+        !source.Split('/').Any(segment => segment.StartsWith('.') || segment.EndsWith(".lock", StringComparison.OrdinalIgnoreCase)) &&
+        !source.Any(character => char.IsControl(character) || char.IsWhiteSpace(character) || "~^:?*[\\".Contains(character));
+
+    private static GitHubError MapTagSourceError(GitHubError error) => error switch
+    {
+        GitHubError.BranchNotFound or GitHubError.BranchSourceNotFound => GitHubError.TagSourceNotFound,
+        _ => error,
+    };
 
     private (Configuration.RepositoryOptions? Options, GitHubError? Error) Resolve(string repository)
     {

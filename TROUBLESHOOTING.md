@@ -41,6 +41,10 @@
 | `permission_denied` / `token_scope_missing` | Grant the fine-grained PAT the required repository permissions. |
 | `rate_limited` / `secondary_rate_limited` | Wait for reset or reduce request frequency. |
 | `branch_not_found` / `pull_request_not_found` / `tag_not_found` | Verify the requested identifier with the corresponding list tool. |
+| `branch_source_invalid` | Specify a nonblank source branch name or full 40-character commit SHA. Branch creation never selects a default. |
+| `branch_source_not_found` | The explicit source commit does not exist in the configured repository. Verify the full SHA and repository. No ref was created. |
+| `tag_source_invalid` | Specify a nonblank literal branch name or full 40-character commit SHA. Tags and revision expressions such as `HEAD~1` are not accepted, and tag creation never selects a default. |
+| `tag_source_not_found` | The explicit source branch or commit does not exist in the configured repository. Verify the source and repository. No tag was created. |
 | `pull_request_not_open` / `pull_request_not_mergeable` | Verify state and resolve conflicts before merging. `pull_request_not_mergeable` is returned only for confirmed conflicts. |
 | `mergeability_calculating` | Status is `calculating_retryable`; wait `retry_after_seconds` and call `github_pr_get` or merge again. |
 | `mergeability_unknown` | Status is `unknown_retryable`; wait `retry_after_seconds` and recheck because GitHub could not yet classify the result. |
@@ -49,7 +53,7 @@
 | `pull_request_state_not_allowed` | A merged pull request cannot be closed or reopened. Verify its current state. |
 | `pull_request_comment_invalid` | Supply a non-empty comment body of at most 65,536 characters. |
 | `pull_request_review_invalid` | Supply a review body of at most 65,536 characters; change requests require a non-empty body. |
-| `tag_invalid` / `tag_already_exists` / `tag_target_not_allowed` | Check `tag_pattern`, uniqueness, and the configured target branch. |
+| `tag_invalid` / `tag_already_exists` / `tag_target_not_allowed` | Check `tag_pattern`, uniqueness, and the configured release target branch. |
 | `release_not_found` | Verify the tag or Release ID with `github_release_list`. |
 | `release_already_exists` | Inspect the existing Release; only a matching draft can be resumed by `github_release_create`. |
 | `release_asset_already_exists` | Retry without that file or explicitly set `replace_existing=true`. |

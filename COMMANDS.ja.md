@@ -10,6 +10,16 @@
 | --- | --- |
 | `--config <path>` | `githubie.json`の場所を明示指定する。省略時は`<install-root>\config\githubie.json` |
 
+## Branch作成の互換性変更
+
+`github_branch_create`には`source`が必須です。作成元のBranch名または完全な40桁コミットSHAを指定します。main・develop・HEAD等への暗黙補完はしません。省略時はMCP引数エラー、空白・nullは`branch_source_invalid`、存在しないBranchは`branch_not_found`、存在しないコミットは`branch_source_not_found`です。解決失敗時はBranchを作成しません。作成先の許可条件は維持し、checkoutは行いません。
+
+CLIは次のJSONをファイルへ保存し、`githubie mcp call github_branch_create --file branch-create.json`で同じサービス処理を呼び出します。Moyai等の呼び出し側も`source`の指定が必要です。設計正本は[ADR 0026](docs/adr/0026-explicit-branch-source.md)です。
+
+```json
+{"repository":"example","branch":"develop","source":"main"}
+```
+
 ## CLIコマンド
 
 ### 基本
@@ -117,7 +127,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_repository_description_update` | `repository`, `description` | Descriptionだけを更新。空文字列で削除、最大350文字 |
 | `github_workflow_dispatch` | `repository`, `workflow`, `ref`, `inputs` | 許可済みworkflowだけを起動し、新規runを一意に関連付ける |
 | `github_push` | `repository` | develop等へのGit push。許可BranchがRemoteに未作成なら初回pushで作成し、既存BranchはFast-forward時だけ更新。Protected Branchへの直接Pushは`protected_branch`で拒否 |
-| `github_branch_create` | `repository`, `branch` | 許可されたBranchを設定済みmain HEADから作成。既存時は競合エラー |
+| `github_branch_create` | `repository`, `branch`, `source`（必須） | 明示された作成元Branch名または完全な40桁コミットSHAから作成。省略時はエラー、暗黙補完なし。既存時は競合エラー |
 | `github_branch_delete` | `repository`, `branch` | 許可された非保護Branchを削除 |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | develop→mainのPRを作成（Source/Destinationは設定固定） |
 | `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | 2秒間隔・最大3回でmerge可能性を確認後、Stateと許可経路を検証してPRをmerge |

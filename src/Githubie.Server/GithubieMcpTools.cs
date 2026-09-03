@@ -266,11 +266,13 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_branch_create", Destructive = true, UseStructuredContent = true)]
-    [Description("許可されたBranchをmain HEADから作成します。")]
+    [Description("許可されたBranchを明示した作成元から作成します。sourceは必須で、暗黙の補完は行いません。")]
     public async Task<GithubieToolResult<GitHubBranchInfo>> CreateBranchAsync(
-        string repository, string branch, CancellationToken cancellationToken)
+        string repository, string branch,
+        [Description("作成元のBranch名または完全な40桁コミットSHA。必須。省略・空白はエラー。")] string source,
+        CancellationToken cancellationToken)
     {
-        var result = await gitHubGateway.CreateBranchAsync(repository, branch, cancellationToken);
+        var result = await gitHubGateway.CreateBranchAsync(repository, branch, source, cancellationToken);
         return GithubieToolResultMapper.Map("branch_create", repository, result);
     }
 
@@ -468,14 +470,15 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_tag_create", Destructive = true, UseStructuredContent = true)]
-    [Description("Release Tagを作成します。既定ではmain HEADのみを対象とします。")]
+    [Description("明示したbranchまたは完全な40桁commit SHAを作成元としてRelease Tagを作成します。")]
     public async Task<GithubieToolResult<GitHubTagInfo>> CreateTagAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("Tag名(例: v1.0.0)")] string tag,
+        [Description("作成元branch名または完全な40桁commit SHA（必須）")] string source,
         [Description("Annotated tag message")] string? message,
         CancellationToken cancellationToken)
     {
-        var result = await gitHubGateway.CreateTagAsync(repository, tag, message, cancellationToken);
+        var result = await gitHubGateway.CreateTagAsync(repository, tag, source, message, cancellationToken);
         return GithubieToolResultMapper.Map("tag_create", repository, result);
     }
 

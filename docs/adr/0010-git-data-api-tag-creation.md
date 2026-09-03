@@ -8,7 +8,7 @@ Bitbucket Cloud's REST API creates an annotated tag with a single POST call. Git
 
 ## Decision
 
-`github_tag_create` resolves the target branch's current HEAD SHA (`GET /repos/{owner}/{repo}/branches/{branch}`), validates the tag name against `RepositoryPolicy.ValidateTag`, then performs two sequential GitHub API calls: `POST /repos/{owner}/{repo}/git/tags` to create the annotated tag object (returning a `sha` distinct from the target commit SHA), followed by `POST /repos/{owner}/{repo}/git/refs` with `ref = refs/tags/<tag>` and `sha = <tag object sha>` to publish the reference. If the ref-creation step fails with `422 Unprocessable Entity`, the error is mapped to `tag_already_exists`.
+`github_tag_create` resolves its explicit source to a commit SHA as specified by ADR 0027, validates the tag name against `RepositoryPolicy.ValidateTag`, then performs two sequential GitHub API calls: `POST /repos/{owner}/{repo}/git/tags` to create the annotated tag object (returning a `sha` distinct from the target commit SHA), followed by `POST /repos/{owner}/{repo}/git/refs` with `ref = refs/tags/<tag>` and `sha = <tag object sha>` to publish the reference. If the ref-creation step fails with `422 Unprocessable Entity`, the error is mapped to `tag_already_exists`.
 
 ## Alternatives
 
@@ -21,7 +21,7 @@ Bitbucket Cloud's REST API creates an annotated tag with a single POST call. Git
 
 ## Security conditions
 
-Tag target is always resolved server-side from `tag_target_branch`'s current HEAD; the MCP client never supplies an arbitrary commit SHA (Phase 1 does not implement the `allowArbitraryTagTarget` override envisioned in the specification).
+Superseded by ADR 0027: the client must explicitly provide a literal branch or verified full commit SHA; omission never selects a configured default.
 
 ## Operational conditions
 

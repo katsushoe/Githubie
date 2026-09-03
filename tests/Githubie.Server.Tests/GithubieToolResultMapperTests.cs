@@ -53,6 +53,8 @@ public sealed class GithubieToolResultMapperTests
     {
         [GitHubError.RepositoryNotFound] = "repository_not_found",
         [GitHubError.RepositoryDescriptionInvalid] = "repository_description_invalid",
+        [GitHubError.BranchSourceInvalid] = "branch_source_invalid",
+        [GitHubError.BranchSourceNotFound] = "branch_source_not_found",
         [GitHubError.WorkflowNotAllowed] = "workflow_not_allowed",
         [GitHubError.WorkflowRefNotAllowed] = "workflow_ref_not_allowed",
         [GitHubError.WorkflowInputInvalid] = "workflow_input_invalid",
@@ -85,6 +87,8 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.TagInvalid] = "tag_invalid",
         [GitHubError.TagAlreadyExists] = "tag_already_exists",
         [GitHubError.TagTargetNotAllowed] = "tag_target_not_allowed",
+        [GitHubError.TagSourceInvalid] = "tag_source_invalid",
+        [GitHubError.TagSourceNotFound] = "tag_source_not_found",
         [GitHubError.TagDeleteFailed] = "tag_delete_failed",
         [GitHubError.ReleaseAlreadyExists] = "release_already_exists",
         [GitHubError.ReleaseNotFound] = "release_not_found",

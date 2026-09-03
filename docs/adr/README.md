@@ -21,5 +21,6 @@
 | [0023](0023-retry-safe-release-and-tag-management.md) | Retry-safe Release asset management and policy-bound Tag deletion |
 | [0024](0024-bounded-pull-request-mergeability-polling.md) | Bounded retry-aware pull-request mergeability classification |
 | [0025](0025-sqlite-repository-configuration-store.md) | SQLite repository configuration with one-time import from legacy JSON |
+| [0026](0026-explicit-branch-source.md) | Required explicit branch creation source; no implicit default |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

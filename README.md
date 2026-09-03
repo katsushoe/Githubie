@@ -38,6 +38,8 @@ Use `githubie.exe` for configuration, credentials, diagnostics, and Windows Serv
 
 The `githubie_usage` MCP prompt gives agents a concise guide to Githubie's purpose, repository ID usage, the inspect-before-mutate workflow, protected branches, credentials, and history-rewrite safety. MCP clients that support prompts can select it at the start of repository work.
 
+Branch creation requires an explicit `source` (branch name or full 40-character commit SHA). Calls without a source no longer default to main; update callers, including Moyai, before using the new contract. See [ADR 0026](docs/adr/0026-explicit-branch-source.md) and [Commands](COMMANDS.md).
+
 `github_repository_register` derives the GitHub owner/repository from an existing local remote, requires desktop approval, persists the configuration, and updates the running allowlist without a service restart. After approval, a separate foreground dialog optionally stores the repository token; skipping or failing token storage does not roll back registration.
 
 Agents call `list_projects` to select a registered repository ID and repeat that check immediately before every `github_push`. A push attempted with an unregistered ID returns the registered IDs as candidates.

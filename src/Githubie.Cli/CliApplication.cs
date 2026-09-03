@@ -130,6 +130,8 @@ public static class CliApplication
               mcp call <tool> [<arguments-json>]
               mcp call <tool> --file <arguments-json-path>
 
+              github_branch_create arguments: repository, branch, source (required; no default)
+
               doctor
 
               start | stop | restart | status

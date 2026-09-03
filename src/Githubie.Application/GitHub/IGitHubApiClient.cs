@@ -25,6 +25,9 @@ public interface IGitHubApiClient
 
     Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repositoryId, string owner, string repo, string branch, CancellationToken cancellationToken);
 
+    /// <summary>明示された完全なコミットSHAの存在を確認します。</summary>
+    Task<GitHubResult<string>> GetCommitShaAsync(string repositoryId, string owner, string repo, string sha, CancellationToken cancellationToken);
+
     Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(
         string repositoryId, string owner, string repo, string branch, string sourceSha, CancellationToken cancellationToken);
 
