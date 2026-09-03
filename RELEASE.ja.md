@@ -19,9 +19,9 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.7.0`です（2026-09-04、Tag作成元の明示指定必須化を反映）。
+現在のDisplay Versionは`1.8.8.0`です（2026-09-04、Moyai互換GitHub Releaseライフサイクルを反映）。
 
-Version `1.8.7.0`では、Tag作成元にliteral branchまたは完全commit SHAの明示指定を必須とし、設定済み既定値へfallbackしません。自動テスト358件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのUpgrade、Install済みCLI／MCP Version、Windows Service自動起動、Service readiness、登録済み9 Projectの保持をWindows実機で検証しました。単体`doctor`のComposition確認はRepository Databaseを読み取れず非0終了しますが、稼働中MCP Serviceは同Databaseから9 Projectを正常に列挙します。
+Version `1.8.8.0`では、Moyai互換のGitHub Release作成・取得・公開・取下げライフサイクルを追加しました。Versionは`v{version}`へ写像し、取下げ時はReleaseのみ削除してTagを保持します。自動テスト361件が全件成功しました。
 
 ## Gitタグ
 

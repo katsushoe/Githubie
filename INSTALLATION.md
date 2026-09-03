@@ -32,7 +32,7 @@ Version `1.8.5.0` was upgrade-installed at `C:\Githubie`; the installed CLI and 
 
 Version `1.8.6.3` was upgrade-installed at `C:\Githubie`; the installed CLI and MCP versions, automatic running service, external `ready` state, read-only doctor composition, nine registered projects, and repository diff before the initial commit were verified. Missing repository tokens remain independent doctor failures.
 
-Version `1.8.7.0` was upgrade-installed at `C:\Githubie`; installed CLI and MCP version `1.8.7.0`, automatic running service, service readiness, and preservation of nine registered projects were verified. The standalone `doctor` composition check could not read the repository database, although the running MCP service listed all nine projects successfully.
+Version `1.8.8.0` was upgrade-installed at `C:\Githubie`; installed CLI and file versions `1.8.8.0`, automatic running service, configuration validation, and preservation of four registered projects were verified. The MSI SHA-256 is `A62C4D1305CFBE9F37E26257FFF219B924AFE4B6D4EDCC9A10E14539274085BC`.
 
 ## Portable ZIP
 

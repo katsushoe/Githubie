@@ -8,7 +8,7 @@ Version `1.8.5.0`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、
 
 Version `1.8.6.3`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、外部`ready`状態、読み取り専用doctor Composition、登録済み9 Projectの保持、初回Commit前のRepository差分取得を実機検証しました。RepositoryのToken未登録は独立したdoctor失敗として扱われます。
 
-Version `1.8.7.0`では`C:\Githubie`へのUpgrade Install、Install済みCLI／MCP Version `1.8.7.0`、Service自動起動、Service readiness、登録済み9 Projectの保持を実機検証しました。単体`doctor`のComposition確認はRepository Databaseを読み取れませんでしたが、稼働中MCP Serviceは9 Projectを正常に列挙しました。
+Version `1.8.8.0`では`C:\Githubie`へのUpgrade Install、Install済みCLI／File Version `1.8.8.0`、Service自動起動、設定検査、登録済み4 Projectの保持を実機検証しました。MSIのSHA-256は`A62C4D1305CFBE9F37E26257FFF219B924AFE4B6D4EDCC9A10E14539274085BC`です。
 
 ## 前提
 
