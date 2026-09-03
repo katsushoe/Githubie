@@ -41,6 +41,8 @@
 | `permission_denied` / `token_scope_missing` | Grant the fine-grained PAT the required repository permissions. |
 | `rate_limited` / `secondary_rate_limited` | Wait for reset or reduce request frequency. |
 | `branch_not_found` / `pull_request_not_found` / `tag_not_found` | Verify the requested identifier with the corresponding list tool. |
+| `branch_source_invalid` | Specify a nonblank source branch name or full 40-character commit SHA. Branch creation never selects a default. |
+| `branch_source_not_found` | The explicit source commit does not exist in the configured repository. Verify the full SHA and repository. No ref was created. |
 | `pull_request_not_open` / `pull_request_not_mergeable` | Verify state and resolve conflicts before merging. `pull_request_not_mergeable` is returned only for confirmed conflicts. |
 | `mergeability_calculating` | Status is `calculating_retryable`; wait `retry_after_seconds` and call `github_pr_get` or merge again. |
 | `mergeability_unknown` | Status is `unknown_retryable`; wait `retry_after_seconds` and recheck because GitHub could not yet classify the result. |

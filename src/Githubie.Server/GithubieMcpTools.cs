@@ -266,11 +266,13 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_branch_create", Destructive = true, UseStructuredContent = true)]
-    [Description("許可されたBranchをmain HEADから作成します。")]
+    [Description("許可されたBranchを明示した作成元から作成します。sourceは必須で、暗黙の補完は行いません。")]
     public async Task<GithubieToolResult<GitHubBranchInfo>> CreateBranchAsync(
-        string repository, string branch, CancellationToken cancellationToken)
+        string repository, string branch,
+        [Description("作成元のBranch名または完全な40桁コミットSHA。必須。省略・空白はエラー。")] string source,
+        CancellationToken cancellationToken)
     {
-        var result = await gitHubGateway.CreateBranchAsync(repository, branch, cancellationToken);
+        var result = await gitHubGateway.CreateBranchAsync(repository, branch, source, cancellationToken);
         return GithubieToolResultMapper.Map("branch_create", repository, result);
     }
 

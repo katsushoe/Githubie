@@ -35,6 +35,16 @@ Successful diagnostic commands print `[OK]`; failures print `[NG]` and return a 
 
 `mcp call` prints the JSON-RPC response as JSON and returns a nonzero exit code for transport, JSON-RPC, MCP, or structured tool failures. It deliberately delegates to the running MCP server so CLI calls use the same allowlist, approvals, audit log, and safety policy as other MCP clients. Do not place secrets in tool arguments.
 
+## Branch creation migration
+
+`github_branch_create` requires `source`: a literal remote branch name or a full 40-character hexadecimal commit SHA. Old two-argument calls fail instead of selecting main/develop/HEAD. Missing source is an MCP argument error; blank/null source is `branch_source_invalid`; missing branch is `branch_not_found`; missing commit is `branch_source_not_found`. Resolution failures never create refs. Destination policy and permissions are unchanged. No checkout is performed. See [ADR 0026](docs/adr/0026-explicit-branch-source.md).
+
+CLI: save the following object in `branch-create.json`, then run `githubie mcp call github_branch_create --file branch-create.json`. Replace `main` with a complete commit SHA when needed. Moyai callers must forward `source` without supplying defaults.
+
+```json
+{"repository":"example","branch":"develop","source":"main"}
+```
+
 ## MCP Result Envelope
 
 Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects the operation outcome. `data` is populated on success from local Git state, GitHub API state, configuration, or the server version as appropriate. `error` is populated on failure and includes a stable code documented in [Troubleshooting](TROUBLESHOOTING.md).
@@ -86,7 +96,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_fetch` | `repository` | Updates remote-tracking refs |
 | `github_pull` | `repository`, `branch` | Fast-forwards an allowed branch; rejects divergent history |
 | `github_push` | `repository` | Pushes the current allowed branch, creating it on the remote when absent and requiring fast-forward updates when present; rejects protected branches, dirty trees when configured, and no-op pushes |
-| `github_branch_create` | `repository`, `branch` | Creates an allowed branch from the configured main branch HEAD; conflicts when it already exists |
+| `github_branch_create` | `repository`, `branch`, `source` (required) | Creates an allowed branch from an explicit branch name or full 40-character commit SHA; no implicit source; conflicts when it already exists |
 | `github_branch_delete` | `repository`, `branch` | Deletes an allowed non-protected branch |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | Creates only the configured `develop` to `main` route |
 | `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | Polls mergeability at most 3 times at 2-second intervals, then merges an open, mergeable pull request on the allowed route |

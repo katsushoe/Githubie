@@ -161,6 +161,8 @@ public static class GithubieToolResultMapper
         GitHubError.WorkflowRunNotFound => new("workflow_run_not_found", "Workflow run was not found."),
         GitHubError.WorkflowRunCorrelationFailed => new("workflow_run_correlation_failed", "The dispatched workflow run could not be identified uniquely.", false, "List workflow runs and identify the run manually before dispatching again."),
         GitHubError.BranchNotFound => new("branch_not_found", "Branch was not found."),
+        GitHubError.BranchSourceInvalid => new("branch_source_invalid", "An explicit source branch or full commit SHA is required."),
+        GitHubError.BranchSourceNotFound => new("branch_source_not_found", "Source commit was not found."),
         GitHubError.BranchAlreadyExists => new("branch_already_exists", "Branch already exists."),
         GitHubError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed by repository policy."),
         GitHubError.ProtectedBranch => new("protected_branch", "Protected branch cannot be deleted."),

@@ -53,6 +53,8 @@ public sealed class GithubieToolResultMapperTests
     {
         [GitHubError.RepositoryNotFound] = "repository_not_found",
         [GitHubError.RepositoryDescriptionInvalid] = "repository_description_invalid",
+        [GitHubError.BranchSourceInvalid] = "branch_source_invalid",
+        [GitHubError.BranchSourceNotFound] = "branch_source_not_found",
         [GitHubError.WorkflowNotAllowed] = "workflow_not_allowed",
         [GitHubError.WorkflowRefNotAllowed] = "workflow_ref_not_allowed",
         [GitHubError.WorkflowInputInvalid] = "workflow_input_invalid",

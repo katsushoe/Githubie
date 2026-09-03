@@ -1,6 +1,10 @@
 using System.Reflection;
+using Githubie.Application.Git;
+using Githubie.Application.GitHub;
+using Githubie.Application.Repositories;
 using FluentAssertions;
 using ModelContextProtocol.Server;
+using NSubstitute;
 using Xunit;
 
 namespace Githubie.Server.Tests;
@@ -13,6 +17,45 @@ namespace Githubie.Server.Tests;
 /// </summary>
 public sealed class GithubieMcpToolsTests
 {
+    [Fact]
+    public void BranchCreate_SchemaRequiresSource()
+    {
+        var gateway = Substitute.For<IGitHubRepositoryGateway>();
+        var instance = CreateTools(gateway);
+        var tool = McpServerTool.Create(typeof(GithubieMcpTools).GetMethod(nameof(GithubieMcpTools.CreateBranchAsync))!, instance);
+
+        tool.ProtocolTool.InputSchema.GetProperty("required").EnumerateArray()
+            .Select(item => item.GetString()).Should().Contain("source");
+    }
+
+    [Theory]
+    [InlineData("release/base")]
+    [InlineData("1111111111111111111111111111111111111111")]
+    public async Task BranchCreate_ForwardsSourceThroughAudit(string source)
+    {
+        var gateway = Substitute.For<IGitHubRepositoryGateway>();
+        var audit = Substitute.For<IGithubieAuditLogger>();
+        gateway.CreateBranchAsync("sample", "develop", source, Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubBranchInfo>.Success(new("develop", "sha", false)));
+        var tools = CreateTools(new AuditedGitHubRepositoryGateway(gateway, audit));
+
+        var result = await tools.CreateBranchAsync("sample", "develop", source, TestContext.Current.CancellationToken);
+
+        result.Ok.Should().BeTrue();
+        await gateway.Received(1).CreateBranchAsync("sample", "develop", source, Arg.Any<CancellationToken>());
+        audit.Received(1).Write(Arg.Is<GithubieAuditEvent>(e => e.Tool == "github_branch_create" && e.Result == "success" && e.Source == source));
+    }
+
+    [Theory]
+    [InlineData(GitHubError.BranchSourceInvalid, "branch_source_invalid")]
+    [InlineData(GitHubError.BranchSourceNotFound, "branch_source_not_found")]
+    public void BranchCreate_MapsSourceErrors(GitHubError error, string code) =>
+        GithubieToolResultMapper.MapError(error).Code.Should().Be(code);
+
+    private static GithubieMcpTools CreateTools(IGitHubRepositoryGateway gateway) => new(
+        Substitute.For<IGitGateway>(), gateway, Substitute.For<IRepositoryRegistrationService>(),
+        Substitute.For<IRepositoryManagementService>(), new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+
     private static readonly string[] ExpectedToolNames =
     [
         "list_projects",

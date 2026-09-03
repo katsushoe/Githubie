@@ -65,4 +65,6 @@ public enum GitHubError
 
     NetworkError,
     Timeout,
+    BranchSourceInvalid,
+    BranchSourceNotFound,
 }

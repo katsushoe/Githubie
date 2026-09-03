@@ -22,7 +22,8 @@ public sealed record GithubieAuditEvent(
     string? NewRepository = null,
     string? CorrelationId = null,
     string? Diagnostic = null,
-    int? ExitCode = null);
+    int? ExitCode = null,
+    string? Source = null);
 
 public interface IGithubieAuditLogger
 {
@@ -34,8 +35,8 @@ public sealed class GithubieAuditLogger(ILogger<GithubieAuditLogger> logger) : I
     private readonly ILogger<GithubieAuditLogger> _logger = logger;
 
     public void Write(GithubieAuditEvent auditEvent) => _logger.LogInformation(
-        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId} git_exit_code={GitExitCode} diagnostic={Diagnostic}",
-        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId, auditEvent.ExitCode, auditEvent.Diagnostic);
+        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId} git_exit_code={GitExitCode} diagnostic={Diagnostic} source={Source}",
+        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId, auditEvent.ExitCode, auditEvent.Diagnostic, auditEvent.Source);
 }
 
 /// <summary>
@@ -183,8 +184,8 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
     public Task<GitHubResult<GitHubBranchInfo>> GetBranchAsync(string repository, string branch, CancellationToken cancellationToken) =>
         RunAsync("github_branch_get", repository, branch, null, () => inner.GetBranchAsync(repository, branch, cancellationToken));
 
-    public Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(string repository, string branch, CancellationToken cancellationToken) =>
-        RunAsync("github_branch_create", repository, branch, null, () => inner.CreateBranchAsync(repository, branch, cancellationToken));
+    public Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(string repository, string branch, string source, CancellationToken cancellationToken) =>
+        RunAsync("github_branch_create", repository, branch, null, () => inner.CreateBranchAsync(repository, branch, source, cancellationToken), source: source);
 
     public Task<GitHubResult<bool>> DeleteBranchAsync(string repository, string branch, CancellationToken cancellationToken) =>
         RunAsync("github_branch_delete", repository, branch, null, () => inner.DeleteBranchAsync(repository, branch, cancellationToken));
@@ -265,7 +266,7 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
         RunAsync("github_release_create", repository, null, null, () => inner.CreateReleaseAsync(repository, request, cancellationToken), request.Tag);
 
     private async Task<GitHubResult<T>> RunAsync<T>(
-        string tool, string repository, string? branch, int? pullRequestNumber, Func<Task<GitHubResult<T>>> action, string? tag = null)
+        string tool, string repository, string? branch, int? pullRequestNumber, Func<Task<GitHubResult<T>>> action, string? tag = null, string? source = null)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = await action();
@@ -274,7 +275,7 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
         audit.Write(new GithubieAuditEvent(
             Client: "mcp", Tool: tool, Repository: repository, Branch: branch, PullRequestNumber: pullRequestNumber, Tag: tag,
             Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
-            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString()));
+            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(), Source: source));
 
         return result;
     }

@@ -60,6 +60,66 @@ public sealed class GitHubApiClientTests
     }
 
     [Fact]
+    public async Task GetCommitShaAsync_ResolvesExplicitCommit()
+    {
+        const string sha = "1111111111111111111111111111111111111111";
+        var client = CreateClient(request =>
+        {
+            request.Method.Should().Be(HttpMethod.Get);
+            request.RequestUri!.AbsolutePath.Should().Be($"/repos/owner/repo/git/commits/{sha}");
+            return Json(HttpStatusCode.OK, $$"""{"sha":"{{sha}}"}""");
+        });
+
+        var result = await client.GetCommitShaAsync("repo-id", "owner", "repo", sha, TestContext.Current.CancellationToken);
+
+        result.Value.Should().Be(sha);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, GitHubError.BranchSourceNotFound)]
+    [InlineData(HttpStatusCode.Unauthorized, GitHubError.AuthenticationFailed)]
+    public async Task GetCommitShaAsync_PropagatesErrors(HttpStatusCode status, GitHubError error)
+    {
+        var client = CreateClient(_ => Json(status, "{}"));
+
+        var result = await client.GetCommitShaAsync("repo-id", "owner", "repo", new string('1', 40), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(error);
+    }
+
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"sha\":\"bad\"}")]
+    [InlineData("{\"sha\":\"2222222222222222222222222222222222222222\"}")]
+    public async Task GetCommitShaAsync_InvalidResponse_Fails(string body)
+    {
+        var client = CreateClient(_ => Json(HttpStatusCode.OK, body));
+
+        var result = await client.GetCommitShaAsync("repo-id", "owner", "repo", new string('1', 40), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.InvalidResponse);
+    }
+
+    [Fact]
+    public async Task CreateBranchAsync_PostsExplicitSha()
+    {
+        const string sha = "2222222222222222222222222222222222222222";
+        var client = CreateCapturingClient((request, body) =>
+        {
+            request.Method.Should().Be(HttpMethod.Post);
+            request.RequestUri!.AbsolutePath.Should().Be("/repos/owner/repo/git/refs");
+            using var json = System.Text.Json.JsonDocument.Parse(body!);
+            json.RootElement.GetProperty("ref").GetString().Should().Be("refs/heads/develop");
+            json.RootElement.GetProperty("sha").GetString().Should().Be(sha);
+            return Json(HttpStatusCode.Created, $$$"""{"object":{"sha":"{{{sha}}}"}}""");
+        });
+
+        var result = await client.CreateBranchAsync("repo-id", "owner", "repo", "develop", sha, TestContext.Current.CancellationToken);
+
+        result.Value!.HeadSha.Should().Be(sha);
+    }
+
+    [Fact]
     public async Task UpdateRepositoryDescriptionAsync_PatchesOnlyDescription()
     {
         HttpMethod? method = null;

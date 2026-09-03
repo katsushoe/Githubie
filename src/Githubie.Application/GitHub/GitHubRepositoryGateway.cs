@@ -155,17 +155,28 @@ public sealed class GitHubRepositoryGateway(
     }
 
     public async Task<GitHubResult<GitHubBranchInfo>> CreateBranchAsync(
-        string repository, string branch, CancellationToken cancellationToken)
+        string repository, string branch, string source, CancellationToken cancellationToken)
     {
         var resolved = Resolve(repository);
         if (resolved.Error is not null) return GitHubResult<GitHubBranchInfo>.Failure(resolved.Error.Value);
         var options = resolved.Options!;
         if (!IsAllowedBranch(options, branch)) return GitHubResult<GitHubBranchInfo>.Failure(GitHubError.BranchNotAllowed);
-        var source = await _apiClient.GetBranchAsync(
-            repository, options.GitHubOwner, options.GitHubRepo, options.MainBranch, cancellationToken);
-        if (!source.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(source.Error!.Value);
+        if (string.IsNullOrWhiteSpace(source)) return GitHubResult<GitHubBranchInfo>.Failure(GitHubError.BranchSourceInvalid);
+        string sourceSha;
+        if (source.Length == 40 && source.All(Uri.IsHexDigit))
+        {
+            var commit = await _apiClient.GetCommitShaAsync(repository, options.GitHubOwner, options.GitHubRepo, source, cancellationToken);
+            if (!commit.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(commit.Error!.Value);
+            sourceSha = commit.Value!;
+        }
+        else
+        {
+            var sourceBranch = await _apiClient.GetBranchAsync(repository, options.GitHubOwner, options.GitHubRepo, source, cancellationToken);
+            if (!sourceBranch.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(sourceBranch.Error!.Value);
+            sourceSha = sourceBranch.Value!.HeadSha;
+        }
         return await _apiClient.CreateBranchAsync(
-            repository, options.GitHubOwner, options.GitHubRepo, branch, source.Value!.HeadSha, cancellationToken);
+            repository, options.GitHubOwner, options.GitHubRepo, branch, sourceSha, cancellationToken);
     }
 
     public async Task<GitHubResult<bool>> DeleteBranchAsync(
