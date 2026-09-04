@@ -204,6 +204,7 @@ public static class GithubieToolResultMapper
         GitHubError.TagDeleteFailed => new("tag_delete_failed", "Tag could not be deleted."),
         GitHubError.ReleaseAlreadyExists => new("release_already_exists", "A release already exists for the tag."),
         GitHubError.ReleaseNotFound => new("release_not_found", "Release was not found."),
+        GitHubError.ReleaseNotDraft => new("release_not_draft", "Only draft releases can be deleted by this operation."),
         GitHubError.ReleaseAssetInvalid => new("release_asset_invalid", "Release assets must be unique MSI, ZIP, SHA-256, SHA256SUMS.txt, or PowerShell files under the repository root."),
         GitHubError.ReleaseAssetNotFound => new("release_asset_not_found", "A release asset file was not found."),
         GitHubError.ReleaseAssetAlreadyExists => new("release_asset_already_exists", "A release asset with the same name already exists."),

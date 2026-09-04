@@ -553,6 +553,22 @@ public sealed class GitHubRepositoryGateway(
         return await _apiClient.DeleteReleaseAsync(repository, options.GitHubOwner, options.GitHubRepo, releaseId, cancellationToken);
     }
 
+    public async Task<GitHubResult<bool>> DeleteDraftReleaseAsync(
+        string repository, long releaseId, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitHubResult<bool>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var releases = await _apiClient.ListReleasesAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, cancellationToken);
+        if (!releases.IsSuccess) return GitHubResult<bool>.Failure(releases.Error!.Value);
+        var release = releases.Value!.FirstOrDefault(candidate => candidate.Id == releaseId);
+        if (release is null) return GitHubResult<bool>.Failure(GitHubError.ReleaseNotFound);
+        if (!release.Draft) return GitHubResult<bool>.Failure(GitHubError.ReleaseNotDraft);
+        return await _apiClient.DeleteReleaseAsync(
+            repository, options.GitHubOwner, options.GitHubRepo, releaseId, cancellationToken);
+    }
+
     public async Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
         string repository, GitHubReleaseAssetUpload request, CancellationToken cancellationToken)
     {

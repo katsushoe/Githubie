@@ -60,6 +60,7 @@ public enum GitHubError
 
     ReleaseAlreadyExists,
     ReleaseNotFound,
+    ReleaseNotDraft,
     ReleaseAssetInvalid,
     ReleaseAssetNotFound,
     ReleaseAssetAlreadyExists,

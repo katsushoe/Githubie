@@ -109,6 +109,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_tag_delete` | `repository`, `tag` | Deletes a policy-compliant tag; returns `tag_not_found` when absent |
 | `github_tag_push` | `repository`, `tag` | Pushes one existing local policy-compliant lightweight or annotated tag explicitly; never pushes all tags or overwrites a conflicting remote tag |
 | `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | Creates or resumes a matching draft, uploads all missing assets, then publishes only after success |
+| `github_release_draft_delete` | `repository`, `release_id` | Deletes only the draft Release with the exact ID; published Releases and tags are preserved |
 | `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | Updates explicitly supplied release fields |
 | `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | Adds up to ten approved assets; same-name replacement requires `replace_existing=true` |
 

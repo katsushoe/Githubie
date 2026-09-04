@@ -99,6 +99,47 @@ public sealed class GithubieMcpToolsTests
     }
 
     [Fact]
+    public async Task ReleasePublish_AfterDraftCreateWithArtifact_FindsDraftAndIsIdempotent()
+    {
+        var gateway = Substitute.For<IGitHubRepositoryGateway>();
+        var asset = new GitHubReleaseAssetInfo("artifact.zip", 231, "https://example.com/artifact.zip", 20);
+        var release = new GitHubReleaseInfo(10, "v1.2.3", "1.2.3", true, false, "https://example.com", [asset]);
+        gateway.CreateReleaseAsync("sample", Arg.Any<GitHubReleaseCreate>(), Arg.Any<CancellationToken>())
+            .Returns(_ => GitHubResult<GitHubReleaseInfo>.Success(release));
+        gateway.GetReleaseAsync("sample", "v1.2.3", Arg.Any<CancellationToken>())
+            .Returns(_ => release.Draft
+                ? GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.ReleaseNotFound)
+                : GitHubResult<GitHubReleaseInfo>.Success(release));
+        gateway.ListReleasesAsync("sample", Arg.Any<CancellationToken>())
+            .Returns(_ => GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.Success([release]));
+        gateway.UpdateReleaseAsync("sample", 10, Arg.Any<GitHubReleaseUpdate>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                release = release with { Draft = call.ArgAt<GitHubReleaseUpdate>(2).Draft ?? release.Draft };
+                return GitHubResult<GitHubReleaseInfo>.Success(release);
+            });
+        var tools = CreateTools(gateway);
+
+        var created = await tools.CreateReleaseAsync(
+            "sample", version: "1.2.3", artifact_path: "artifact.zip", project: "sample",
+            cancellationToken: TestContext.Current.CancellationToken);
+        var published = await tools.PublishReleaseAsync(
+            "sample", "1.2.3", project: "sample", cancellationToken: TestContext.Current.CancellationToken);
+        var repeated = await tools.PublishReleaseAsync(
+            "sample", "1.2.3", project: "sample", cancellationToken: TestContext.Current.CancellationToken);
+
+        created.Ok.Should().BeTrue();
+        published.Ok.Should().BeTrue();
+        repeated.Ok.Should().BeTrue();
+        release.Draft.Should().BeFalse();
+        release.Assets.Should().ContainSingle().Which.Should().Be(asset);
+        await gateway.Received(2).UpdateReleaseAsync("sample", 10,
+            Arg.Is<GitHubReleaseUpdate>(request => request.Draft == false), Arg.Any<CancellationToken>());
+        await gateway.DidNotReceive().UploadReleaseAssetsAsync(
+            Arg.Any<string>(), Arg.Any<GitHubReleaseAssetUpload>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task ReleaseWithdraw_DeletesReleaseButNotTag()
     {
         var gateway = Substitute.For<IGitHubRepositoryGateway>();
@@ -113,6 +154,21 @@ public sealed class GithubieMcpToolsTests
         result.Ok.Should().BeTrue();
         await gateway.Received(1).DeleteReleaseAsync("sample", 7, Arg.Any<CancellationToken>());
         await gateway.DidNotReceive().DeleteTagAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ReleaseDraftDelete_DeletesDraftById()
+    {
+        var gateway = Substitute.For<IGitHubRepositoryGateway>();
+        gateway.DeleteDraftReleaseAsync("sample", 42, Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<bool>.Success(true));
+        var tools = CreateTools(gateway);
+
+        var result = await tools.DeleteDraftReleaseAsync(
+            "sample", 42, TestContext.Current.CancellationToken);
+
+        result.Ok.Should().BeTrue();
+        await gateway.Received(1).DeleteDraftReleaseAsync("sample", 42, Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -175,6 +231,7 @@ public sealed class GithubieMcpToolsTests
         "github_release_asset_upload",
         "github_release_create",
         "github_release_publish",
+        "github_release_draft_delete",
         "github_release_withdraw",
         "get_version",
     ];

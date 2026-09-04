@@ -54,4 +54,36 @@ public sealed class GitHubReleaseGatewayTests
         await _api.DidNotReceive().CreateReleaseAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<GitHubReleaseCreate>(), Arg.Any<CancellationToken>());
     }
+
+    [Fact]
+    public async Task DeleteDraftReleaseAsync_DraftWithMatchingId_DeletesRelease()
+    {
+        _api.ListReleasesAsync(Repository, "owner", "repo", Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.Success(
+                [new(42, "v1.2.0.0", "Release", true, false, "https://example.com", [])]));
+        _api.DeleteReleaseAsync(Repository, "owner", "repo", 42, Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<bool>.Success(true));
+
+        var result = await _gateway.DeleteDraftReleaseAsync(
+            Repository, 42, TestContext.Current.CancellationToken);
+
+        result.Value.Should().BeTrue();
+        await _api.Received(1).DeleteReleaseAsync(
+            Repository, "owner", "repo", 42, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteDraftReleaseAsync_PublishedRelease_RejectsBeforeDelete()
+    {
+        _api.ListReleasesAsync(Repository, "owner", "repo", Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.Success(
+                [new(42, "v1.2.0.0", "Release", false, false, "https://example.com", [])]));
+
+        var result = await _gateway.DeleteDraftReleaseAsync(
+            Repository, 42, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.ReleaseNotDraft);
+        await _api.DidNotReceive().DeleteReleaseAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<long>(), Arg.Any<CancellationToken>());
+    }
 }

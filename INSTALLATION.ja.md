@@ -12,6 +12,8 @@ Version `1.8.8.0`では`C:\Githubie`へのUpgrade Install、Install済みCLI／F
 
 Version `1.8.8.1`では`C:\Githubie`へのUpgrade Install、Install済みCLI／File Version `1.8.8.1`、Service自動起動、設定検査、登録済み9 Projectの保持を実機検証しました。MSIのSHA-256は`A3F4B6E12CB93D4346CDE2662C9E928E0846AB12B881E0237FE5B977D99142B6`です。
 
+Version `1.8.8.2`では`C:\Githubie`へのUpgrade Install、Install済みCLI／MCP Version `1.8.8.2`、Service自動起動、設定検査、登録済み9 Projectの保持を実機検証しました。MSIのSHA-256は`6C9FB9D4BC5AB3E44DF1EAC203D3D78E9365B22D64FE2900C0E296824172E8F3`です。
+
 ## 前提
 
 - Windows 10/11 または Windows Server（DPAPI / Windows Service / `sc.exe`を使用するためWindows専用）

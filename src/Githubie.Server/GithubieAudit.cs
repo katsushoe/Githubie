@@ -265,6 +265,10 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
     public Task<GitHubResult<bool>> DeleteReleaseAsync(string repository, long releaseId, CancellationToken cancellationToken) =>
         RunAsync("github_release_withdraw", repository, null, null, () => inner.DeleteReleaseAsync(repository, releaseId, cancellationToken));
 
+    public Task<GitHubResult<bool>> DeleteDraftReleaseAsync(string repository, long releaseId, CancellationToken cancellationToken) =>
+        RunAsync("github_release_draft_delete", repository, null, null,
+            () => inner.DeleteDraftReleaseAsync(repository, releaseId, cancellationToken));
+
     public Task<GitHubResult<GitHubReleaseInfo>> UploadReleaseAssetsAsync(
         string repository, GitHubReleaseAssetUpload request, CancellationToken cancellationToken) =>
         RunAsync("github_release_asset_upload", repository, null, null, () => inner.UploadReleaseAssetsAsync(repository, request, cancellationToken));
