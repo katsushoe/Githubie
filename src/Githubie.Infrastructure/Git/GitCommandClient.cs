@@ -72,6 +72,9 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> PushTagAsync(string repositoryRoot, string repositoryId, string remote, string tag, CancellationToken cancellationToken) =>
         ExecuteNetworkAsync(repositoryRoot, repositoryId, ["push", "--", remote, $"refs/tags/{tag}:refs/tags/{tag}"], cancellationToken);
 
+    public Task<GitCommandResult> FetchTagAsync(string repositoryRoot, string repositoryId, string remote, string tag, CancellationToken cancellationToken) =>
+        ExecuteNetworkAsync(repositoryRoot, repositoryId, ["fetch", "--no-tags", "--", remote, $"refs/tags/{tag}:refs/tags/{tag}"], cancellationToken);
+
     public Task<GitCommandResult> GetLocalRefAsync(string repositoryRoot, string reference, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--verify", reference], cancellationToken);
 

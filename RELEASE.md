@@ -4,7 +4,11 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.8.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.8.1`.
+
+Version `1.8.8.1` makes `github_tag_create` persist the same tag object as the remote annotated tag in the local tag ref of the same registered repository. Persistence failures no longer return success, and `github_tag_push` succeeds idempotently when the remote tag already matches.
+
+Version `1.8.8.1` was verified on Windows with all 366 automated tests passing, MSI build and SHA-256 generation, upgrade installation to `C:\Githubie`, installed version, automatic Windows Service startup, configuration validation, and preservation of nine registered projects.
 
 Version `1.8.8.0` adds the Moyai-compatible GitHub Release create, get, publish, and withdraw lifecycle. A version maps to `v{version}`; withdrawal deletes the Release while retaining its tag. All 361 automated tests passed.
 

@@ -105,7 +105,7 @@ Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects t
 | `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | Adds a non-empty conversation comment to an existing pull request |
 | `github_pr_review_approve` | `repository`, `pull_request_number`, `body?` | Approves an open pull request with an optional review body |
 | `github_pr_review_request_changes` | `repository`, `pull_request_number`, `body` | Requests changes on an open pull request with a required review body |
-| `github_tag_create` | `repository`, `tag`, `source`, `message?` | Creates an annotated tag from an explicit branch name or full 40-character commit SHA; omission and invalid sources fail without a default fallback |
+| `github_tag_create` | `repository`, `tag`, `source`, `message?` | Creates an annotated tag from an explicit branch name or full 40-character commit SHA and persists the resulting remote tag object as the local tag ref; omission and invalid sources fail without a default fallback |
 | `github_tag_delete` | `repository`, `tag` | Deletes a policy-compliant tag; returns `tag_not_found` when absent |
 | `github_tag_push` | `repository`, `tag` | Pushes one existing local policy-compliant lightweight or annotated tag explicitly; never pushes all tags or overwrites a conflicting remote tag |
 | `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | Creates or resumes a matching draft, uploads all missing assets, then publishes only after success |

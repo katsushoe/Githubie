@@ -19,7 +19,11 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.8.0`です（2026-09-04、Moyai互換GitHub Releaseライフサイクルを反映）。
+現在のDisplay Versionは`1.8.8.1`です（2026-09-04、Tag作成後のLocal ref永続化を修正）。
+
+Version `1.8.8.1`では、`github_tag_create`がRemote Annotated Tagと同一のTag objectを同じ登録RepositoryのLocal Tag refへ永続化します。永続化失敗時は成功を返さず、同一Remote Tagへの`github_tag_push`は冪等に成功します。
+
+Version `1.8.8.1`では、自動テスト366件の全件成功、MSI BuildとSHA-256、`C:\Githubie`へのUpgrade Install、Install済みVersion、Windows Service自動起動、設定検査、登録済み9 Projectの保持をWindows実機で検証しました。
 
 Version `1.8.8.0`では、Moyai互換のGitHub Release作成・取得・公開・取下げライフサイクルを追加しました。Versionは`v{version}`へ写像し、取下げ時はReleaseのみ削除してTagを保持します。自動テスト361件が全件成功しました。
 
