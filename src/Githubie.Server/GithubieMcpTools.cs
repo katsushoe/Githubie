@@ -592,6 +592,19 @@ public sealed class GithubieMcpTools(
         var tag = ResolveLifecycleInput(repository, project, null, version);
         if (tag is null) return InvalidRelease(repository, "release_publish");
         var current = await gitHubGateway.GetReleaseAsync(repository, tag, cancellationToken);
+        if (!current.IsSuccess && current.Error == GitHubError.ReleaseNotFound)
+        {
+            var releases = await gitHubGateway.ListReleasesAsync(repository, cancellationToken);
+            if (!releases.IsSuccess)
+                return GithubieToolResultMapper.Map<GitHubReleaseInfo>("release_publish", repository,
+                    GitHubResult<GitHubReleaseInfo>.Failure(releases.Error!.Value));
+            var matchingReleases = releases.Value!.Where(release =>
+                string.Equals(release.Tag, tag, StringComparison.Ordinal)).Take(2).ToArray();
+            if (matchingReleases.Length > 1)
+                current = GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.ReleaseAlreadyExists);
+            else if (matchingReleases.Length == 1)
+                current = GitHubResult<GitHubReleaseInfo>.Success(matchingReleases[0]);
+        }
         if (!current.IsSuccess) return GithubieToolResultMapper.Map("release_publish", repository, current);
         var release = current;
         if (!string.IsNullOrWhiteSpace(artifact_path))
@@ -601,6 +614,17 @@ public sealed class GithubieMcpTools(
         var result = await gitHubGateway.UpdateReleaseAsync(repository, current.Value!.Id,
             new GitHubReleaseUpdate(null, notes, false, null), cancellationToken);
         return GithubieToolResultMapper.Map("release_publish", repository, result);
+    }
+
+    [McpServerTool(Name = "github_release_draft_delete", Destructive = true, Idempotent = false, UseStructuredContent = true)]
+    [Description("Release IDで指定したdraft Releaseだけを削除します。公開済みReleaseとTagは削除しません。")]
+    public async Task<GithubieToolResult<bool>> DeleteDraftReleaseAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("削除するdraft Release ID")] long release_id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await gitHubGateway.DeleteDraftReleaseAsync(repository, release_id, cancellationToken);
+        return GithubieToolResultMapper.Map("release_draft_delete", repository, result);
     }
 
     [McpServerTool(Name = "github_release_withdraw", Destructive = true, Idempotent = false, UseStructuredContent = true)]

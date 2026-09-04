@@ -140,6 +140,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_tag_delete` | `repository`, `tag` | Policyに適合するTagを削除。存在しない場合は`tag_not_found` |
 | `github_tag_push` | `repository`, `tag` | 既存のPolicy適合Lightweight／Annotated Local Tagを1件だけ明示的にpush。全Tagのpushや競合Remote Tagの上書きはしない |
 | `github_release_create` | `repository`, `tag`, `name`, `body?`, `draft`, `prerelease`, `assets` | 一致するdraftを再利用し、未登録成果物を追加後、全件成功時だけ公開 |
+| `github_release_draft_delete` | `repository`, `release_id` | IDが一致するdraft Releaseだけを削除し、公開済みReleaseとTagは保持 |
 | `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | 明示指定したRelease項目だけを更新 |
 | `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | 許可成果物を最大10件追加。同名置換は`replace_existing=true`の場合のみ |
 

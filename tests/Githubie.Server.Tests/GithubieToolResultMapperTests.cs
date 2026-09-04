@@ -92,6 +92,7 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.TagDeleteFailed] = "tag_delete_failed",
         [GitHubError.ReleaseAlreadyExists] = "release_already_exists",
         [GitHubError.ReleaseNotFound] = "release_not_found",
+        [GitHubError.ReleaseNotDraft] = "release_not_draft",
         [GitHubError.ReleaseAssetInvalid] = "release_asset_invalid",
         [GitHubError.ReleaseAssetNotFound] = "release_asset_not_found",
         [GitHubError.ReleaseAssetAlreadyExists] = "release_asset_already_exists",
