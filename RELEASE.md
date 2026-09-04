@@ -4,9 +4,9 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.8.2`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.8.3`.
 
-Version `1.8.8.2` resolves draft Releases by exact tag during publication and adds `github_release_draft_delete` for deleting only the draft Release with an exact ID. Published Releases are rejected with `release_not_draft`. All 371 automated tests passed, and the MSI upgrade was verified at `C:\Githubie`.
+Version `1.8.8.3` force-syncs the exact local tag ref after a remote tag is replaced, preventing a stale local tag from producing a false non-fast-forward failure. All 371 automated tests passed, and the MSI upgrade was verified at `C:\Githubie`.
 
 Version `1.8.8.1` makes `github_tag_create` persist the same tag object as the remote annotated tag in the local tag ref of the same registered repository. Persistence failures no longer return success, and `github_tag_push` succeeds idempotently when the remote tag already matches.
 
