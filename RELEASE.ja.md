@@ -19,9 +19,9 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.8.2`です。
+現在のDisplay Versionは`1.8.8.3`です。
 
-Version `1.8.8.2`では、Release公開時に同一Tagのdraft Releaseを解決し、指定IDと一致するdraft Releaseだけを削除する`github_release_draft_delete`を追加しました。公開済みReleaseは`release_not_draft`で拒否します。自動テスト371件が全件成功し、`C:\Githubie`へのMSI Upgradeを実機検証しました。
+Version `1.8.8.3`では、remote Tag置換後に対象のlocal Tag refを強制同期し、古いlocal Tagによるnon-fast-forward誤判定を防止します。自動テスト371件が全件成功し、`C:\Githubie`へのMSI Upgradeを実機検証しました。
 
 Version `1.8.8.1`では、`github_tag_create`がRemote Annotated Tagと同一のTag objectを同じ登録RepositoryのLocal Tag refへ永続化します。永続化失敗時は成功を返さず、同一Remote Tagへの`github_tag_push`は冪等に成功します。
 
