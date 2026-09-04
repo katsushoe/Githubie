@@ -285,9 +285,7 @@ public sealed class GitGateway(
                 return GitGatewayResult<Unit>.Failure(
                     GitGatewayError.NonFastForward,
                     "The remote tag points to a different object; overwrite is not allowed.");
-            return GitGatewayResult<Unit>.Failure(
-                GitGatewayError.NothingToPush,
-                "The remote tag already points to the same object.");
+            return GitGatewayResult<Unit>.Success(Unit.Value);
         }
 
         var push = await _commandClient.PushTagAsync(
@@ -295,6 +293,26 @@ public sealed class GitGateway(
         return push.IsSuccess
             ? GitGatewayResult<Unit>.Success(Unit.Value)
             : CreateCommandFailure<Unit>(push);
+    }
+
+    public async Task<GitGatewayResult<Unit>> PersistTagAsync(
+        string repository, string tag, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<Unit>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var policy = options.ToPolicy(repository).ValidateTag(tag, options.TagTargetBranch);
+        if (!policy.IsAllowed)
+            return GitGatewayResult<Unit>.Failure(GitGatewayError.InvalidRef, "The tag name does not match the configured tag policy.");
+
+        var remoteUrl = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, options.Remote, cancellationToken);
+        if (!remoteUrl.IsSuccess) return CreateCommandFailure<Unit>(remoteUrl);
+        if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
+            return GitGatewayResult<Unit>.Failure(GitHubRemoteUrlValidator.IsSshRemote(remoteUrl.StandardOutput)
+                ? GitGatewayError.RemoteHttpsRequired : GitGatewayError.RemoteMismatch);
+
+        var fetch = await _commandClient.FetchTagAsync(options.LocalRoot, repository, options.Remote, tag, cancellationToken);
+        return fetch.IsSuccess ? GitGatewayResult<Unit>.Success(Unit.Value) : CreateCommandFailure<Unit>(fetch);
     }
 
     public async Task<GitGatewayResult<GitHistoryRewriteResult>> RewriteHistoryAsync(

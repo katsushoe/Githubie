@@ -17,7 +17,9 @@ Bitbucket Cloud's REST API creates an annotated tag with a single POST call. Git
 
 ## Impact
 
-`github_tag_create` performs three sequential HTTP calls (branch lookup, tag object, ref) instead of Bitbucket's one, increasing latency and the number of distinct failure points.
+After GitHub creates the remote annotated tag, `github_tag_create` fetches that exact tag object into the configured local repository with an explicit tag refspec. The operation returns success only after the local ref is persisted. This preserves object identity between local and remote refs and ensures `github_tag_push` resolves the same registered repository and Git namespace. A local persistence failure is returned as a typed Git operation error.
+
+`github_tag_create` performs three sequential HTTP calls (branch lookup, tag object, ref) and one explicit Git fetch instead of Bitbucket's one operation, increasing latency and the number of distinct failure points.
 
 ## Security conditions
 

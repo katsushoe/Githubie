@@ -131,7 +131,7 @@ public sealed class GitGatewayTests
     }
 
     [Fact]
-    public async Task PushTagAsync_WhenLightweightRemoteTagMatches_ReturnsNothingToPush()
+    public async Task PushTagAsync_WhenLightweightRemoteTagMatches_SucceedsAsIdempotentNoOp()
     {
         const string tag = "v1.2.3";
         _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
@@ -143,14 +143,13 @@ public sealed class GitGatewayTests
 
         var result = await _gateway.PushTagAsync(RepositoryId, tag, TestContext.Current.CancellationToken);
 
-        result.Error.Should().Be(GitGatewayError.NothingToPush);
-        result.Diagnostic.Should().Be("The remote tag already points to the same object.");
+        result.IsSuccess.Should().BeTrue();
         await _commandClient.DidNotReceive().PushTagAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task PushTagAsync_WhenAnnotatedRemoteTagMatches_ReturnsNothingToPush()
+    public async Task PushTagAsync_WhenAnnotatedRemoteTagMatches_SucceedsAsIdempotentNoOp()
     {
         const string tag = "v1.2.3";
         _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
@@ -162,8 +161,27 @@ public sealed class GitGatewayTests
 
         var result = await _gateway.PushTagAsync(RepositoryId, tag, TestContext.Current.CancellationToken);
 
-        result.Error.Should().Be(GitGatewayError.NothingToPush);
-        result.Diagnostic.Should().Be("The remote tag already points to the same object.");
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task PersistTagAsync_FetchesIntoTheResolvedRepositoryRoot()
+    {
+        const string tag = "v1.2.3";
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.FetchTagAsync(LocalRoot, RepositoryId, "origin", tag, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        var result = await _gateway.PersistTagAsync(RepositoryId, tag, TestContext.Current.CancellationToken);
+        result.IsSuccess.Should().BeTrue();
+        await _commandClient.Received(1).FetchTagAsync(LocalRoot, RepositoryId, "origin", tag, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PersistTagAsync_WhenFetchFails_ReturnsTypedGitError()
+    {
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.FetchTagAsync(LocalRoot, RepositoryId, "origin", "v1.2.3", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "tag collision"));
+        var result = await _gateway.PersistTagAsync(RepositoryId, "v1.2.3", TestContext.Current.CancellationToken);
+        result.Error.Should().Be(GitGatewayError.GitFailed);
     }
 
     [Fact]

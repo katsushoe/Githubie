@@ -66,6 +66,9 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
     public async Task<GitGatewayResult<Unit>> PushTagAsync(string repository, string tag, CancellationToken cancellationToken) =>
         await RunAsync("github_tag_push", repository, null, () => inner.PushTagAsync(repository, tag, cancellationToken), tag);
 
+    public async Task<GitGatewayResult<Unit>> PersistTagAsync(string repository, string tag, CancellationToken cancellationToken) =>
+        await RunAsync("github_tag_create_local_ref", repository, null, () => inner.PersistTagAsync(repository, tag, cancellationToken), tag);
+
     public async Task<GitGatewayResult<GitHistoryRewriteResult>> RewriteHistoryAsync(
         string repository, IReadOnlyList<GitHistoryRewriteRef> refs, bool dryRun, CancellationToken cancellationToken) =>
         await RunAsync("github_history_rewrite", repository, null, () => inner.RewriteHistoryAsync(repository, refs, dryRun, cancellationToken));

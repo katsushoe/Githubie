@@ -479,6 +479,15 @@ public sealed class GithubieMcpTools(
         CancellationToken cancellationToken)
     {
         var result = await gitHubGateway.CreateTagAsync(repository, tag, source, message, cancellationToken);
+        if (!result.IsSuccess) return GithubieToolResultMapper.Map("tag_create", repository, result);
+
+        var persisted = await gitGateway.PersistTagAsync(repository, tag, cancellationToken);
+        if (!persisted.IsSuccess)
+        {
+            var error = GithubieToolResultMapper.Map("tag_create", repository, persisted).Error!;
+            return GithubieToolResult<GitHubTagInfo>.Failure("tag_create", repository, error);
+        }
+
         return GithubieToolResultMapper.Map("tag_create", repository, result);
     }
 

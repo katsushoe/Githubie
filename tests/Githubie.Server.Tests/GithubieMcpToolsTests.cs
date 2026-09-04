@@ -47,6 +47,39 @@ public sealed class GithubieMcpToolsTests
     }
 
     [Fact]
+    public async Task TagCreate_PersistsTheTagInTheSameRegisteredRepositoryBeforeSuccess()
+    {
+        const string repository = "sample";
+        const string tag = "v1.2.3";
+        const string sha = "1111111111111111111111111111111111111111";
+        var gitGateway = Substitute.For<IGitGateway>();
+        var gitHubGateway = Substitute.For<IGitHubRepositoryGateway>();
+        gitHubGateway.CreateTagAsync(repository, tag, sha, null, Arg.Any<CancellationToken>()).Returns(GitHubResult<GitHubTagInfo>.Success(new(tag, sha, null, null, null)));
+        gitGateway.PersistTagAsync(repository, tag, Arg.Any<CancellationToken>()).Returns(GitGatewayResult<Unit>.Success(Unit.Value));
+        var tools = new GithubieMcpTools(gitGateway, gitHubGateway, Substitute.For<IRepositoryRegistrationService>(), Substitute.For<IRepositoryManagementService>(), new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+        var result = await tools.CreateTagAsync(repository, tag, sha, null, TestContext.Current.CancellationToken);
+        result.Ok.Should().BeTrue();
+        await gitGateway.Received(1).PersistTagAsync(repository, tag, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TagCreate_WhenLocalPersistenceFails_ReturnsTypedFailure()
+    {
+        const string repository = "sample";
+        const string tag = "v1.2.3";
+        const string sha = "1111111111111111111111111111111111111111";
+        var gitGateway = Substitute.For<IGitGateway>();
+        var gitHubGateway = Substitute.For<IGitHubRepositoryGateway>();
+        gitHubGateway.CreateTagAsync(repository, tag, sha, null, Arg.Any<CancellationToken>()).Returns(GitHubResult<GitHubTagInfo>.Success(new(tag, sha, null, null, null)));
+        gitGateway.PersistTagAsync(repository, tag, Arg.Any<CancellationToken>()).Returns(GitGatewayResult<Unit>.Failure(GitGatewayError.GitFailed, "tag collision"));
+        var tools = new GithubieMcpTools(gitGateway, gitHubGateway, Substitute.For<IRepositoryRegistrationService>(), Substitute.For<IRepositoryManagementService>(), new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+        var result = await tools.CreateTagAsync(repository, tag, sha, null, TestContext.Current.CancellationToken);
+        result.Ok.Should().BeFalse();
+        result.Error!.Code.Should().Be("git_failed");
+        result.Error.Diagnostic.Should().Be("tag collision");
+    }
+
+    [Fact]
     public async Task ReleaseCreate_MoyaiVersionContract_CreatesDraftForVTag()
     {
         var gateway = Substitute.For<IGitHubRepositoryGateway>();
