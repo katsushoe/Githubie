@@ -78,12 +78,12 @@ public sealed class GitCommandClientTests
     }
 
     [Fact]
-    public async Task FetchTagAsync_UsesExplicitTagRefspec()
+    public async Task FetchTagAsync_UsesForceAndExplicitTagRefspec()
     {
         var executor = new RecordingProcessExecutor();
         var client = new GitCommandClient(executor, AskPassPath);
         await client.FetchTagAsync(RepositoryRoot, "sample-repo", "origin", "v1.2.3", CancellationToken.None);
-        executor.CapturedArguments.Should().Equal("-c", "safe.directory=C:/repo", "-c", "credential.helper=", "fetch", "--no-tags", "--", "origin", "refs/tags/v1.2.3:refs/tags/v1.2.3");
+        executor.CapturedArguments.Should().Equal("-c", "safe.directory=C:/repo", "-c", "credential.helper=", "fetch", "--force", "--no-tags", "--", "origin", "refs/tags/v1.2.3:refs/tags/v1.2.3");
     }
 
     [Fact]
