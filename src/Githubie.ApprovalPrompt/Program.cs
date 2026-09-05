@@ -9,13 +9,27 @@ internal static class Program
     private static void Main(string[] args)
     {
         ApplicationConfiguration.Initialize();
-        if (args is ["--token", var tokenPipe])
-        {
-            RunTokenAsync(tokenPipe).GetAwaiter().GetResult();
-            return;
-        }
+        if (args is not ["--token", _] && args is not [_]) return;
 
-        if (args is [var approvalPipe]) RunApprovalAsync(approvalPipe).GetAwaiter().GetResult();
+        // Pipe待機後もSTA UIスレッドへ戻り、ダイアログ終了後の応答送信も処理します。
+        using var context = new ApplicationContext();
+        SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
+        EventHandler? start = null;
+        start = async (_, _) =>
+        {
+            System.Windows.Forms.Application.Idle -= start;
+            try
+            {
+                if (args is ["--token", var tokenPipe]) await RunTokenAsync(tokenPipe);
+                else await RunApprovalAsync(args[0]);
+            }
+            finally
+            {
+                context.ExitThread();
+            }
+        };
+        System.Windows.Forms.Application.Idle += start;
+        System.Windows.Forms.Application.Run(context);
     }
 
     private static async Task RunApprovalAsync(string pipeName)
