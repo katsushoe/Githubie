@@ -49,6 +49,8 @@ CLI: save the following object in `branch-create.json`, then run `githubie mcp c
 
 Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects the operation outcome. `data` is populated on success from local Git state, GitHub API state, configuration, or the server version as appropriate. `error` is populated on failure and includes a stable code documented in [Troubleshooting](TROUBLESHOOTING.md).
 
+The error object also contains `common_code`, `outcome`, `retryable`, `suggested_action`, `correlation_id`, and `provider`. `outcome` is `not_executed`, `failed`, or `unknown`. `provider` preserves the Githubie-specific `code`, `diagnostic`, `exit_code`, and `recommendation`. `suggested_action` is a stable machine-readable value. A Push result with `outcome: "unknown"` uses `retryable: false` and `suggested_action: "check_status"`; callers must inspect remote status before attempting another Push. Existing `code`, `message`, `summary`, and diagnostic fields remain available for compatibility.
+
 ```json
 {"ok":true,"operation":"github_branch_get","repository":"example","data":{"name":"develop","sha":"..."},"error":null}
 ```

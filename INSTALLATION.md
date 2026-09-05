@@ -40,6 +40,8 @@ Version `1.8.8.2` was upgrade-installed at `C:\Githubie`; installed CLI and MCP 
 
 Version `1.8.8.3` was upgrade-installed at `C:\Githubie`; installed CLI, MCP, and file versions `1.8.8.3`, automatic running service, configuration validation, and preservation of nine registered projects were verified. The MSI SHA-256 is `213FCC5B8C97D3EB2CB7DF2CB593875B9FE83CE722BA3DA05F5DC62D56E226BF`.
 
+Version `1.8.8.4` was upgrade-installed at `C:\Githubie`; installed CLI, MCP, and file versions `1.8.8.4`, automatic running service, configuration validation, and preservation of nine registered projects were verified. The MSI SHA-256 is `9B833E22899D66988F3B7834E3EC491A0B5AEAA79032DF922E14B6AE05AEF694`.
+
 ## Portable ZIP
 
 Extract the ZIP to a fixed directory, copy `githubie.example.json` to `config\githubie.json`, and run `githubie.exe service install` before starting the service. The ZIP does not register the service automatically.

@@ -181,6 +181,36 @@ public sealed class GithubieToolResultMapperTests
         mapped.Error.Retryable.Should().BeFalse();
         mapped.Error.Diagnostic.Should().Be(result.Diagnostic);
         mapped.Error.ExitCode.Should().Be(result.ExitCode);
+        mapped.Error.Provider.Code.Should().Be("git_failed");
+        mapped.Error.Provider.Diagnostic.Should().Be(result.Diagnostic);
+        mapped.Error.Provider.ExitCode.Should().Be(result.ExitCode);
+    }
+
+    [Theory]
+    [InlineData(GitGatewayError.AuthenticationFailed, "AUTHENTICATION_REQUIRED", "not_executed", false, "configure_authentication")]
+    [InlineData(GitGatewayError.PermissionDenied, "PERMISSION_DENIED", "failed", false, "verify_permissions")]
+    [InlineData(GitGatewayError.BranchProtectionDenied, "POLICY_REJECTED", "failed", false, "inspect_policy")]
+    [InlineData(GitGatewayError.NonFastForward, "CONFLICT", "failed", false, "fetch_and_reconcile")]
+    [InlineData(GitGatewayError.NetworkError, "RESULT_UNKNOWN", "unknown", false, "check_status")]
+    [InlineData(GitGatewayError.GitTimedOut, "RESULT_UNKNOWN", "unknown", false, "check_status")]
+    [InlineData(GitGatewayError.GitFailed, "RESULT_UNKNOWN", "unknown", false, "check_status")]
+    public void Map_PushFailure_ProducesDeterministicProviderContract(GitGatewayError source, string commonCode, string outcome, bool retryable, string suggestedAction)
+    {
+        var result = GitGatewayResult<Application.Git.Unit>.Failure(source, "safe diagnostic", 128) with
+        {
+            CorrelationId = "0123456789abcdef0123456789abcdef",
+        };
+
+        var mapped = GithubieToolResultMapper.Map("github_push", "repo", result);
+
+        mapped.Error!.CommonCode.Should().Be(commonCode);
+        mapped.Error.Outcome.Should().Be(outcome);
+        mapped.Error.Retryable.Should().Be(retryable);
+        mapped.Error.SuggestedAction.Should().Be(suggestedAction);
+        mapped.Error.CorrelationId.Should().Be(result.CorrelationId);
+        mapped.Error.Provider.Name.Should().Be("Githubie");
+        mapped.Error.Provider.Code.Should().Be(ExpectedGitGatewayCodes[source]);
+        mapped.Error.Provider.Recommendation.Should().Be(mapped.Error.Recommendation);
     }
 
     public static IEnumerable<object[]> GitGatewayErrorValues() =>
