@@ -71,6 +71,8 @@ CLIは次のJSONをファイルへ保存し、`githubie mcp call github_branch_c
 
 `mcp call`はJSON-RPC応答をJSONで出力し、通信・JSON-RPC・MCP・構造化Tool結果の失敗時は非0を返す。処理は実行中MCP Serverへ委譲するため、Allowlist・承認・監査・安全PolicyはMCP Client利用時と共通になる。Tool引数へSecretを含めてはならない。
 
+MCP Toolの失敗時は、既存の`code`、`message`、`summary`に加え、`common_code`、`outcome`、`retryable`、`suggested_action`、`correlation_id`、`provider`を返す。`outcome`は`not_executed`、`failed`、`unknown`のいずれかである。`provider`はGithubie固有の`code`、`diagnostic`、`exit_code`、`recommendation`を保持する。`suggested_action`は機械判定可能な固定値である。Push結果が`outcome: "unknown"`の場合は`retryable: false`かつ`suggested_action: "check_status"`となり、呼出元は再Push前にリモート状態を確認しなければならない。
+
 ### 診断
 
 | コマンド | 説明 |

@@ -23,7 +23,11 @@ public sealed record GithubieToolError(string Code, string Message, bool Retryab
 {
     public string Summary => Message;
 
-    public string SuggestedAction => Recommendation ?? "Use the correlation ID to inspect the matching audit log entry.";
+    public string CommonCode { get; init; } = GithubieCommonErrorCode.ProviderError;
+
+    public string Outcome { get; init; } = GithubieOperationOutcome.Failed;
+
+    public string SuggestedAction { get; init; } = GithubieSuggestedAction.InspectProviderError;
 
     public string CorrelationId { get; init; } = Guid.NewGuid().ToString("N");
 
@@ -36,6 +40,39 @@ public sealed record GithubieToolError(string Code, string Message, bool Retryab
     public int? ExitCode { get; init; }
 
     public IReadOnlyList<string>? Candidates { get; init; }
+
+    public GithubieProviderError Provider => new("Githubie", Code, Diagnostic, ExitCode, Recommendation);
+}
+
+public sealed record GithubieProviderError(string Name, string Code, string? Diagnostic, int? ExitCode, string? Recommendation);
+
+public static class GithubieOperationOutcome
+{
+    public const string NotExecuted = "not_executed";
+    public const string Failed = "failed";
+    public const string Unknown = "unknown";
+}
+
+public static class GithubieCommonErrorCode
+{
+    public const string AuthenticationRequired = "AUTHENTICATION_REQUIRED";
+    public const string PermissionDenied = "PERMISSION_DENIED";
+    public const string PolicyRejected = "POLICY_REJECTED";
+    public const string Conflict = "CONFLICT";
+    public const string NetworkError = "NETWORK_ERROR";
+    public const string ResultUnknown = "RESULT_UNKNOWN";
+    public const string ProviderError = "PROVIDER_ERROR";
+}
+
+public static class GithubieSuggestedAction
+{
+    public const string ConfigureAuthentication = "configure_authentication";
+    public const string VerifyPermissions = "verify_permissions";
+    public const string InspectPolicy = "inspect_policy";
+    public const string FetchAndReconcile = "fetch_and_reconcile";
+    public const string Retry = "retry";
+    public const string CheckStatus = "check_status";
+    public const string InspectProviderError = "inspect_provider_error";
 }
 
 /// <summary>
@@ -51,12 +88,30 @@ public static class GithubieToolResultMapper
             : GithubieToolResult<T>.Failure(
                 operation,
                 repository,
-                MapGitError(result.Error!.Value) with
+                ApplyGitContract(operation, result.Error!.Value, MapGitError(result.Error.Value)) with
                 {
                     CorrelationId = result.CorrelationId ?? Guid.NewGuid().ToString("N"),
                     Diagnostic = result.Diagnostic,
                     ExitCode = result.ExitCode,
                 });
+
+    private static GithubieToolError ApplyGitContract(string operation, GitGatewayError source, GithubieToolError error)
+    {
+        var isPush = string.Equals(operation, "github_push", StringComparison.Ordinal)
+            || string.Equals(operation, "push", StringComparison.Ordinal);
+
+        return source switch
+        {
+            GitGatewayError.AuthenticationFailed => error with { CommonCode = GithubieCommonErrorCode.AuthenticationRequired, Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.ConfigureAuthentication },
+            GitGatewayError.TokenPermissionDenied or GitGatewayError.WorkflowPermissionDenied or GitGatewayError.PermissionDenied => error with { CommonCode = GithubieCommonErrorCode.PermissionDenied, SuggestedAction = GithubieSuggestedAction.VerifyPermissions },
+            GitGatewayError.ProtectedBranch or GitGatewayError.BranchProtectionDenied => error with { CommonCode = GithubieCommonErrorCode.PolicyRejected, SuggestedAction = GithubieSuggestedAction.InspectPolicy },
+            GitGatewayError.NonFastForward or GitGatewayError.LeaseConflict => error with { CommonCode = GithubieCommonErrorCode.Conflict, SuggestedAction = GithubieSuggestedAction.FetchAndReconcile },
+            GitGatewayError.NetworkError or GitGatewayError.RemoteUnavailable when isPush => error with { CommonCode = GithubieCommonErrorCode.ResultUnknown, Outcome = GithubieOperationOutcome.Unknown, Retryable = false, SuggestedAction = GithubieSuggestedAction.CheckStatus },
+            GitGatewayError.GitTimedOut or GitGatewayError.GitCancelled or GitGatewayError.GitFailed when isPush => error with { CommonCode = GithubieCommonErrorCode.ResultUnknown, Outcome = GithubieOperationOutcome.Unknown, Retryable = false, SuggestedAction = GithubieSuggestedAction.CheckStatus },
+            GitGatewayError.NetworkError => error with { CommonCode = GithubieCommonErrorCode.NetworkError, SuggestedAction = GithubieSuggestedAction.Retry },
+            _ => error,
+        };
+    }
 
     public static GithubieToolResult<T> Map<T>(string operation, string repository, GitHubResult<T> result) =>
         result.IsSuccess
