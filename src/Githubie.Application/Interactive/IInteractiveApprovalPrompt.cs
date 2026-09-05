@@ -18,8 +18,21 @@ public interface IInteractiveTokenPrompt
         CancellationToken cancellationToken);
 }
 
-/// <summary>Token画面へ表示する秘密値を含まないRepository情報です。</summary>
-public sealed record TokenPromptRequest(string ProjectName, string RepositoryUrl);
+/// <summary>Token画面へ必ず表示する、秘密値を含まない要求元Projectと要求先Repository情報です。</summary>
+public sealed record TokenPromptRequest
+{
+    public TokenPromptRequest(string projectName, string repositoryUrl)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(projectName);
+        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryUrl);
+        ProjectName = projectName;
+        RepositoryUrl = repositoryUrl;
+    }
+
+    public string ProjectName { get; }
+
+    public string RepositoryUrl { get; }
+}
 
 public enum InteractiveTokenPromptOutcome
 {
