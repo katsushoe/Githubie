@@ -62,12 +62,12 @@ partial class TokenForm
         instructionLabel.Text = "Personal Access Tokenを入力してください。";
         projectNameCaptionLabel.AutoSize = true;
         projectNameCaptionLabel.Margin = new Padding(0, 4, 0, 2);
-        projectNameCaptionLabel.Text = "登録元プロジェクト名";
+        projectNameCaptionLabel.Text = "要求元プロジェクト名";
         projectNameValueLabel.AutoSize = true;
         projectNameValueLabel.Margin = new Padding(0, 0, 0, 6);
         repositoryUrlCaptionLabel.AutoSize = true;
         repositoryUrlCaptionLabel.Margin = new Padding(0, 4, 0, 2);
-        repositoryUrlCaptionLabel.Text = "登録対象リポジトリURL";
+        repositoryUrlCaptionLabel.Text = "要求先リポジトリURL";
         repositoryUrlValueLabel.AutoEllipsis = true;
         repositoryUrlValueLabel.Dock = DockStyle.Fill;
         repositoryUrlValueLabel.Margin = new Padding(0, 0, 0, 10);

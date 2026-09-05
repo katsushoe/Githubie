@@ -10,9 +10,7 @@ internal sealed partial class TokenForm : Form
         ArgumentNullException.ThrowIfNull(request);
         InitializeComponent();
         projectNameValueLabel.Text = request.ProjectName;
-        repositoryUrlValueLabel.Text = string.IsNullOrWhiteSpace(request.RepositoryUrl)
-            ? "登録情報から取得できません"
-            : request.RepositoryUrl;
+        repositoryUrlValueLabel.Text = request.RepositoryUrl;
         ActiveControl = tokenTextBox;
     }
 
