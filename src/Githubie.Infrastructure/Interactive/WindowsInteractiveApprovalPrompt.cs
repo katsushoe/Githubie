@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
@@ -68,7 +69,7 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
 
     public async Task<InteractiveTokenPromptResult> RequestTokenAsync(
         TokenPromptRequest request,
-        TimeSpan timeout, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(request);
         if (!TryGetSession(out var token, out var sid, out var sessionId) || token is null || sid is null)
@@ -82,39 +83,42 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
             var pipeSession = CreatePipe(sid);
             await using (var pipe = pipeSession.Stream)
             {
-                if (!TryLaunch(token, executablePath, pipeSession.Name, true, out var launchError))
+                if (!TryLaunch(token, executablePath, pipeSession.Name, true, out var launchError, out var dialog))
                 {
                     logger.LogError("Token prompt process launch failed for session {SessionId}: {Error}", sessionId, launchError);
                     return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.LaunchFailed);
                 }
 
-                logger.LogInformation("Token prompt process launched in interactive session {SessionId}.", sessionId);
-                using var timeoutSource = new CancellationTokenSource(timeout);
-                using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
-                try
+                using (dialog)
                 {
-                    await pipe.WaitForConnectionAsync(linked.Token);
-                    await ApprovalPipeProtocol.WriteFrameAsync(pipe, request, linked.Token);
-                    var response = await ApprovalPipeProtocol.ReadFrameAsync<TokenPromptResponse>(pipe, linked.Token);
-                    if (response is null)
+                    logger.LogInformation("Token prompt process launched in interactive session {SessionId}.", sessionId);
+                    try
                     {
-                        logger.LogError("Token prompt returned an empty response in session {SessionId}.", sessionId);
+                        // Token入力は時間制限なしで待つ。接続前に画面Processが終了した場合だけ待機を打ち切る。
+                        var dialogExited = dialog?.WaitForExitAsync(cancellationToken) ?? Task.CompletedTask;
+                        if (!await TokenPromptConnection.WaitForConnectionOrExitAsync(pipe, dialogExited, cancellationToken))
+                        {
+                            logger.LogError("Token prompt process exited before connecting in session {SessionId}.", sessionId);
+                            return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.ProtocolError);
+                        }
+
+                        await ApprovalPipeProtocol.WriteFrameAsync(pipe, request, cancellationToken);
+                        var response = await ApprovalPipeProtocol.ReadFrameAsync<TokenPromptResponse>(pipe, cancellationToken);
+                        if (response is null)
+                        {
+                            logger.LogError("Token prompt returned an empty response in session {SessionId}.", sessionId);
+                            return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.ProtocolError);
+                        }
+
+                        return response.Accepted && !string.IsNullOrWhiteSpace(response.Token)
+                            ? InteractiveTokenPromptResult.Accepted(response.Token.Trim().ToCharArray())
+                            : InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.Skipped);
+                    }
+                    catch (IOException ex)
+                    {
+                        logger.LogError(ex, "Token prompt pipe protocol failed in session {SessionId}.", sessionId);
                         return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.ProtocolError);
                     }
-
-                    return response.Accepted && !string.IsNullOrWhiteSpace(response.Token)
-                        ? InteractiveTokenPromptResult.Accepted(response.Token.Trim().ToCharArray())
-                        : InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.Skipped);
-                }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-                {
-                    logger.LogWarning("Token prompt timed out in session {SessionId}.", sessionId);
-                    return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.TimedOut);
-                }
-                catch (IOException ex)
-                {
-                    logger.LogError(ex, "Token prompt pipe protocol failed in session {SessionId}.", sessionId);
-                    return InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.ProtocolError);
                 }
             }
         }
@@ -202,13 +206,19 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
     }
 
     private static bool TryLaunch(
-        SafeAccessTokenHandle token, string path, string pipeName, out string error) =>
-        TryLaunch(token, path, pipeName, false, out error);
+        SafeAccessTokenHandle token, string path, string pipeName, out string error)
+    {
+        var launched = TryLaunch(token, path, pipeName, false, out error, out var process);
+        process?.Dispose();
+        return launched;
+    }
 
     private static bool TryLaunch(
-        SafeAccessTokenHandle token, string path, string pipeName, bool tokenPrompt, out string error)
+        SafeAccessTokenHandle token, string path, string pipeName, bool tokenPrompt, out string error,
+        out Process? launchedProcess)
     {
         error = string.Empty;
+        launchedProcess = null;
         if (!File.Exists(path)) { error = $"executable not found: {path}"; return false; }
         if (!NativeMethods.CreateEnvironmentBlock(out var environment, token, false))
         {
@@ -228,8 +238,20 @@ public sealed class WindowsInteractiveApprovalPrompt(string executablePath, ILog
                 error = new Win32Exception(Marshal.GetLastWin32Error()).Message;
                 return false;
             }
-            NativeMethods.CloseHandle(process.Thread);
-            NativeMethods.CloseHandle(process.Process);
+            try
+            {
+                // Handleを閉じる前に取得し、PID再利用による別Processの監視を防ぐ。
+                if (tokenPrompt) launchedProcess = Process.GetProcessById((int)process.ProcessId);
+            }
+            catch (ArgumentException)
+            {
+                // 既に終了済み。呼び出し側は接続前終了として扱う。
+            }
+            finally
+            {
+                NativeMethods.CloseHandle(process.Thread);
+                NativeMethods.CloseHandle(process.Process);
+            }
             return true;
         }
         finally { NativeMethods.DestroyEnvironmentBlock(environment); }

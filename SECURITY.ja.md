@@ -29,6 +29,8 @@ MCP Endpointへのリクエストは`Origin`ヘッダを検証し、送信され
 9. Tagはmain HEADを標準Targetとする
 10. SecretをCommand Line / Log / Remote URLへ残さない
 
+GithubieはMoyaiを必須としない。Server起動引数`--moyai`がなければ単体動作となり、`provider_authentication`を無視する。Moyai連携モードで`require_assertion`が`false`の場合もMoyai由来のHeaderを持たないローカル直接呼び出しを受け付ける。いずれもLoopback／Origin境界、Repository Policy、対話承認で保護する。`Authorization`または`X-Moyai-Operation-Id`を持つRepository単位の呼び出し、および`require_assertion`が`true`の場合の全呼び出しには、短寿命のMoyai ES256 Provider Assertionを必須とし、直接呼び出しへ格下げしない。Githubieは正規Audience `githubie`、管理者設定済みProject UUID、正規Repository、Tool、固定Scope集合、Protocol Version、Operation ID、時刻、最新の署名鍵状態、未使用JTIを実行前に検証する。対話承認を伴う履歴訂正では、承認後かつGit処理開始直前にも期限・鍵・Capabilityを再検証する。`list_projects`、Repository管理、`get_version`は別のLocal管理者／Bootstrap境界である。旧MCP EndpointにService Tokenは存在しないため、旧Tokenとのdual-accept経路は設けない。
+
 ## Personal Access Token
 
 - 推奨: **Fine-grained PAT**（対象Repositoryを限定し、`Contents: Read and write` / `Pull requests: Read and write`を付与）。Repository Description更新には`Administration: Read and write`、Workflow起動・run取得には`Actions: Read and write`が追加で必要。Classic PAT（`ghp_...`、Repository横断の`repo`スコープ）は新規登録では使用しない。

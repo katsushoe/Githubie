@@ -21,7 +21,14 @@ githubie.exe --config C:\path\to\githubie.json config check
 | --- | --- | --- | --- | --- |
 | `mcp_port` | 必須 | integer（1～65535） | なし | MCP Endpointの待受Port。付属Sampleは`45460`を指定する |
 | `mcp_path` | 必須 | string（`/`始まり） | なし | MCP EndpointのPath。付属Sampleは`/mcp`を指定する |
+| `provider_authentication` | 任意 | object | なし | Moyai Provider AssertionのTrust、Replay、Project対応設定。Serverを`--moyai`付きで起動した場合だけ使用し、既定の単体動作モードでは無視する |
 | `repositories` | 必須 | object | なし | SQLiteへの初回移行用Entry。Database初期化後のJSON変更は再取込みしない |
+
+## `provider_authentication`項目
+
+`issuer`は空ではない`moyai:`識別子、`protocol_version`は`1`とする。`assertion_lifetime_seconds`は30～300、`clock_skew_seconds`は0～60とする。`trust_bundle_path`と`replay_database_path`には異なる絶対Pathを指定する。`projects`はGithubieの全Repository IDを、それぞれ異なる空でないMoyai Project UUIDへ明示対応させる。Assertion Claimからこの管理者設定を作成・上書きしない。動作モードはこの項目の有無ではなくServerの起動引数で決まる。`--moyai`なしでは単体動作となりAssertionを検証しない。`--moyai`付きではこの項目が必須となり、登録済みの全RepositoryのProject対応を要求する。Moyai連携モードでは、`require_assertion`（boolean、既定`false`）はローカル直接呼び出しの扱いを決める。`false`では、`Authorization`と`X-Moyai-Operation-Id`のどちらも持たないRepository Tool呼び出しを、従来のRepository Policyと対話承認のもとで直接呼び出しとして処理する。`true`では、そのような呼び出しを`auth_assertion_missing`で拒否する。どちらかのHeaderを持つ要求は常にMoyai要求として検証し、直接呼び出しへ切り替えない。
+
+Trust BundleはMoyai公開署名鍵のsnake_case JSON配列、Replay DatabaseはServerが初期化する専用SQLite Fileである。PathまたはProject対応の変更後は`config check`とService再起動を行う。
 
 ## `repositories.<id>`項目
 

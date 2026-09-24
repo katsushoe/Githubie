@@ -1,6 +1,17 @@
 {
   "mcp_port": 45460,
   "mcp_path": "/mcp",
+  "provider_authentication": {
+    "issuer": "moyai:instance-01",
+    "trust_bundle_path": "C:\\Githubie\\config\\moyai-trust.json",
+    "replay_database_path": "C:\\Githubie\\data\\moyai-replay.db",
+    "projects": {
+      "example": "11111111-1111-1111-1111-111111111111"
+    },
+    "protocol_version": "1",
+    "assertion_lifetime_seconds": 120,
+    "clock_skew_seconds": 30
+  },
   "repositories": {
     "example": {
       "github_owner": "example-org",

@@ -273,6 +273,36 @@ public sealed class GitGatewayTests
     }
 
     [Fact]
+    public async Task RewriteHistoryAsync_ExecutionGuardRejectsAfterApprovalAndBeforePush()
+    {
+        SetUpRewritePreconditions();
+        _approvalPrompt.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Approved());
+        var guard = Substitute.For<IProviderExecutionGuard>();
+        guard.EnsureCurrentAsync(Arg.Any<CancellationToken>())
+            .Returns(_ => throw new InvalidOperationException("expired assertion"));
+        var allowlist = new RepositoryAllowlist(new Dictionary<string, RepositoryOptions>
+        {
+            [RepositoryId] = CreateOptions(),
+        });
+        var gateway = new GitGateway(
+            allowlist,
+            new LocalPathValidator(_environment),
+            _commandClient,
+            _approvalPrompt,
+            guard);
+
+        var action = () => gateway.RewriteHistoryAsync(
+            RepositoryId, [RewriteRef()], false, CancellationToken.None);
+
+        await action.Should().ThrowAsync<InvalidOperationException>();
+        await guard.Received(1).EnsureCurrentAsync(Arg.Any<CancellationToken>());
+        await _commandClient.DidNotReceive().PushHistoryRewriteAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<IReadOnlyList<GitHistoryRewriteRef>>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task RewriteHistoryAsync_AtomicUnsupported_ReturnsSpecificError()
     {
         SetUpRewritePreconditions();

@@ -15,6 +15,15 @@
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
     <Property Id="ROOTDRIVE" Value="C:\" Secure="yes" />
 
+    <!-- Service mode: standalone by default; MOYAI=1 registers the service in Moyai integration mode (MOYAI=0 returns to standalone).
+         The value is remembered in the registry so later upgrades keep the selected mode. -->
+    <Property Id="MOYAI" Secure="yes" />
+    <Property Id="MOYAI_REMEMBERED" Secure="yes">
+      <RegistrySearch Id="MoyaiModeSearch" Root="HKLM" Key="SOFTWARE\Akatsukisoft\Githubie" Name="MoyaiIntegration" Type="raw" />
+    </Property>
+    <SetProperty Id="MOYAI" Value="[MOYAI_REMEMBERED]" After="AppSearch" Sequence="both" Condition="NOT MOYAI AND MOYAI_REMEMBERED" />
+    <SetProperty Id="GITHUBIE_MOYAI_SWITCH" Value=" --moyai" Before="InstallInitialize" Sequence="execute" Condition="MOYAI = &quot;1&quot;" />
+
     <StandardDirectory Id="TARGETDIR">
       <Directory Id="INSTALLROOT" Name="Githubie" ComponentGuidGenerationSeed="8A814A4E-0993-471B-960C-461C01187CFD">
         <Directory Id="BINDIR" Name="bin" />
@@ -56,7 +65,13 @@
           Start="auto"
           ErrorControl="normal"
           Account="LocalSystem"
-          Arguments="&quot;[CONFIGDIR]githubie.json&quot;" />
+          Arguments="&quot;[CONFIGDIR]githubie.json&quot;[GITHUBIE_MOYAI_SWITCH]" />
+        <RegistryValue
+          Root="HKLM"
+          Key="SOFTWARE\Akatsukisoft\Githubie"
+          Name="MoyaiIntegration"
+          Type="string"
+          Value="[MOYAI]" />
         <ServiceControl
           Id="GithubieServiceControl"
           Name="Githubie"

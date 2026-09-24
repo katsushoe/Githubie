@@ -14,7 +14,14 @@ The default path is `<install-root>\config\githubie.json`. Pass another path as 
 | --- | --- | --- | --- | --- |
 | `mcp_port` | Yes | integer | None | `1` through `65535`; the supplied example uses `45460` |
 | `mcp_path` | Yes | string | None | Must start with `/`; the supplied example uses `/mcp` |
+| `provider_authentication` | No | object | None | Moyai Provider Assertion trust, replay, and Project mapping settings. Used only when the server is started with `--moyai`; in the default standalone mode this section is ignored |
 | `repositories` | Yes | object | None | Legacy import seed. On first database initialization these entries are imported into SQLite; later JSON changes are not re-imported |
+
+## `provider_authentication` Properties
+
+`issuer` must be a non-empty `moyai:` identifier. `protocol_version` is `1`; `assertion_lifetime_seconds` is 30–300 and `clock_skew_seconds` is 0–60. `trust_bundle_path` and `replay_database_path` must be distinct absolute paths. `projects` maps every canonical Githubie repository ID to one unique, non-empty Moyai Project UUID. Claims never create or replace this administrator-owned mapping. The operating mode is chosen by the server command line, not by the presence of this section: without `--moyai` Githubie runs standalone and never validates assertions; with `--moyai` this section is required and every registered repository must be mapped. In Moyai integration mode, `require_assertion` (boolean, default `false`) controls local direct calls: when `false`, a repository tool call that carries neither `Authorization` nor `X-Moyai-Operation-Id` is handled as a direct local call under the usual repository policy and interactive approvals; when `true`, such calls are rejected with `auth_assertion_missing`. A request that carries either header is always validated as a Moyai request and never falls back to direct handling.
+
+The Trust Bundle is a strict snake-case JSON array of Moyai public signing keys. The replay database is a dedicated SQLite file initialized by the server. Updating either path or a Project mapping requires `config check` and a service restart.
 
 ## `repositories.<id>` Properties
 
@@ -52,6 +59,12 @@ At the first startup after upgrading, validated entries under `repositories` are
 {
   "mcp_port": 45460,
   "mcp_path": "/mcp",
+  "provider_authentication": {
+    "issuer": "moyai:instance-01",
+    "trust_bundle_path": "C:\\Githubie\\config\\moyai-trust.json",
+    "replay_database_path": "C:\\Githubie\\data\\moyai-replay.db",
+    "projects": { "example": "11111111-1111-1111-1111-111111111111" }
+  },
   "repositories": {
     "example": {
       "github_owner": "owner",

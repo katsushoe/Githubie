@@ -15,14 +15,21 @@ public static class ApprovalPipeProtocol
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(payload);
         var json = JsonSerializer.SerializeToUtf8Bytes(payload);
-        if (json.Length > MaxPayloadBytes)
+        try
         {
-            throw new InvalidOperationException("Approval prompt payload exceeds the maximum allowed size.");
-        }
+            if (json.Length > MaxPayloadBytes)
+            {
+                throw new InvalidOperationException("Approval prompt payload exceeds the maximum allowed size.");
+            }
 
-        await target.WriteAsync(BitConverter.GetBytes(json.Length), cancellationToken);
-        await target.WriteAsync(json, cancellationToken);
-        await target.FlushAsync(cancellationToken);
+            await target.WriteAsync(BitConverter.GetBytes(json.Length), cancellationToken);
+            await target.WriteAsync(json, cancellationToken);
+            await target.FlushAsync(cancellationToken);
+        }
+        finally
+        {
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(json);
+        }
     }
 
     public static async Task<T?> ReadFrameAsync<T>(Stream source, CancellationToken cancellationToken) where T : class
@@ -33,9 +40,16 @@ public static class ApprovalPipeProtocol
         var length = BitConverter.ToInt32(header);
         if (length is < 0 or > MaxPayloadBytes) return null;
         var payload = new byte[length];
-        if (!await ReadExactAsync(source, payload, cancellationToken)) return null;
-        try { return JsonSerializer.Deserialize<T>(payload); }
-        catch (JsonException) { return null; }
+        try
+        {
+            if (!await ReadExactAsync(source, payload, cancellationToken)) return null;
+            try { return JsonSerializer.Deserialize<T>(payload); }
+            catch (JsonException) { return null; }
+        }
+        finally
+        {
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(payload);
+        }
     }
 
     private static async Task<bool> ReadExactAsync(Stream source, byte[] buffer, CancellationToken cancellationToken)

@@ -49,7 +49,8 @@ public sealed class DpapiFileTokenStore : IApiTokenStore
             return ApiTokenStoreResult.Failure(ApiTokenStoreError.TokenTooLong);
         }
 
-        var plainBytes = Encoding.UTF8.GetBytes(token.ToString());
+        var plainBytes = new byte[Encoding.UTF8.GetByteCount(token)];
+        Encoding.UTF8.GetBytes(token, plainBytes);
         try
         {
             WindowsSecretDirectorySecurity.Ensure(_secretsDirectory);

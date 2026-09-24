@@ -25,6 +25,12 @@ githubie.exe status
 
 Install the service first with `githubie.exe service install` when using a portable or source build.
 
+## Moyai Provider Assertion
+
+Moyai integration is optional. The service runs standalone by default; start the server with `--moyai` (MSI property `MOYAI=1`, or `githubie service install --moyai`) to enable Moyai integration mode. `MOYAI=0` returns to standalone mode, and the MSI remembers the selected mode across upgrades. Before enabling it, run `githubie.exe config check --moyai`. When integrating with Moyai, place the administrator-approved Moyai public-key Trust Bundle at `provider_authentication.trust_bundle_path`, map every registered repository ID to its Moyai Project UUID, and keep `replay_database_path` dedicated to assertion replay state. Run `githubie.exe config check`, restart the service, and verify readiness after changing the issuer, paths, keys, or mappings. A missing/unreadable Trust Bundle or unavailable replay database fails closed. Key rotation is applied on the next request because the Trust Bundle is reloaded for validation and execution checks.
+
+Repository registration does not invent a Project UUID. Add the approved mapping to `githubie.json` before using repository tools for the new registration, then restart the service. For isolated integration testing, use a separate port, configuration file, repository database, Trust Bundle, replay database, disposable issuer/key, Project UUIDs, and MCP client profiles.
+
 ## Logs and Diagnostics
 
 `githubie.exe logs` prints the log directory. Daily files use `<install-root>\logs\githubie-yyyyMMdd.log`. MSI installations allow standard users to append logs. If logging fails because of ACL, disk, or transient I/O errors, the requested CLI/MCP operation continues rather than terminating with an unhandled exception. Run `githubie.exe doctor`, followed by `config check`, `repo status`, or `auth test` to isolate failures.

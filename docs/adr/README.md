@@ -22,5 +22,8 @@
 | [0024](0024-bounded-pull-request-mergeability-polling.md) | Bounded retry-aware pull-request mergeability classification |
 | [0025](0025-sqlite-repository-configuration-store.md) | SQLite repository configuration with one-time import from legacy JSON |
 | [0026](0026-explicit-branch-source.md) | Required explicit branch creation source; no implicit default |
+| [0027](0027-explicit-tag-source.md) | Required explicit tag creation source; no implicit default |
+| [0028](0028-moyai-github-release-lifecycle.md) | Moyai-compatible draft-first GitHub Release lifecycle |
+| [0029](0029-moyai-provider-assertion.md) | Operation-bound Moyai Provider Assertions with persistent replay protection |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

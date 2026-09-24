@@ -4,7 +4,15 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.8.3`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.9.3`.
+
+Version `1.8.9.3` introduces the following changes:
+
+- Moyai Provider Assertion (ES256) validation now runs only in Moyai integration mode, entered with the `--moyai` server option; standalone mode is the default. The MSI selects integration mode with `MOYAI=1` and keeps that choice across upgrades.
+- The five-minute token GUI timeout was removed. The GUI now waits until the token is entered, the prompt is cancelled, or the dialog process exits.
+- MSI and ZIP builds now publish each project separately and verify the assembly versions the server requires, such as `System.Text.Json`.
+
+All 433 automated tests passed. The MSI and ZIP builds and their SHA-256 values were verified. On Windows, the standalone upgrade at `C:\Githubie`, the installed version, the service start, configuration validation, and direct repository tools were also verified.
 
 Version `1.8.8.3` force-syncs the exact local tag ref after a remote tag is replaced, preventing a stale local tag from producing a false non-fast-forward failure. All 371 automated tests passed, and the MSI upgrade was verified at `C:\Githubie`.
 

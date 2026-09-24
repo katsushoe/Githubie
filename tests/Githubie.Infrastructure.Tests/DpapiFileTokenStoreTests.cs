@@ -19,6 +19,8 @@ public sealed class DpapiFileTokenStoreTests : IDisposable
 
         var saveResult = store.Save(repositoryId, token);
         saveResult.IsSuccess.Should().BeTrue();
+        var encryptedBytes = File.ReadAllBytes(Path.Combine(_secretsDirectory, repositoryId + ".token"));
+        System.Text.Encoding.UTF8.GetString(encryptedBytes).Should().NotContain(token);
 
         var readResult = store.Read("SAMPLEREPO");
         readResult.IsSuccess.Should().BeTrue();

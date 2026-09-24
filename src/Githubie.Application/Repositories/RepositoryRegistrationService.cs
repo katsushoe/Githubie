@@ -118,7 +118,7 @@ public sealed class RepositoryRegistrationService(
         CancellationToken cancellationToken)
     {
         var promptResult = await tokenPrompt.RequestTokenAsync(
-            new TokenPromptRequest(repositoryId, repositoryUrl), ApprovalTimeout, cancellationToken);
+            new TokenPromptRequest(repositoryId, repositoryUrl), cancellationToken);
         if (promptResult.Outcome != InteractiveTokenPromptOutcome.Accepted || promptResult.Token is null)
         {
             return (false, promptResult.Outcome == InteractiveTokenPromptOutcome.Skipped
