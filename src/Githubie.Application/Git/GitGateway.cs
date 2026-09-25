@@ -11,12 +11,14 @@ public sealed class GitGateway(
     RepositoryAllowlist allowlist,
     LocalPathValidator localPathValidator,
     IGitCommandClient commandClient,
-    IInteractiveApprovalPrompt approvalPrompt) : IGitGateway
+    IInteractiveApprovalPrompt approvalPrompt,
+    IProviderExecutionGuard? executionGuard = null) : IGitGateway
 {
     private readonly RepositoryAllowlist _allowlist = allowlist;
     private readonly LocalPathValidator _localPathValidator = localPathValidator;
     private readonly IGitCommandClient _commandClient = commandClient;
     private readonly IInteractiveApprovalPrompt _approvalPrompt = approvalPrompt;
+    private readonly IProviderExecutionGuard _executionGuard = executionGuard ?? NoOpProviderExecutionGuard.Instance;
     private static readonly TimeSpan ApprovalTimeout = TimeSpan.FromSeconds(120);
 
     public async Task<GitGatewayResult<GitRepositoryStatus>> GetStatusAsync(string repository, CancellationToken cancellationToken)
@@ -358,6 +360,7 @@ public sealed class GitGateway(
         if (recheck.Results!.Any(item => item.RejectionReason is not null))
             return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitGatewayError.LeaseConflict);
 
+        await _executionGuard.EnsureCurrentAsync(cancellationToken);
         var push = await _commandClient.PushHistoryRewriteAsync(options.LocalRoot, repository, options.Remote, refs, cancellationToken);
         if (!push.IsSuccess)
         {
@@ -370,6 +373,13 @@ public sealed class GitGateway(
 
         return GitGatewayResult<GitHistoryRewriteResult>.Success(new(
             false, "approved", recheck.Results!.Select(item => item with { Success = true }).ToArray()));
+    }
+
+    private sealed class NoOpProviderExecutionGuard : IProviderExecutionGuard
+    {
+        public static NoOpProviderExecutionGuard Instance { get; } = new();
+
+        public Task EnsureCurrentAsync(CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
     private async Task<(IReadOnlyList<GitHistoryRewriteRefResult>? Results, GitGatewayError? Error)> BuildRewritePlanAsync(

@@ -24,20 +24,30 @@ public static class GithubieCompositionRoot
     private const int DefaultDatabaseBusyTimeoutSeconds = 5;
     private const int DoctorDatabaseBusyTimeoutSeconds = 30;
 
+    /// <summary>単体動作モードのサービスグラフを構築します。`provider_authentication`は使用しません。</summary>
     public static async Task<GithubieCompositionResult> BuildAsync(string configPath, string binDirectory, CancellationToken cancellationToken)
-        => await BuildAsync(configPath, binDirectory, initializeDatabase: true, cancellationToken);
+        => await BuildAsync(configPath, binDirectory, initializeDatabase: true, moyaiIntegration: false, cancellationToken);
+
+    /// <summary>
+    /// サービスグラフを構築します。`moyaiIntegration`がtrueの場合だけMoyai連携モードとなり、
+    /// `provider_authentication`と全Repository IDのProject対応を必須とします。
+    /// </summary>
+    public static async Task<GithubieCompositionResult> BuildAsync(
+        string configPath, string binDirectory, bool moyaiIntegration, CancellationToken cancellationToken)
+        => await BuildAsync(configPath, binDirectory, initializeDatabase: true, moyaiIntegration, cancellationToken);
 
     /// <summary>Databaseを変更せず、診断用のサービスグラフを構築します。</summary>
     public static async Task<GithubieCompositionResult> BuildForDoctorAsync(
         string configPath,
         string binDirectory,
         CancellationToken cancellationToken) =>
-        await BuildAsync(configPath, binDirectory, initializeDatabase: false, cancellationToken);
+        await BuildAsync(configPath, binDirectory, initializeDatabase: false, moyaiIntegration: false, cancellationToken);
 
     private static async Task<GithubieCompositionResult> BuildAsync(
         string configPath,
         string binDirectory,
         bool initializeDatabase,
+        bool moyaiIntegration,
         CancellationToken cancellationToken)
     {
         if (!File.Exists(configPath))
@@ -79,8 +89,17 @@ public static class GithubieCompositionRoot
             return GithubieCompositionResult.Failure($"repository database initialization failed: {ex.Message}");
         }
 
-        options = options with { Repositories = repositories };
+        // 単体動作モードではprovider_authenticationを読み込んでも使わない。
+        options = options with
+        {
+            Repositories = repositories,
+            ProviderAuthentication = moyaiIntegration ? options.ProviderAuthentication : null,
+        };
         var databaseErrors = JsonGithubieOptionsLoader.Validate(options);
+        if (moyaiIntegration)
+        {
+            databaseErrors.AddRange(JsonGithubieOptionsLoader.ValidateMoyaiIntegration(options));
+        }
         if (databaseErrors.Count > 0)
         {
             return GithubieCompositionResult.Failure(databaseErrors
@@ -99,6 +118,8 @@ public static class GithubieCompositionRoot
         services.AddSingleton(new RepositoryAllowlist(options.Repositories));
         services.AddSingleton<IRepositoryEnvironment, RepositoryEnvironment>();
         services.AddSingleton<LocalPathValidator>();
+        services.AddSingleton<GithubieAssertionExecutionContext>();
+        services.AddSingleton<IProviderExecutionGuard>(sp => sp.GetRequiredService<GithubieAssertionExecutionContext>());
         services.AddSingleton<IProcessExecutor, ProcessExecutor>();
         services.AddSingleton<IGitCommandClient>(sp =>
             new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath));

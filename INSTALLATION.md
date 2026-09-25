@@ -44,6 +44,12 @@ Version `1.8.8.4` was upgrade-installed at `C:\Githubie`; installed CLI, MCP, an
 
 Version `1.8.8.5` was upgrade-installed at `C:\Githubie`; installed CLI, MCP, and file versions `1.8.8.5`, automatic running service, configuration validation, preservation of nine registered projects, and the token dialog's requester project and repository URL were verified. The MSI SHA-256 is `47E355E1A594B800AF1DD6F0BB9C0F828C6B05122D4DE78DC3F5EF8520F80FEB`.
 
+Version `1.8.9.1` was upgrade-installed at `C:\Githubie`; installed CLI, MCP, and file versions `1.8.9.1`, automatic running service, configuration validation including `provider_authentication`, bundled `System.Text.Json` assembly version `10.0.0.0`, and rejection of an unauthenticated repository tool call were verified on Windows. The earlier `1.8.9.0` package first failed because the shared publish directory kept an older `System.Text.Json`; `Build-Msi.ps1` now publishes each project separately and verifies the assembly versions required by the server. The MSI SHA-256 is `1D660C848E6C3AC23453D454C09B6FDAB1C8E7B1756638DA30E29596F8EF1115`.
+
+Version `1.8.9.2` was upgrade-installed at `C:\Githubie` with the existing `provider_authentication` configuration unchanged; installed MCP and file versions `1.8.9.2`, automatic running service, configuration validation, and a successful standalone direct `github_repository_status` call without Moyai headers were verified on Windows. The MSI SHA-256 is `618950F593D0330B54E7B1138605994EA4A2B3F236CB6FC441BCED84BCDBE56B`.
+
+Version `1.8.9.3` was upgrade-installed at `C:\Githubie` without the `MOYAI` property; the service was registered as `Githubie.Server.exe "<config>"` without `--moyai`, logged `started in standalone mode`, reported MCP and file versions `1.8.9.3`, passed `config check` and `config check --moyai`, and served a direct `github_repository_status` call. The MSI SHA-256 is `49562B98850D41933E7B0AB57C54859F89872240C7ADD1D246CCA0BD9506D2E6`. Installation with `MOYAI=1` has not yet been verified on a real machine.
+
 ## Portable ZIP
 
 Extract the ZIP to a fixed directory, copy `githubie.example.json` to `config\githubie.json`, and run `githubie.exe service install` before starting the service. The ZIP does not register the service automatically.

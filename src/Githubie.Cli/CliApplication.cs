@@ -20,9 +20,14 @@ namespace Githubie.Cli;
 public static class CliApplication
 {
     private static readonly TimeSpan McpQueryTimeout = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan McpCallTimeout = TimeSpan.FromMinutes(11);
+    // tools/callは承認とToken入力を含み得るため時間制限を設けず、呼び出し側のキャンセルで中断する。
+    private static readonly TimeSpan McpCallTimeout = Timeout.InfiniteTimeSpan;
 
     public static async Task<int> RunAsync(string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken)
+        => await RunAsync(args, output, error, cancellationToken, null);
+
+    internal static async Task<int> RunAsync(string[] args, TextWriter output, TextWriter error,
+        CancellationToken cancellationToken, AuthSetDependencies? auth)
     {
         var (configPath, remaining) = ExtractConfigOption(args);
         var binDirectory = AppContext.BaseDirectory;
@@ -35,7 +40,8 @@ public static class CliApplication
             ["version"] => PrintVersion(output),
             ["logs"] => PrintLogsPath(output, layout),
 
-            ["config", "check"] => await ConfigCheckAsync(effectiveConfigPath, output, cancellationToken),
+            ["config", "check"] => await ConfigCheckAsync(effectiveConfigPath, false, output, cancellationToken),
+            ["config", "check", GithubieServerArguments.MoyaiOption] => await ConfigCheckAsync(effectiveConfigPath, true, output, cancellationToken),
             ["config", "show"] => await ConfigShowAsync(effectiveConfigPath, output, cancellationToken),
 
             ["repo", "list"] => await RepoListAsync(effectiveConfigPath, binDirectory, output, error, cancellationToken),
@@ -55,8 +61,8 @@ public static class CliApplication
                 effectiveConfigPath, binDirectory, repo, issueNumber, output, error, cancellationToken),
 
             ["auth", "test", var repo] => await AuthTestAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
-            ["auth", "set", var repo] => await AuthSetAsync(layout, binDirectory, repo, false, output, error, cancellationToken),
-            ["auth", "set", var repo, "--console"] => await AuthSetAsync(layout, binDirectory, repo, true, output, error, cancellationToken),
+            ["auth", "set", var repo] => await AuthSetAsync(layout, binDirectory, repo, false, output, error, cancellationToken, auth),
+            ["auth", "set", var repo, "--console"] => await AuthSetAsync(layout, binDirectory, repo, true, output, error, cancellationToken, auth),
             ["auth", "delete", var repo] => AuthDelete(layout, repo, output, error),
 
             ["mcp", "status"] => await McpStatusAsync(effectiveConfigPath, output, error, cancellationToken),
@@ -77,7 +83,9 @@ public static class CliApplication
             ["status"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).StatusAsync(cancellationToken),
 
             ["service", "install"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output)
-                .InstallAsync(Path.Combine(binDirectory, "Githubie.Server.exe"), effectiveConfigPath, cancellationToken),
+                .InstallAsync(Path.Combine(binDirectory, "Githubie.Server.exe"), effectiveConfigPath, false, cancellationToken),
+            ["service", "install", GithubieServerArguments.MoyaiOption] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output)
+                .InstallAsync(Path.Combine(binDirectory, "Githubie.Server.exe"), effectiveConfigPath, true, cancellationToken),
             ["service", "uninstall"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).UninstallAsync(cancellationToken),
             ["service", "status"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).StatusAsync(cancellationToken),
 
@@ -108,7 +116,8 @@ public static class CliApplication
               version
               logs
 
-              config check
+              config check [--moyai]
+                Checks standalone settings by default; --moyai also checks Moyai integration settings.
               config show
 
               repo list
@@ -122,6 +131,8 @@ public static class CliApplication
 
               auth test <repository>
               auth set <repository> [--console]
+                GUI by default; only --console uses masked terminal input.
+                The GUI waits until the token is entered or cancelled. Results: OK, CANCELLED, DIALOG_FAILED, SAVE_FAILED.
               auth delete <repository>
 
               mcp status
@@ -135,7 +146,8 @@ public static class CliApplication
               doctor
 
               start | stop | restart | status
-              service install | uninstall | status
+              service install [--moyai] | uninstall | status
+                The service runs standalone by default; --moyai registers it in Moyai integration mode.
 
               --config <path>   githubie.json の場所を指定します（省略時は既定位置）
             """);
@@ -178,7 +190,8 @@ public static class CliApplication
         return result.Options;
     }
 
-    private static async Task<int> ConfigCheckAsync(string configPath, TextWriter output, CancellationToken cancellationToken)
+    private static async Task<int> ConfigCheckAsync(
+        string configPath, bool moyaiIntegration, TextWriter output, CancellationToken cancellationToken)
     {
         var options = await TryLoadOptionsAsync(configPath, output, cancellationToken);
         if (options is null)
@@ -200,6 +213,19 @@ public static class CliApplication
             {
                 errors++;
             }
+        }
+
+        // 既定は単体動作モードの検査。--moyai指定時だけMoyai連携に必要な設定も検査する。
+        if (moyaiIntegration)
+        {
+            var moyaiErrors = JsonGithubieOptionsLoader.ValidateMoyaiIntegration(options);
+            foreach (var moyaiError in moyaiErrors)
+            {
+                output.WriteLine($"[NG] {moyaiError.Path}: {moyaiError.Message}");
+            }
+
+            if (moyaiErrors.Count == 0) output.WriteLine("[OK] Moyai integration settings");
+            errors += moyaiErrors.Count;
         }
 
         output.WriteLine(errors == 0 ? "[OK] config check passed" : $"[NG] config check found {errors} issue(s)");
@@ -381,7 +407,8 @@ public static class CliApplication
         bool useConsole,
         TextWriter output,
         TextWriter error,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        AuthSetDependencies? dependencies)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -393,7 +420,7 @@ public static class CliApplication
         if (useConsole)
         {
             output.Write("Personal Access Token: ");
-            token = ReadMaskedLine();
+            token = dependencies is null ? ReadMaskedLine() : dependencies.ReadConsole();
             output.WriteLine($"({token.Length} characters captured)");
         }
         else
@@ -407,8 +434,9 @@ public static class CliApplication
             RepositoryOptions? options;
             try
             {
-                var configurationStore = new SqliteRepositoryConfigurationStore(layout.RepositoryDatabasePath);
-                options = await configurationStore.GetRepositoryAsync(repository, cancellationToken);
+                options = dependencies is null
+                    ? await new SqliteRepositoryConfigurationStore(layout.RepositoryDatabasePath).GetRepositoryAsync(repository, cancellationToken)
+                    : await dependencies.GetRepository(repository, cancellationToken);
             }
             catch (Exception exception) when (exception is IOException or InvalidDataException)
             {
@@ -422,9 +450,24 @@ public static class CliApplication
             }
 
             var prompt = new TokenPromptClient(Path.Combine(binDirectory, "Githubie.ApprovalPrompt.exe"));
-            token = await prompt.RequestAsync(
-                new Application.Interactive.TokenPromptRequest(
-                    repository, $"https://github.com/{options.GitHubOwner}/{options.GitHubRepo}"), cancellationToken);
+            try
+            {
+                var request = new Application.Interactive.TokenPromptRequest(
+                    repository, $"https://github.com/{options.GitHubOwner}/{options.GitHubRepo}");
+                token = dependencies is null
+                    ? await prompt.RequestAsync(request, cancellationToken)
+                    : await dependencies.RequestGui(request, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                output.WriteLine("[CANCELLED] token was not saved");
+                return 1;
+            }
+            catch (Exception exception) when (exception is IOException or System.ComponentModel.Win32Exception or UnauthorizedAccessException)
+            {
+                error.WriteLine("[DIALOG_FAILED] token dialog could not be started or completed");
+                return 1;
+            }
             if (token is null)
             {
                 output.WriteLine("[CANCELLED] token was not saved");
@@ -432,12 +475,18 @@ public static class CliApplication
             }
         }
 
-        var store = new DpapiFileTokenStore(layout.SecretsDirectory);
         try
         {
-            var result = store.Save(repository, token);
-            output.WriteLine(result.IsSuccess ? "[OK] token saved" : $"[NG] {result.Error}");
+            var result = dependencies is null
+                ? new DpapiFileTokenStore(layout.SecretsDirectory).Save(repository, token)
+                : dependencies.Save(repository, token);
+            output.WriteLine(result.IsSuccess ? "[OK] token saved" : $"[SAVE_FAILED] {result.Error}");
             return result.IsSuccess ? 0 : 1;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException)
+        {
+            error.WriteLine("[SAVE_FAILED] token could not be saved");
+            return 1;
         }
         finally
         {
@@ -475,6 +524,7 @@ public static class CliApplication
             {
                 if (chars.Count > 0)
                 {
+                    chars[^1] = '\0';
                     chars.RemoveAt(chars.Count - 1);
                     Console.Write("\b \b");
                 }
@@ -489,7 +539,16 @@ public static class CliApplication
         Console.WriteLine();
 
         // 貼り付け時に混入しやすい先頭/末尾の空白・改行を除去する。
-        return new string(chars.ToArray()).Trim().ToCharArray();
+        try
+        {
+            return System.Runtime.InteropServices.CollectionsMarshal.AsSpan(chars).Trim().ToArray();
+        }
+        finally
+        {
+            System.Security.Cryptography.CryptographicOperations.ZeroMemory(
+                System.Runtime.InteropServices.MemoryMarshal.AsBytes(
+                    System.Runtime.InteropServices.CollectionsMarshal.AsSpan(chars)));
+        }
     }
 
     private static async Task<int> McpStatusAsync(string configPath, TextWriter output, TextWriter error, CancellationToken cancellationToken)

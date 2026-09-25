@@ -17,11 +17,11 @@ public sealed class CliApplicationTests
     }
 
     [Fact]
-    public void ResolveMcpTimeout_ToolCall_ReturnsElevenMinutes()
+    public void ResolveMcpTimeout_ToolCall_HasNoTimeLimit()
     {
         var timeout = CliApplication.ResolveMcpTimeout("tools/call");
 
-        timeout.Should().Be(TimeSpan.FromMinutes(11));
+        timeout.Should().Be(Timeout.InfiniteTimeSpan);
     }
 
     [Fact]
@@ -34,6 +34,10 @@ public sealed class CliApplicationTests
 
         exitCode.Should().Be(0);
         output.ToString().Should().Contain("auth set <repository> [--console]");
+        output.ToString().Should().Contain("GUI by default; only --console uses masked terminal input.");
+        output.ToString().Should().Contain("The GUI waits until the token is entered or cancelled.");
+        output.ToString().Should().Contain("CANCELLED, DIALOG_FAILED, SAVE_FAILED");
+        output.ToString().Should().NotContain("timeout");
         output.ToString().Should().Contain("source (required; no default)");
     }
 
@@ -137,6 +141,12 @@ public sealed class CliApplicationTests
             {
               "mcp_port": 45460,
               "mcp_path": "/mcp",
+              "provider_authentication": {
+                "issuer": "moyai:test",
+                "trust_bundle_path": "C:\\Githubie\\config\\moyai-trust.json",
+                "replay_database_path": "C:\\Githubie\\data\\moyai-replay.db",
+                "projects": { "sample": "11111111-1111-1111-1111-111111111111" }
+              },
               "repositories": {
                 "sample": {
                   "github_owner": "example-org",
@@ -166,6 +176,35 @@ public sealed class CliApplicationTests
 
             exitCode.Should().Be(0);
             output.ToString().Should().Contain("example-org/example-repo");
+        }
+        finally
+        {
+            File.Delete(configPath);
+        }
+    }
+
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 1)]
+    public async Task RunAsync_ConfigCheck_RequiresMoyaiSettingsOnlyWithMoyaiOption(bool moyai, int expectedExit)
+    {
+        var configPath = Path.Combine(Path.GetTempPath(), $"githubie-standalone-{Guid.NewGuid():N}.json");
+        await File.WriteAllTextAsync(configPath, """
+            { "mcp_port": 45460, "mcp_path": "/mcp", "repositories": {} }
+            """, TestContext.Current.CancellationToken);
+        try
+        {
+            using var output = new StringWriter();
+            using var error = new StringWriter();
+            string[] args = moyai
+                ? ["--config", configPath, "config", "check", "--moyai"]
+                : ["--config", configPath, "config", "check"];
+
+            var exitCode = await CliApplication.RunAsync(args, output, error, TestContext.Current.CancellationToken);
+
+            exitCode.Should().Be(expectedExit);
+            if (moyai) output.ToString().Should().Contain("[NG] $.provider_authentication");
+            else output.ToString().Should().Contain("[OK] config check passed");
         }
         finally
         {

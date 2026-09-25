@@ -24,7 +24,7 @@ Adding a CLI command requires one pattern arm in `CliApplication.RunAsync` and, 
 
 ## Security conditions
 
-- `auth set` reads the Personal Access Token via masked console input (`Console.ReadKey(intercept: true)`), never via a command-line argument.
+- `auth set` defaults to the foreground GUI displaying the registered project name and repository URL. Only explicit `--console` selects masked console input (`Console.ReadKey(intercept: true)`). Tokens are never command-line arguments. The GUI exchange has a five-minute deadline and distinguishes cancellation, dialog failure, timeout, and persistence failure. Mutable input and transport buffers are cleared after use; immutable strings created by WinForms/JSON cannot be deterministically erased.
 - CLI commands that touch GitHub (`auth test`, `mcp *`) never print the token itself.
 
 ## Operational conditions
@@ -36,3 +36,5 @@ The readiness wait is bounded at 30 seconds. Missing, stale, failed, malformed, 
 ## Implementation, tests, and documentation
 
 `Githubie.Cli.CliApplication`, `Program.cs`, and `ServiceReadinessStore`. Command reference in COMMANDS.md. Verified live: `help`, `version`, `config check|show`, `repo status`, `mcp status|tools` all executed against a real published binary and a real GitHub-hosted clone during Phase 1 real-machine verification; unit tests cover CLI dispatch and readiness transitions, failure, and timeout behavior.
+
+The auth GUI contract is covered by `AuthSetTests`, `TokenPromptClientTests`, and `ApprovalPipeBufferTests`: actual CLI dispatch, target identity, save success/failure and buffer clearing, distinct error results, real named-pipe responses and timeout, and absence of tokens in process arguments and CLI output. CLI help and both command references describe the same contract.

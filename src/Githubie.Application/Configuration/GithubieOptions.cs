@@ -12,7 +12,28 @@ public sealed record GithubieOptions(
 {
     public const int DefaultMcpPort = 45460;
     public const string DefaultMcpPath = "/mcp";
+
+    /// <summary>
+    /// MoyaiからのRepository操作を検証するProvider Assertion設定です。
+    /// 未設定の場合、GithubieはMoyaiなしの単体動作となりAssertionを検証しません。
+    /// </summary>
+    public ProviderAuthenticationOptions? ProviderAuthentication { get; init; }
 }
+
+/// <summary>
+/// Provider Assertionの公開設定と管理者登録済みProject対応です。
+/// `RequireAssertion`がfalseの場合、Moyai由来の目印（AuthorizationまたはX-Moyai-Operation-Id）を
+/// 持たないローカル直接呼び出しは従来どおり受け付け、目印を持つ要求だけを厳密に検証します。
+/// </summary>
+public sealed record ProviderAuthenticationOptions(
+    string Issuer,
+    string TrustBundlePath,
+    string ReplayDatabasePath,
+    IReadOnlyDictionary<string, Guid> Projects,
+    string ProtocolVersion = "1",
+    int AssertionLifetimeSeconds = 120,
+    int ClockSkewSeconds = 30,
+    bool RequireAssertion = false);
 
 /// <summary>
 /// リポジトリ単位の設定を表します。

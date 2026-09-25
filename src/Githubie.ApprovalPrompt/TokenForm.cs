@@ -16,6 +16,8 @@ internal sealed partial class TokenForm : Form
 
     public string Token => tokenTextBox.Text;
 
+    public void ClearToken() => tokenTextBox.Clear();
+
     protected override void OnShown(EventArgs e)
     {
         base.OnShown(e);

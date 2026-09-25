@@ -37,5 +37,6 @@ public enum ConfigurationErrorCode
     InvalidTagPattern,
     InvalidMergeMethod,
     InvalidWorkflowPolicy,
+    InvalidProviderAuthentication,
     UnknownProperty,
 }

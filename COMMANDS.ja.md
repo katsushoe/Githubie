@@ -34,7 +34,7 @@ CLIは次のJSONをファイルへ保存し、`githubie mcp call github_branch_c
 
 | コマンド | 説明 |
 | --- | --- |
-| `githubie config check` | `githubie.json`の構文・値・初回移行用Repositoryの`local_root`/`.git`実在を検証し`[OK]`/`[NG]`を表示する |
+| `githubie config check [--moyai]` | 単体動作モードの前提として、`githubie.json`の構文・値・初回移行用Repositoryの`local_root`/`.git`実在を検証し`[OK]`/`[NG]`を表示する。`--moyai`指定時は、`provider_authentication`の存在とJSON上の全RepositoryのProject UUID対応も検証する |
 | `githubie config show` | 読み込んだ起動設定と初回移行用Repository Entryを表示する。現在有効な登録は`repo list`を使用する |
 
 ### リポジトリ
@@ -53,7 +53,7 @@ CLIは次のJSONをファイルへ保存し、`githubie mcp call github_branch_c
 
 | コマンド | 説明 |
 | --- | --- |
-| `githubie auth set <repository> [--console]` | 既定では登録済みProject名とRepository URLを最前面GUIへ表示してPersonal Access Tokenを受け取り、DPAPI暗号化して保存する。`--console`指定時はコマンドラインでマスク入力する |
+| `githubie auth set <repository> [--console]` | 既定では登録済みProject名とRepository URLを最前面GUIへ表示してPersonal Access Tokenを受け取り、DPAPI暗号化して保存する。`--console`指定時のみTerminalでマスク入力する。GUI入力に時間制限はなく、入力完了またはキャンセルまで待機する。応答なしで画面が終了した場合は`[DIALOG_FAILED]`となる。結果は`[OK]`、`[CANCELLED]`、`[DIALOG_FAILED]`、`[SAVE_FAILED]`で識別し、失敗時の終了コードは1。 |
 | `githubie auth test <repository>` | 保存済みTokenで`github_branch_list`相当のAPI呼び出しを行い、認証が通るか確認する |
 | `githubie auth delete <repository>` | 保存済みTokenを削除する |
 
@@ -84,7 +84,7 @@ MCP Toolの失敗時は、既存の`code`、`message`、`summary`に加え、`co
 | コマンド | 説明 |
 | --- | --- |
 | `githubie start` / `stop` / `restart` / `status` | Windows Service「Githubie」の起動・停止・再起動・状態確認（内部で`sc.exe`を実行） |
-| `githubie service install` | Windows Serviceとして登録する（`binPath`は`Githubie.Server.exe <config-path>`、`start=auto`） |
+| `githubie service install [--moyai]` | Windows Serviceとして登録する（`binPath`は`Githubie.Server.exe <config-path>`、`start=auto`）。既定は単体動作モードで、`--moyai`指定時だけ`binPath`へ`--moyai`を付けてMoyai連携モードで登録する |
 | `githubie service uninstall` | Windows Serviceの登録を解除する |
 | `githubie service status` | サービスの状態を確認する（`status`と同じ） |
 

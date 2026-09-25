@@ -9,12 +9,11 @@ public interface IInteractiveApprovalPrompt
         CancellationToken cancellationToken);
 }
 
-/// <summary>対話セッションの人間から秘密値を安全なPipe経由で受け取ります。</summary>
+/// <summary>対話セッションの人間から秘密値を安全なPipe経由で受け取ります。入力完了またはキャンセルまで時間制限なしで待機します。</summary>
 public interface IInteractiveTokenPrompt
 {
     Task<InteractiveTokenPromptResult> RequestTokenAsync(
         TokenPromptRequest request,
-        TimeSpan timeout,
         CancellationToken cancellationToken);
 }
 
@@ -38,7 +37,6 @@ public enum InteractiveTokenPromptOutcome
 {
     Accepted,
     Skipped,
-    TimedOut,
     NoInteractiveSession,
     LaunchFailed,
     ProtocolError,

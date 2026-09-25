@@ -56,7 +56,30 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
             }
         }
 
-        options = options with { Repositories = normalizedRepositories };
+        ProviderAuthenticationOptions? normalizedAuthentication = null;
+        if (options.ProviderAuthentication is { } authentication)
+        {
+            var normalizedProjects = new Dictionary<string, Guid>(StringComparer.Ordinal);
+            foreach (var (repositoryId, projectId) in authentication.Projects)
+            {
+                if (!RepositoryId.TryNormalizeLegacy(repositoryId, out var normalizedId)
+                    || !normalizedProjects.TryAdd(normalizedId, projectId))
+                {
+                    return ConfigurationLoadResult.Failure(new ConfigurationError(
+                        ConfigurationErrorCode.InvalidProviderAuthentication,
+                        $"$.provider_authentication.projects.{repositoryId}",
+                        "project mapping repository id cannot be normalized uniquely."));
+                }
+            }
+
+            normalizedAuthentication = authentication with { Projects = normalizedProjects };
+        }
+
+        options = options with
+        {
+            Repositories = normalizedRepositories,
+            ProviderAuthentication = normalizedAuthentication,
+        };
         var errors = Validate(options);
         return errors.Count == 0 ? ConfigurationLoadResult.Success(options) : ConfigurationLoadResult.Failure(errors);
     }
@@ -78,6 +101,8 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
         {
             errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidMcpPath, "$.mcp_path", "mcp_path must start with '/'."));
         }
+
+        ValidateProviderAuthentication(options, errors);
 
         foreach (var (repositoryId, repository) in options.Repositories)
         {
@@ -136,6 +161,90 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
         }
 
         return errors;
+    }
+
+    private static void ValidateProviderAuthentication(GithubieOptions options, List<ConfigurationError> errors)
+    {
+        const string path = "$.provider_authentication";
+        var authentication = options.ProviderAuthentication;
+        if (authentication is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(authentication.Issuer)
+            || !authentication.Issuer.StartsWith("moyai:", StringComparison.Ordinal)
+            || authentication.Issuer.Length > 200
+            || authentication.Issuer.Any(char.IsControl)
+            || authentication.ProtocolVersion != "1"
+            || authentication.AssertionLifetimeSeconds is < 30 or > 300
+            || authentication.ClockSkewSeconds is < 0 or > 60
+            || !TryGetFullPath(authentication.TrustBundlePath, out var trustBundlePath)
+            || !TryGetFullPath(authentication.ReplayDatabasePath, out var replayDatabasePath)
+            || string.Equals(trustBundlePath, replayDatabasePath, StringComparison.OrdinalIgnoreCase))
+        {
+            errors.Add(new ConfigurationError(
+                ConfigurationErrorCode.InvalidProviderAuthentication,
+                path,
+                "provider authentication settings are invalid."));
+        }
+
+        if (authentication.Projects.Count == 0
+            || authentication.Projects.Any(pair => !RepositoryId.IsValid(pair.Key) || pair.Value == Guid.Empty)
+            || authentication.Projects.Values.Distinct().Count() != authentication.Projects.Count)
+        {
+            errors.Add(new ConfigurationError(
+                ConfigurationErrorCode.InvalidProviderAuthentication,
+                $"{path}.projects",
+                "projects must map repository IDs to unique non-empty Project UUIDs."));
+        }
+    }
+
+    /// <summary>
+    /// Moyai連携モード（`--moyai`）でだけ必要な条件を検証します。
+    /// 単体動作モードでは`provider_authentication`の有無やProject対応の網羅を要求しません。
+    /// </summary>
+    public static List<ConfigurationError> ValidateMoyaiIntegration(GithubieOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        const string path = "$.provider_authentication";
+        var errors = new List<ConfigurationError>();
+        if (options.ProviderAuthentication is not { } authentication)
+        {
+            errors.Add(new ConfigurationError(
+                ConfigurationErrorCode.MissingProperty,
+                path,
+                "provider_authentication is required in Moyai integration mode (--moyai)."));
+            return errors;
+        }
+
+        var unmapped = options.Repositories.Keys
+            .Where(repository => !authentication.Projects.ContainsKey(repository))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (unmapped.Length > 0)
+        {
+            errors.Add(new ConfigurationError(
+                ConfigurationErrorCode.InvalidProviderAuthentication,
+                $"{path}.projects",
+                $"projects must map each registered repository ID to a Project UUID in Moyai integration mode; unmapped: {string.Join(", ", unmapped)}."));
+        }
+
+        return errors;
+    }
+
+    private static bool TryGetFullPath(string path, out string fullPath)
+    {
+        try
+        {
+            fullPath = Path.GetFullPath(path);
+            return Path.IsPathFullyQualified(path);
+        }
+        catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            fullPath = string.Empty;
+            return false;
+        }
     }
 
     private static bool IsValidRegex(string pattern)

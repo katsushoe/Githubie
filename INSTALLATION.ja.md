@@ -20,6 +20,12 @@ Version `1.8.8.4`では`C:\Githubie`へのUpgrade Install、Install済みCLI／M
 
 Version `1.8.8.5`では`C:\Githubie`へのUpgrade Install、Install済みCLI／MCP／File Version `1.8.8.5`、Service自動起動、設定検査、登録済み9 Projectの保持、Token Dialogの要求元Project名と要求先Repository URL表示を実機検証しました。MSIのSHA-256は`47E355E1A594B800AF1DD6F0BB9C0F828C6B05122D4DE78DC3F5EF8520F80FEB`です。
 
+Version `1.8.9.1`では、`C:\Githubie`へのUpgrade Installを実機で検証しました。検証項目は、Install済みCLI／MCP／File Version `1.8.9.1`、Service自動起動、`provider_authentication`を含む設定検査、同梱`System.Text.Json`のAssembly Version `10.0.0.0`、認証のないRepository Tool呼び出しの拒否です。先行版`1.8.9.0`の最初のMSIは、共有Publish先に古い`System.Text.Json`が残ったため起動に失敗しました。現在の`Build-Msi.ps1`はProjectごとに個別Publishし、Serverが要求するAssembly Versionを検査します。MSIのSHA-256は`1D660C848E6C3AC23453D454C09B6FDAB1C8E7B1756638DA30E29596F8EF1115`です。
+
+Version `1.8.9.2`では、既存の`provider_authentication`設定を変更せずに`C:\Githubie`へUpgrade Installし、Install済みMCP／File Version `1.8.9.2`、Service自動起動、設定検査、Moyai Headerを持たない単体の直接`github_repository_status`呼び出しの成功を実機で検証しました。MSIのSHA-256は`618950F593D0330B54E7B1138605994EA4A2B3F236CB6FC441BCED84BCDBE56B`です。
+
+Version `1.8.9.3`では、`MOYAI`プロパティを指定せずに`C:\Githubie`へUpgrade Installしました。実機では次を検証しました。Serviceが`--moyai`なしの`Githubie.Server.exe "<config>"`として登録されること、起動ログに`started in standalone mode`が出力されること、MCP／File Versionが`1.8.9.3`であること、`config check`と`config check --moyai`がともに合格すること、直接の`github_repository_status`呼び出しが成功すること。MSIのSHA-256は`49562B98850D41933E7B0AB57C54859F89872240C7ADD1D246CCA0BD9506D2E6`です。`MOYAI=1`でのInstallは実機で未検証です。
+
 ## 前提
 
 - Windows 10/11 または Windows Server（DPAPI / Windows Service / `sc.exe`を使用するためWindows専用）

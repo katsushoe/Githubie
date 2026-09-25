@@ -26,13 +26,26 @@ public sealed class WindowsServiceManagementTests
         using var output = new StringWriter();
         var manager = new WindowsServiceManager(executor, output);
 
-        await manager.InstallAsync("C:\\Githubie\\bin\\Githubie.Server.exe", "C:\\Githubie\\config\\githubie.json", CancellationToken.None);
+        await manager.InstallAsync("C:\\Githubie\\bin\\Githubie.Server.exe", "C:\\Githubie\\config\\githubie.json", false, CancellationToken.None);
 
         executor.CapturedArguments.Should().Equal(
             "create", "Githubie",
             "binPath=", "\"C:\\Githubie\\bin\\Githubie.Server.exe\" \"C:\\Githubie\\config\\githubie.json\"",
             "start=", "auto",
             "DisplayName=", "Githubie MCP Server");
+    }
+
+    [Fact]
+    public async Task InstallAsync_MoyaiIntegration_AppendsMoyaiOption()
+    {
+        var executor = new RecordingServiceCommandExecutor();
+        using var output = new StringWriter();
+        var manager = new WindowsServiceManager(executor, output);
+
+        await manager.InstallAsync("C:\\Githubie\\bin\\Githubie.Server.exe", "C:\\Githubie\\config\\githubie.json", true, CancellationToken.None);
+
+        executor.CapturedArguments![3].Should().Be(
+            "\"C:\\Githubie\\bin\\Githubie.Server.exe\" \"C:\\Githubie\\config\\githubie.json\" --moyai");
     }
 
     [Fact]
@@ -75,7 +88,7 @@ public sealed class WindowsServiceManagementTests
         using var output = new StringWriter();
         var manager = new WindowsServiceManager(executor, output);
 
-        var exitCode = await manager.InstallAsync("server.exe", "config.json", CancellationToken.None);
+        var exitCode = await manager.InstallAsync("server.exe", "config.json", false, CancellationToken.None);
 
         exitCode.Should().Be(5);
     }

@@ -19,7 +19,15 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.8.3`です。
+現在のDisplay Versionは`1.8.9.3`です。
+
+Version `1.8.9.3`では、次の変更を行いました。
+
+- Moyai Provider Assertion（ES256）の検証を`--moyai`付きで起動した連携モードに限定し、既定は単体動作モードとした。MSIでは`MOYAI=1`で連携モードを選び、その選択をUpgrade後も引き継ぐ。
+- Token入力GUIの5分タイムアウトを廃止し、入力完了、キャンセル、または画面Processの終了まで待機するようにした。
+- MSI／ZIPのPublishをProjectごとに分け、`System.Text.Json`などServerが要求するAssembly Versionを検査するようにした。
+
+自動テスト433件が全件成功しました。MSI／ZIPのBuildとSHA-256、`C:\Githubie`への単体動作モードでのUpgrade、Install済みVersion、Service起動、設定検査、直接のRepository ToolをWindows実機で検証しました。
 
 Version `1.8.8.3`では、remote Tag置換後に対象のlocal Tag refを強制同期し、古いlocal Tagによるnon-fast-forward誤判定を防止します。自動テスト371件が全件成功し、`C:\Githubie`へのMSI Upgradeを実機検証しました。
 

@@ -11,7 +11,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie help` | Prints the command list |
 | `githubie version` | Prints the CLI version |
 | `githubie logs` | Prints the log directory |
-| `githubie config check` | Validates JSON and legacy-import repository roots and `.git` directories |
+| `githubie config check [--moyai]` | Validates JSON and legacy-import repository roots and `.git` directories for standalone mode; `--moyai` also requires `provider_authentication` and a Project UUID for every JSON repository |
 | `githubie config show` | Prints the loaded port, path, and repository IDs |
 | `githubie repo list` | Prints configured repository IDs |
 | `githubie repo status <repository>` | Reads current branch, HEAD, ahead/behind, and working-tree state |
@@ -20,7 +20,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie repo rename <old> <new>` | Atomically migrates repository configuration and its encrypted token to a new ID |
 | `githubie issue list <repository> [--state open|closed]` | Lists issues, excluding pull requests; omitting state returns all states |
 | `githubie issue get <repository> <number>` | Gets issue details; a pull-request number returns `IssueNotFound` |
-| `githubie auth set <repository> [--console]` | Replaces the DPAPI-encrypted token using the foreground GUI, showing the registered project name and repository URL; `--console` uses masked terminal input |
+| `githubie auth set <repository> [--console]` | Replaces the DPAPI-encrypted token using the foreground GUI, showing the registered project name and repository URL; only `--console` uses masked terminal input. The GUI has no time limit and waits until the token is entered or cancelled; closing the dialog without a response reports `[DIALOG_FAILED]`. Results: `[OK]`, `[CANCELLED]`, `[DIALOG_FAILED]`, `[SAVE_FAILED]`; failures return exit code 1. |
 | `githubie auth test <repository>` | Calls GitHub with the stored token and reports authentication status |
 | `githubie auth delete <repository>` | Deletes the stored token |
 | `githubie mcp status` / `mcp test` | Sends MCP `initialize` and reports connectivity |
@@ -29,7 +29,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie mcp call <tool> --file <path>` | Calls an MCP tool with a JSON object read from a file |
 | `githubie doctor` | Waits up to 30 seconds for service readiness, then reports configuration, Git, read-only service composition, token, and repository checks |
 | `githubie start` / `stop` / `restart` / `status` | Changes or reads the Windows Service state |
-| `githubie service install` / `uninstall` / `status` | Registers, unregisters, or reads the Windows Service |
+| `githubie service install [--moyai]` / `uninstall` / `status` | Registers, unregisters, or reads the Windows Service. The service runs standalone by default; `--moyai` registers it with `Githubie.Server.exe <config-path> --moyai` (Moyai integration mode) |
 
 Successful diagnostic commands print `[OK]`; failures print `[NG]` and return a nonzero exit code. Commands that query repository state derive branch, HEAD, ahead/behind, and cleanliness values from the configured local repository at call time.
 

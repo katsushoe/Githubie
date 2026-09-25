@@ -57,6 +57,7 @@ internal static class Program
         using var form = new TokenForm(request);
         var accepted = form.ShowDialog() == DialogResult.OK;
         var response = new TokenPromptResponse(accepted, accepted ? form.Token : string.Empty);
+        form.ClearToken();
         try { await ApprovalPipeProtocol.WriteFrameAsync(pipe, response, CancellationToken.None); }
         catch (IOException) { }
     }

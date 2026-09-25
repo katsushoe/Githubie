@@ -14,7 +14,7 @@ Add `githubie mcp call <tool> [<arguments-json>]` and a `--file` form. The CLI v
 
 The CLI does not maintain a duplicate tool catalog. Tool discovery remains available through `githubie mcp tools`, so newly exposed MCP tools are callable without another CLI command implementation. Tool calls execute in the running server and therefore retain its allowlist, approval, audit, token, and safety boundaries.
 
-Endpoint status and tool discovery use a five-second transport timeout. A `tools/call` request uses an eleven-minute timeout so sequential approval and token prompts, each of which can wait up to five minutes, can complete without client cancellation.
+Endpoint status and tool discovery use a five-second transport timeout. A `tools/call` request has no client-side time limit because it can include an approval prompt (up to five minutes) followed by a token prompt that waits until the token is entered or cancelled; the caller interrupts it through cancellation (for example Ctrl+C).
 
 ## Consequences
 

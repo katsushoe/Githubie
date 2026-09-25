@@ -50,9 +50,11 @@ public sealed class WindowsServiceManager(IServiceCommandExecutor executor, Text
 {
     public const string ServiceName = "Githubie";
 
-    public async Task<int> InstallAsync(string serverExecutablePath, string configPath, CancellationToken cancellationToken)
+    public async Task<int> InstallAsync(
+        string serverExecutablePath, string configPath, bool moyaiIntegration, CancellationToken cancellationToken)
     {
         var binPath = $"\"{serverExecutablePath}\" \"{configPath}\"";
+        if (moyaiIntegration) binPath += $" {Githubie.Server.GithubieServerArguments.MoyaiOption}";
         var (exitCode, result) = await executor.RunAsync(
             ["create", ServiceName, "binPath=", binPath, "start=", "auto", "DisplayName=", "Githubie MCP Server"], cancellationToken);
 

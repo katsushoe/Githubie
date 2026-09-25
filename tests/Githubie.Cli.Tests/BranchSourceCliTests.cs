@@ -29,7 +29,7 @@ public sealed class BranchSourceCliTests
         var config = Path.Combine(Path.GetTempPath(), $"githubie-source-{Guid.NewGuid():N}.json");
         await File.WriteAllTextAsync(config, JsonSerializer.Serialize(new
         {
-            mcp_port = port, mcp_path = "/mcp/", repositories = new { }
+            mcp_port = port, mcp_path = "/mcp/", provider_authentication = new { issuer = "moyai:test", trust_bundle_path = Path.Combine(Path.GetTempPath(), "moyai-trust.json"), replay_database_path = Path.Combine(Path.GetTempPath(), "moyai-replay.db"), projects = new { sample = "11111111-1111-1111-1111-111111111111" } }, repositories = new { }
         }), timeout.Token);
         try
         {

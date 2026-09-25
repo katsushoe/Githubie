@@ -12,6 +12,12 @@ public sealed class JsonGithubieOptionsLoaderTests
         {
           "mcp_port": 45460,
           "mcp_path": "/mcp",
+          "provider_authentication": {
+            "issuer": "moyai:test",
+            "trust_bundle_path": "C:\\Githubie\\config\\moyai-trust.json",
+            "replay_database_path": "C:\\Githubie\\data\\moyai-replay.db",
+            "projects": { "example": "11111111-1111-1111-1111-111111111111" }
+          },
           "repositories": {
             "example": {
               "github_owner": "example-org",
@@ -71,6 +77,71 @@ public sealed class JsonGithubieOptionsLoaderTests
         result.IsSuccess.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task LoadAsync_AcceptsMissingProviderAuthenticationForStandaloneUse()
+    {
+        var start = ValidJson.IndexOf("  \"provider_authentication\"", StringComparison.Ordinal);
+        var end = ValidJson.IndexOf("  \"repositories\"", start, StringComparison.Ordinal);
+        var json = ValidJson.Remove(start, end - start);
+        var loader = new JsonGithubieOptionsLoader();
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Options!.ProviderAuthentication.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("true", true)]
+    public async Task LoadAsync_ReadsRequireAssertion(string? value, bool expected)
+    {
+        var json = value is null
+            ? ValidJson
+            : ValidJson.Replace("\"provider_authentication\": {", $"\"provider_authentication\": {{ \"require_assertion\": {value},");
+        var loader = new JsonGithubieOptionsLoader();
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Options!.ProviderAuthentication!.RequireAssertion.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task LoadAsync_UnmappedRepository_IsRejectedOnlyInMoyaiIntegration()
+    {
+        var json = ValidJson.Replace(
+            "\"projects\": { \"example\": \"11111111-1111-1111-1111-111111111111\" }",
+            "\"projects\": { \"other\": \"11111111-1111-1111-1111-111111111111\" }");
+        var loader = new JsonGithubieOptionsLoader();
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        JsonGithubieOptionsLoader.ValidateMoyaiIntegration(result.Options!).Should().Contain(e =>
+            e.Code == ConfigurationErrorCode.InvalidProviderAuthentication
+            && e.Path == "$.provider_authentication.projects"
+            && e.Message.Contains("example"));
+    }
+
+    [Fact]
+    public async Task ValidateMoyaiIntegration_MissingProviderAuthentication_IsRejected()
+    {
+        var start = ValidJson.IndexOf("  \"provider_authentication\"", StringComparison.Ordinal);
+        var end = ValidJson.IndexOf("  \"repositories\"", start, StringComparison.Ordinal);
+        var loader = new JsonGithubieOptionsLoader();
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(ValidJson.Remove(start, end - start)));
+
+        var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        JsonGithubieOptionsLoader.ValidateMoyaiIntegration(result.Options!).Should().ContainSingle(e =>
+            e.Code == ConfigurationErrorCode.MissingProperty && e.Path == "$.provider_authentication");
+    }
+
     [Theory]
     [InlineData("1example")]
     [InlineData("---")]
@@ -91,7 +162,9 @@ public sealed class JsonGithubieOptionsLoaderTests
     [Fact]
     public async Task LoadAsync_NormalizesLegacyRepositoryId()
     {
-        var json = ValidJson.Replace("\"example\": {", "\"Example-Repo\": {");
+        var json = ValidJson
+            .Replace("\"example\": {", "\"Example-Repo\": {")
+            .Replace("\"projects\": { \"example\":", "\"projects\": { \"Example-Repo\":");
         var loader = new JsonGithubieOptionsLoader();
         await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
 
@@ -123,7 +196,14 @@ public sealed class JsonGithubieOptionsLoaderTests
                     TagPattern: "^v[0-9]+\\.[0-9]+\\.[0-9]+.*$",
                     MergeMethod: "merge",
                     RequireCleanWorkingTree: true),
-            });
+            })
+        {
+            ProviderAuthentication = new(
+                "moyai:test",
+                "C:\\Githubie\\config\\moyai-trust.json",
+                "C:\\Githubie\\data\\moyai-replay.db",
+                new Dictionary<string, Guid> { ["example"] = Guid.Parse("11111111-1111-1111-1111-111111111111") }),
+        };
 
         var loader = new JsonGithubieOptionsLoader();
         await using var writeStream = new MemoryStream();
