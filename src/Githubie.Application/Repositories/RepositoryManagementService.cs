@@ -12,7 +12,9 @@ public sealed record RepositoryUpdateRequest(
     string TagTargetBranch,
     string TagPattern,
     bool RequireCleanWorkingTree,
-    IReadOnlyDictionary<string, WorkflowPolicyOptions>? Workflows = null);
+    IReadOnlyDictionary<string, WorkflowPolicyOptions>? Workflows = null,
+    string? CommitAuthorName = null,
+    string? CommitAuthorEmail = null);
 
 public sealed record RepositoryMutationInfo(bool Approved, string RepositoryId);
 
@@ -21,6 +23,7 @@ public enum RepositoryMutationError
     InvalidRepositoryId,
     RepositoryNotRegistered,
     InvalidPolicy,
+    InvalidAuthorIdentity,
     ApprovalDenied,
     ApprovalTimedOut,
     ApprovalUnavailable,
@@ -64,6 +67,9 @@ public sealed class RepositoryManagementService(
             return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidRepositoryId);
         if (!IsValidPolicy(request))
             return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidPolicy);
+        if ((request.CommitAuthorName is null) != (request.CommitAuthorEmail is null)
+            || (request.CommitAuthorName is not null && !CommitAuthorIdentity.IsValid(request.CommitAuthorName, request.CommitAuthorEmail)))
+            return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidAuthorIdentity);
 
         await _mutationLock.WaitAsync(cancellationToken);
         try
@@ -74,11 +80,12 @@ public sealed class RepositoryManagementService(
             var approval = await approvalPrompt.RequestApprovalAsync(
                 new ApprovalPromptRequest(
                     "Githubie repository update",
-                    $"Update branch policy for '{repositoryId}'",
+                    $"Update repository policy and commit author for '{repositoryId}'",
                     [$"Direct push: {string.Join(", ", request.DirectPushBranches)}",
                      $"Pull: {string.Join(", ", request.PullBranches)}",
                      $"Protected: {string.Join(", ", request.ProtectedBranches)}",
                      $"Tag target: {request.TagTargetBranch}",
+                     $"Commit author: {request.CommitAuthorName ?? existing.CommitAuthorName ?? "repository local configuration"} <{request.CommitAuthorEmail ?? existing.CommitAuthorEmail ?? "repository local configuration"}>",
                      $"Workflows: {string.Join(", ", request.Workflows?.Keys ?? existing.Workflows.Keys)}"]),
                 ApprovalTimeout,
                 cancellationToken);
@@ -94,6 +101,8 @@ public sealed class RepositoryManagementService(
                 TagPattern = request.TagPattern,
                 RequireCleanWorkingTree = request.RequireCleanWorkingTree,
                 Workflows = request.Workflows ?? existing.Workflows,
+                CommitAuthorName = request.CommitAuthorName ?? existing.CommitAuthorName,
+                CommitAuthorEmail = request.CommitAuthorEmail ?? existing.CommitAuthorEmail,
             };
             try { await configurationStore.SaveRepositoryAsync(repositoryId, updated, cancellationToken); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)

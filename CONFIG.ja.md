@@ -51,12 +51,15 @@ Upgrade時は旧規則`^[A-Za-z0-9._-]+$`のIDから`.`、`_`、`-`を除去し�
 | `merge_method` | 必須 | string | なし | `merge`、`squash`、`rebase`のいずれか |
 | `require_clean_working_tree` | 必須 | boolean | なし | `true`なら未Commit変更があるPushを拒否する |
 | `workflows` | 任意 | object | `{}` | 起動可能workflowごとの許可ref、input schema、同時実行数、run関連付けtimeout |
+| `commit_author_name` / `commit_author_email` | 任意 | stringの組 | なし | 登録Repository単位で保持するCommit作成者。両方同時に指定する |
 
 Workflow Policyは`allowed_refs`を必須とし、input型は`string`／`boolean`／`integer`、`max_length`は1～4096とする。`max_concurrent`は1～10、`correlation_timeout_seconds`は1～120。`github_repository_update`による変更は対話承認を必要とする。
 
 Pull Request経路（source→destination）は`develop_branch → main_branch`固定で、設定ファイルに個別項目はない。Agentや設定ファイルに自由な経路を指定させない設計上の判断による。
 
 Repository登録とPolicyの正本は`<install-root>\data\githubie.db`とする。`github_repository_register`は既存Local Git Repositoryを実行中にSQLiteへ追加する。`github_owner`と`github_repo`は指定remote URLから導出し、対話Desktop承認を必要とする。指定remoteは`https://github.com/OWNER/REPOSITORY.git`形式に限定し、SSH形式は拒否する。Service再起動は不要である。
+
+登録時に`commit_author_name`と`commit_author_email`を指定できる。省略時はRepositoryローカルの`user.name`と`user.email`が有効なら登録情報へ保存する。Service実行アカウントのGlobal Git設定は参照しない。既存登録には対話承認付きの`github_repository_update`で両方を設定できる。保存値がない既存登録はRepositoryローカルの設定を使用できる。どちらにも両方の値がなければ、`github_repository_commit`はFileをStageする前に`author_identity_missing`を返す。
 
 更新後の初回起動時に、検証済みの`repositories` Entryをトランザクション内で取り込む。移行Marker作成後は古いJSONによるDatabaseの上書きを行わない。移行とBackupの確認まではJSONを保持し、その後の変更にはRepository管理操作を使用する。
 

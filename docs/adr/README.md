@@ -25,5 +25,6 @@
 | [0027](0027-explicit-tag-source.md) | Required explicit tag creation source; no implicit default |
 | [0028](0028-moyai-github-release-lifecycle.md) | Moyai-compatible draft-first GitHub Release lifecycle |
 | [0029](0029-moyai-provider-assertion.md) | Operation-bound Moyai Provider Assertions with persistent replay protection |
+| [0030](0030-per-repository-commit-author.md) | Per-repository commit author independent of the Windows service account |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

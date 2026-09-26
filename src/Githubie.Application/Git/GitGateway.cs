@@ -123,13 +123,27 @@ public sealed class GitGateway(
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.NothingToCommit);
         }
 
+        var authorName = options.CommitAuthorName;
+        var authorEmail = options.CommitAuthorEmail;
+        if (!CommitAuthorIdentity.IsValid(authorName, authorEmail))
+        {
+            var localName = await _commandClient.GetLocalConfigAsync(options.LocalRoot, "user.name", cancellationToken);
+            var localEmail = await _commandClient.GetLocalConfigAsync(options.LocalRoot, "user.email", cancellationToken);
+            authorName = localName.IsSuccess ? localName.StandardOutput.Trim() : null;
+            authorEmail = localEmail.IsSuccess ? localEmail.StandardOutput.Trim() : null;
+            if (!CommitAuthorIdentity.IsValid(authorName, authorEmail))
+            {
+                return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.AuthorIdentityMissing);
+            }
+        }
+
         var add = await _commandClient.AddAllAsync(options.LocalRoot, cancellationToken);
         if (!add.IsSuccess)
         {
             return CreateCommandFailure<GitRepositoryCommit>(add);
         }
 
-        var commit = await _commandClient.CommitAsync(options.LocalRoot, message, cancellationToken);
+        var commit = await _commandClient.CommitAsync(options.LocalRoot, message, authorName!, authorEmail!, cancellationToken);
         if (!commit.IsSuccess)
         {
             return CreateCommandFailure<GitRepositoryCommit>(commit);

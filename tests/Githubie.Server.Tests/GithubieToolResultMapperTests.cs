@@ -32,6 +32,7 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.AuthenticationFailed] = "authentication_failed",
         [GitGatewayError.WorkingTreeDirty] = "working_tree_dirty",
         [GitGatewayError.NothingToCommit] = "nothing_to_commit",
+        [GitGatewayError.AuthorIdentityMissing] = "author_identity_missing",
         [GitGatewayError.BranchNotAllowed] = "branch_not_allowed",
         [GitGatewayError.ProtectedBranch] = "protected_branch",
         [GitGatewayError.NothingToPush] = "nothing_to_push",

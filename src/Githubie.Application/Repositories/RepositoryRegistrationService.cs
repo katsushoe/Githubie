@@ -29,6 +29,9 @@ public sealed class RepositoryRegistrationService(
         ArgumentNullException.ThrowIfNull(request);
         if (!RepositoryId.TryNormalize(request.Repository, out var repositoryId))
             return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.InvalidRepositoryId);
+        if ((request.CommitAuthorName is null) != (request.CommitAuthorEmail is null)
+            || (request.CommitAuthorName is not null && !CommitAuthorIdentity.IsValid(request.CommitAuthorName, request.CommitAuthorEmail)))
+            return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.InvalidAuthorIdentity);
 
         await _registrationLock.WaitAsync(cancellationToken);
         try
@@ -70,12 +73,31 @@ public sealed class RepositoryRegistrationService(
             if (parsed is null)
                 return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.NonGitHubRemote);
 
-            var options = CreateOptions(parsed.Value.Owner, parsed.Value.Repo, localRoot, remote, develop, main);
+            var authorName = request.CommitAuthorName;
+            var authorEmail = request.CommitAuthorEmail;
+            if (authorName is null)
+            {
+                var localName = await gitCommandClient.GetLocalConfigAsync(localRoot, "user.name", cancellationToken);
+                var localEmail = await gitCommandClient.GetLocalConfigAsync(localRoot, "user.email", cancellationToken);
+                if (localName.IsSuccess && localEmail.IsSuccess
+                    && CommitAuthorIdentity.IsValid(localName.StandardOutput.Trim(), localEmail.StandardOutput.Trim()))
+                {
+                    authorName = localName.StandardOutput.Trim();
+                    authorEmail = localEmail.StandardOutput.Trim();
+                }
+            }
+
+            var options = CreateOptions(parsed.Value.Owner, parsed.Value.Repo, localRoot, remote, develop, main) with
+            {
+                CommitAuthorName = authorName,
+                CommitAuthorEmail = authorEmail,
+            };
             var approval = await approvalPrompt.RequestApprovalAsync(
                 new ApprovalPromptRequest(
                     "Githubie repository registration",
                     $"Register '{repositoryId}' for {parsed.Value.Owner}/{parsed.Value.Repo}",
-                    [$"Local root: {localRoot}", $"Remote: {remote}", $"Branches: {develop} -> {main}"]),
+                    [$"Local root: {localRoot}", $"Remote: {remote}", $"Branches: {develop} -> {main}",
+                     $"Commit author: {authorName ?? "not configured"} <{authorEmail ?? "not configured"}>"]),
                 ApprovalTimeout,
                 cancellationToken);
             var approvalError = MapApprovalError(approval.Outcome);
