@@ -72,8 +72,9 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `pull_request_not_open` | Mergeしようとした PR が既にclosed/merged | 対象PRの状態を確認する |
 | `pull_request_not_mergeable` | Conflictを確認済み | Conflictを解消してから再実行する |
 | `mergeability_calculating` | `calculating_retryable`。GitHubが計算中または反映待ち | `retry_after_seconds`秒待って`github_pr_get`またはmergeを再実行する |
-| `mergeability_unknown` | `unknown_retryable`。一時的に分類不能 | `retry_after_seconds`秒待って再確認する |
+| `mergeability_unknown` | `unknown_retryable`。一時的に分類不能。mergeの409（Head branch変更等）もここに含まれる | `error.diagnostic`のGitHub応答を確認し、`retry_after_seconds`秒待って再確認する |
 | `pull_request_blocked` | 必須review・check・draft・branch規則等で拒否 | 必須条件を満たしてから再実行する |
+| `pull_request_merge_rejected` | GitHubがmergeableと判定しながらmerge APIが405で拒否（merge方式の不許可、Repository規則等）。再試行では解消しない | `error.diagnostic`のGitHub HTTP statusと`message`を確認し、原因を解消してから再実行する |
 | `pull_request_route_not_allowed` | Source/Destinationが`develop_branch → main_branch`以外 | 許可経路のPRのみ操作対象にする。経路自体を変えたい場合は設定の`develop_branch`/`main_branch`を見直す |
 | `pull_request_state_not_allowed` | マージ済みPRをクローズまたは再オープンしようとした | 対象PRの現在状態を確認する |
 | `pull_request_comment_invalid` | コメント本文が空、または65,536文字を超えている | 有効な長さの本文を指定する |

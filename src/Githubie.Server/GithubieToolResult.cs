@@ -116,7 +116,14 @@ public static class GithubieToolResultMapper
     public static GithubieToolResult<T> Map<T>(string operation, string repository, GitHubResult<T> result) =>
         result.IsSuccess
             ? GithubieToolResult<T>.Success(operation, repository, result.Value!)
-            : GithubieToolResult<T>.Failure(operation, repository, MapGitHubError(result.Error!.Value));
+            : GithubieToolResult<T>.Failure(
+                operation,
+                repository,
+                MapGitHubError(result.Error!.Value) with
+                {
+                    CorrelationId = result.CorrelationId ?? Guid.NewGuid().ToString("N"),
+                    Diagnostic = result.Diagnostic,
+                });
 
     public static GithubieToolResult<RepositoryRegistrationInfo> Map(
         string operation,
@@ -250,6 +257,15 @@ public static class GithubieToolResultMapper
         GitHubError.PullRequestBlocked => new("pull_request_blocked", "Pull request merge is blocked by repository requirements.")
         {
             Status = GitHubMergeabilityStatus.Blocked,
+        },
+        GitHubError.PullRequestMergeRejected => new(
+            "pull_request_merge_rejected",
+            "GitHub rejected the merge although the pull request is reported as mergeable.",
+            false,
+            "Read error.diagnostic for GitHub's reason (for example the allowed merge method or repository rules), fix the cause, then merge again.")
+        {
+            CommonCode = GithubieCommonErrorCode.PolicyRejected,
+            SuggestedAction = GithubieSuggestedAction.InspectPolicy,
         },
         GitHubError.PullRequestRouteNotAllowed => new("pull_request_route_not_allowed", "Pull request route is not allowed."),
         GitHubError.PullRequestStateNotAllowed => new("pull_request_state_not_allowed", "A merged pull request cannot be closed or reopened."),

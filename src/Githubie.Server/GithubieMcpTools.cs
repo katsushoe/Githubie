@@ -254,8 +254,8 @@ public sealed class GithubieMcpTools(
     {
         var repositoryResult = await gitHubGateway.GetRepositoryAsync(repository, cancellationToken);
         if (!repositoryResult.IsSuccess)
-            return GithubieToolResult<GitHubProviderCapabilities>.Failure(
-                "provider_capabilities", repository, GithubieToolResultMapper.MapError(repositoryResult.Error!.Value));
+            return GithubieToolResultMapper.Map(
+                "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
             "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true));
     }
@@ -603,7 +603,7 @@ public sealed class GithubieMcpTools(
             var releases = await gitHubGateway.ListReleasesAsync(repository, cancellationToken);
             if (!releases.IsSuccess)
                 return GithubieToolResultMapper.Map<GitHubReleaseInfo>("release_publish", repository,
-                    GitHubResult<GitHubReleaseInfo>.Failure(releases.Error!.Value));
+                    GitHubResult<GitHubReleaseInfo>.FailureFrom(releases));
             var matchingReleases = releases.Value!.Where(release =>
                 string.Equals(release.Tag, tag, StringComparison.Ordinal)).Take(2).ToArray();
             if (matchingReleases.Length > 1)
@@ -644,7 +644,7 @@ public sealed class GithubieMcpTools(
         var current = await gitHubGateway.GetReleaseAsync(repository, tag, cancellationToken);
         if (!current.IsSuccess)
             return GithubieToolResultMapper.Map<bool>("release_withdraw", repository,
-                GitHubResult<bool>.Failure(current.Error!.Value));
+                GitHubResult<bool>.FailureFrom(current));
         var result = await gitHubGateway.DeleteReleaseAsync(repository, current.Value!.Id, cancellationToken);
         return GithubieToolResultMapper.Map("release_withdraw", repository, result);
     }

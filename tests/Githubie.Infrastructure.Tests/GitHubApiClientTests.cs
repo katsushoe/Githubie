@@ -393,6 +393,58 @@ public sealed class GitHubApiClientTests
     }
 
     [Fact]
+    public async Task MergePullRequestAsync_Rejection_ReturnsGitHubMessageWithoutToken()
+    {
+        var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.MethodNotAllowed)
+        {
+            Content = new StringContent(
+                """{"message":"Merge commits are not allowed on this repository.\r\nsecond line","documentation_url":"https://docs.github.com/rest/pulls/pulls#merge-a-pull-request","status":"405"}""",
+                System.Text.Encoding.UTF8,
+                "application/json"),
+        });
+
+        var result = await client.MergePullRequestAsync("repo-id", "owner", "repo", new GitHubPullRequestMerge(1, null, null), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.PullRequestNotMergeable);
+        result.HttpStatus.Should().Be(405);
+        result.Diagnostic.Should().Be(
+            "GitHub HTTP 405: Merge commits are not allowed on this repository.  second line (https://docs.github.com/rest/pulls/pulls#merge-a-pull-request)");
+        result.Diagnostic.Should().NotContain("token");
+    }
+
+    [Theory]
+    [InlineData("not json")]
+    [InlineData("")]
+    [InlineData("[1,2]")]
+    public async Task MergePullRequestAsync_UnreadableRejectionBody_ReturnsStatusOnly(string body)
+    {
+        var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = new StringContent(body),
+        });
+
+        var result = await client.MergePullRequestAsync("repo-id", "owner", "repo", new GitHubPullRequestMerge(1, null, null), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.PullRequestNotMergeable);
+        result.HttpStatus.Should().Be(409);
+        result.Diagnostic.Should().Be("GitHub HTTP 409");
+    }
+
+    [Fact]
+    public async Task MergePullRequestAsync_LongRejectionMessage_IsTruncated()
+    {
+        var longMessage = new string('x', 2000);
+        var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.MethodNotAllowed)
+        {
+            Content = new StringContent($$"""{"message":"{{longMessage}}"}"""),
+        });
+
+        var result = await client.MergePullRequestAsync("repo-id", "owner", "repo", new GitHubPullRequestMerge(1, null, null), TestContext.Current.CancellationToken);
+
+        result.Diagnostic!.Length.Should().Be(500);
+    }
+
+    [Fact]
     public async Task UpdatePullRequestStateAsync_UsesPatchWithClosedState()
     {
         HttpMethod? method = null;

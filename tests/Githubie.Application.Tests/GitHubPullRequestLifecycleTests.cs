@@ -160,6 +160,27 @@ public sealed class GitHubPullRequestLifecycleTests
         result.Error.Should().Be(GitHubError.MergeabilityCalculating);
     }
 
+    [Theory]
+    [InlineData(405, GitHubError.PullRequestMergeRejected)]
+    [InlineData(409, GitHubError.MergeabilityUnknownRetryable)]
+    public async Task MergePullRequestAsync_RejectedWhileMergeable_ClassifiesAndKeepsGitHubReason(
+        int httpStatus, GitHubError expected)
+    {
+        const string reason = "GitHub HTTP 405: Merge commits are not allowed on this repository.";
+        _api.GetPullRequestAsync("sample", "owner", "repo", 1, Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Success(PullRequest(
+                GitHubPullRequestState.Open, GitHubMergeabilityStatus.Mergeable, true)));
+        _api.MergePullRequestAsync("sample", "owner", "repo", Arg.Any<GitHubPullRequestMerge>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestNotMergeable, reason, httpStatus));
+
+        var result = await _gateway.MergePullRequestAsync(
+            "sample", new GitHubPullRequestMerge(1, null, null), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(expected);
+        result.Diagnostic.Should().Be(reason);
+        result.HttpStatus.Should().Be(httpStatus);
+    }
+
     private static GitHubPullRequestInfo PullRequest(
         GitHubPullRequestState state,
         string mergeabilityStatus = GitHubMergeabilityStatus.Mergeable,

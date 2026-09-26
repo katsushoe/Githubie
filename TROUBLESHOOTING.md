@@ -47,8 +47,9 @@
 | `tag_source_not_found` | The explicit source branch or commit does not exist in the configured repository. Verify the source and repository. No tag was created. |
 | `pull_request_not_open` / `pull_request_not_mergeable` | Verify state and resolve conflicts before merging. `pull_request_not_mergeable` is returned only for confirmed conflicts. |
 | `mergeability_calculating` | Status is `calculating_retryable`; wait `retry_after_seconds` and call `github_pr_get` or merge again. |
-| `mergeability_unknown` | Status is `unknown_retryable`; wait `retry_after_seconds` and recheck because GitHub could not yet classify the result. |
+| `mergeability_unknown` | Status is `unknown_retryable`; GitHub could not yet classify the result, including a merge rejected with 409 (for example a modified head branch). Read `error.diagnostic`, wait `retry_after_seconds`, and recheck. |
 | `pull_request_blocked` | Required reviews, checks, draft state, branch rules, or update requirements block merging; satisfy them before retrying. |
+| `pull_request_merge_rejected` | GitHub reported the pull request as mergeable but the merge API rejected it with 405 (for example a disallowed merge method or repository rules). Retrying does not help; read the GitHub HTTP status and `message` in `error.diagnostic`, fix the cause, then merge again. |
 | `pull_request_route_not_allowed` | Use the configured `develop_branch` to `main_branch` route. |
 | `pull_request_state_not_allowed` | A merged pull request cannot be closed or reopened. Verify its current state. |
 | `pull_request_comment_invalid` | Supply a non-empty comment body of at most 65,536 characters. |

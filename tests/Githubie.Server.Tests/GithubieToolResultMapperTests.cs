@@ -79,6 +79,7 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.MergeabilityCalculating] = "mergeability_calculating",
         [GitHubError.MergeabilityUnknownRetryable] = "mergeability_unknown",
         [GitHubError.PullRequestBlocked] = "pull_request_blocked",
+        [GitHubError.PullRequestMergeRejected] = "pull_request_merge_rejected",
         [GitHubError.PullRequestRouteNotAllowed] = "pull_request_route_not_allowed",
         [GitHubError.PullRequestStateNotAllowed] = "pull_request_state_not_allowed",
         [GitHubError.PullRequestCommentInvalid] = "pull_request_comment_invalid",
@@ -139,6 +140,23 @@ public sealed class GithubieToolResultMapperTests
 
         mapped.Ok.Should().BeFalse();
         mapped.Error!.Code.Should().Be(ExpectedGitHubCodes[error]);
+    }
+
+    [Fact]
+    public void Map_MergeRejected_IsNotRetryableAndCarriesGitHubReasonAndCorrelationId()
+    {
+        var mapped = GithubieToolResultMapper.Map(
+            "github_pr_merge",
+            "repo",
+            GitHubResult<string>.Failure(GitHubError.PullRequestMergeRejected, "GitHub HTTP 405: Merge commits are not allowed.", 405)
+                with { CorrelationId = "abc123" });
+
+        mapped.Error!.Code.Should().Be("pull_request_merge_rejected");
+        mapped.Error.Retryable.Should().BeFalse();
+        mapped.Error.CommonCode.Should().Be(GithubieCommonErrorCode.PolicyRejected);
+        mapped.Error.Diagnostic.Should().Be("GitHub HTTP 405: Merge commits are not allowed.");
+        mapped.Error.Provider.Diagnostic.Should().Be("GitHub HTTP 405: Merge commits are not allowed.");
+        mapped.Error.CorrelationId.Should().Be("abc123");
     }
 
     [Fact]

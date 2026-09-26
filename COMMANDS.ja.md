@@ -71,7 +71,7 @@ CLIは次のJSONをファイルへ保存し、`githubie mcp call github_branch_c
 
 `mcp call`はJSON-RPC応答をJSONで出力し、通信・JSON-RPC・MCP・構造化Tool結果の失敗時は非0を返す。処理は実行中MCP Serverへ委譲するため、Allowlist・承認・監査・安全PolicyはMCP Client利用時と共通になる。Tool引数へSecretを含めてはならない。
 
-MCP Toolの失敗時は、既存の`code`、`message`、`summary`に加え、`common_code`、`outcome`、`retryable`、`suggested_action`、`correlation_id`、`provider`を返す。`outcome`は`not_executed`、`failed`、`unknown`のいずれかである。`provider`はGithubie固有の`code`、`diagnostic`、`exit_code`、`recommendation`を保持する。`suggested_action`は機械判定可能な固定値である。Push結果が`outcome: "unknown"`の場合は`retryable: false`かつ`suggested_action: "check_status"`となり、呼出元は再Push前にリモート状態を確認しなければならない。
+MCP Toolの失敗時は、既存の`code`、`message`、`summary`に加え、`common_code`、`outcome`、`retryable`、`suggested_action`、`correlation_id`、`provider`を返す。`outcome`は`not_executed`、`failed`、`unknown`のいずれかである。`provider`はGithubie固有の`code`、`diagnostic`、`exit_code`、`recommendation`を保持する。`suggested_action`は機械判定可能な固定値である。Push結果が`outcome: "unknown"`の場合は`retryable: false`かつ`suggested_action: "check_status"`となり、呼出元は再Push前にリモート状態を確認しなければならない。GitHub REST APIの呼び出しが失敗した場合、`diagnostic`にはGitHubのHTTP statusと応答本文の`message`（あれば`documentation_url`）が入る。制御文字を除き、500文字までに制限し、Token等の資格情報や要求Headerは含めない。同じ`diagnostic`と`correlation_id`を監査ログへ記録する。
 
 ### 診断
 
