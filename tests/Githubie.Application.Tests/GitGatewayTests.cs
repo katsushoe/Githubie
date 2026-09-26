@@ -51,6 +51,46 @@ public sealed class GitGatewayTests
         RequireCleanWorkingTree: requireCleanWorkingTree);
 
     [Fact]
+    public async Task CommitAsync_StoredAuthor_CommitsWithoutServiceGlobalConfiguration()
+    {
+        var allowlist = new RepositoryAllowlist(new Dictionary<string, RepositoryOptions>
+        {
+            [RepositoryId] = CreateOptions() with
+            {
+                CommitAuthorName = "Registered Writer",
+                CommitAuthorEmail = "writer@example.com",
+            },
+        });
+        var gateway = new GitGateway(allowlist, new LocalPathValidator(_environment), _commandClient, _approvalPrompt);
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(" M file.txt"));
+        _commandClient.AddAllAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.CommitAsync(LocalRoot, "message", "Registered Writer", "writer@example.com", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(NewSha));
+
+        var result = await gateway.CommitAsync(RepositoryId, "message", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        await _commandClient.Received(1).CommitAsync(LocalRoot, "message", "Registered Writer", "writer@example.com", Arg.Any<CancellationToken>());
+        await _commandClient.DidNotReceive().GetLocalConfigAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CommitAsync_NoAuthor_ReturnsIdentityErrorBeforeStaging()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(" M file.txt"));
+        _commandClient.GetLocalConfigAsync(LocalRoot, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed));
+
+        var result = await _gateway.CommitAsync(RepositoryId, "message", TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.AuthorIdentityMissing);
+        await _commandClient.DidNotReceive().AddAllAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task GetStatusAsync_ResolvesRepositoryIdCaseInsensitively()
     {
         _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())

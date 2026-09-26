@@ -27,6 +27,22 @@ public sealed class RepositoryManagementServiceTests
     }
 
     [Fact]
+    public async Task UpdateAsync_AuthorIdentity_PersistsPerRepository()
+    {
+        var service = CreateService();
+        var request = new RepositoryUpdateRequest(
+            ["develop"], ["develop", "main"], ["main"], "main", "^v[0-9]+$", true,
+            CommitAuthorName: "Writer", CommitAuthorEmail: "writer@example.com");
+
+        var result = await service.UpdateAsync(RepositoryId, request, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        _allowlist.TryGet(RepositoryId, out var updated).Should().BeTrue();
+        updated.CommitAuthorName.Should().Be("Writer");
+        updated.CommitAuthorEmail.Should().Be("writer@example.com");
+    }
+
+    [Fact]
     public async Task UpdateAsync_Approved_PersistsAndUpdatesAllowlist()
     {
         var service = CreateService();

@@ -55,6 +55,10 @@ public sealed record RepositoryOptions(
     string MergeMethod,
     bool RequireCleanWorkingTree)
 {
+    public string? CommitAuthorName { get; init; }
+
+    public string? CommitAuthorEmail { get; init; }
+
     public IReadOnlyDictionary<string, WorkflowPolicyOptions> Workflows { get; init; }
         = new Dictionary<string, WorkflowPolicyOptions>(StringComparer.Ordinal);
 }

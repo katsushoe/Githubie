@@ -20,7 +20,9 @@ public interface IGitCommandClient
 
     Task<GitCommandResult> AddAllAsync(string repositoryRoot, CancellationToken cancellationToken);
 
-    Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, CancellationToken cancellationToken);
+    Task<GitCommandResult> GetLocalConfigAsync(string repositoryRoot, string key, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken);
 

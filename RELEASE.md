@@ -4,7 +4,9 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.9.3`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.9.4`.
+
+Version `1.8.9.4` stores an optional commit author name and email per registered repository. `github_repository_commit` passes that identity explicitly to Git, uses valid repository-local settings for legacy registrations, and returns `author_identity_missing` before staging when neither source provides both values. All 441 automated tests passed. The MSI and ZIP were built locally with SHA-256 files. The MSI upgrade at `C:\Githubie`, installed version, automatic service startup, configuration check, and preservation of configuration and data were verified. Publication remains pending.
 
 Version `1.8.9.3` introduces the following changes:
 

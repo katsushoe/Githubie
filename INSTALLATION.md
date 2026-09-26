@@ -50,6 +50,8 @@ Version `1.8.9.2` was upgrade-installed at `C:\Githubie` with the existing `prov
 
 Version `1.8.9.3` was upgrade-installed at `C:\Githubie` without the `MOYAI` property; the service was registered as `Githubie.Server.exe "<config>"` without `--moyai`, logged `started in standalone mode`, reported MCP and file versions `1.8.9.3`, passed `config check` and `config check --moyai`, and served a direct `github_repository_status` call. The MSI SHA-256 is `49562B98850D41933E7B0AB57C54859F89872240C7ADD1D246CCA0BD9506D2E6`. Installation with `MOYAI=1` has not yet been verified on a real machine.
 
+The released `1.8.9.3` MSI (SHA-256 `5ED7BB9473BA4A847896F0C81CF64D5B5A87ADDB526F100DEACBB38ACAA9D929`) was then upgrade-installed with `MOYAI=1`. The service was registered with `--moyai`, `MoyaiIntegration=1` was remembered in the registry, and the log reported `started in Moyai integration mode`. Moyai 1.3.3.0 then completed `provider-capabilities` and `repository-status` for Kotodama, plus `repository-status` and `branch-list` for Githubie, and a forged Assertion was rejected with `auth_assertion_invalid`.
+
 ## Portable ZIP
 
 Extract the ZIP to a fixed directory, copy `githubie.example.json` to `config\githubie.json`, and run `githubie.exe service install` before starting the service. The ZIP does not register the service automatically.
