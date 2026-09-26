@@ -21,7 +21,7 @@ Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUI
 
 現在のDisplay Versionは`1.8.9.4`です。
 
-Version `1.8.9.4`では、Repository登録単位でCommit作成者名とメールアドレスを保持し、`github_repository_commit`のGit実行時に明示します。旧登録では有効なRepositoryローカル設定を使用し、どちらにも作成者がない場合はStage前に`author_identity_missing`を返します。自動テスト441件が全件成功し、MSI／ZIPとSHA-256をローカル作成しました。インストールと公開は未実施です。
+Version `1.8.9.4`では、Repository登録単位でCommit作成者名とメールアドレスを保持し、`github_repository_commit`のGit実行時に明示します。旧登録では有効なRepositoryローカル設定を使用し、どちらにも作成者がない場合はStage前に`author_identity_missing`を返します。自動テスト441件が全件成功し、MSI／ZIPとSHA-256をローカル作成しました。`C:\Githubie`でのMSIアップグレード、導入版、サービス自動起動、設定検査、設定とデータの保持を検証済みです。公開は未実施です。
 
 Version `1.8.9.3`では、次の変更を行いました。
 
