@@ -29,7 +29,7 @@ MCP Endpointへのリクエストは`Origin`ヘッダを検証し、送信され
 9. Tagはmain HEADを標準Targetとする
 10. SecretをCommand Line / Log / Remote URLへ残さない
 
-GithubieはMoyaiを必須としない。Server起動引数`--moyai`がなければ単体動作となり、`provider_authentication`を無視する。Moyai連携モードで`require_assertion`が`false`の場合もMoyai由来のHeaderを持たないローカル直接呼び出しを受け付ける。いずれもLoopback／Origin境界、Repository Policy、対話承認で保護する。`Authorization`または`X-Moyai-Operation-Id`を持つRepository単位の呼び出し、および`require_assertion`が`true`の場合の全呼び出しには、短寿命のMoyai ES256 Provider Assertionを必須とし、直接呼び出しへ格下げしない。Githubieは正規Audience `githubie`、管理者設定済みProject UUID、正規Repository、Tool、固定Scope集合、Protocol Version、Operation ID、時刻、最新の署名鍵状態、未使用JTIを実行前に検証する。対話承認を伴う履歴訂正では、承認後かつGit処理開始直前にも期限・鍵・Capabilityを再検証する。`list_projects`、Repository管理、`get_version`は別のLocal管理者／Bootstrap境界である。旧MCP EndpointにService Tokenは存在しないため、旧Tokenとのdual-accept経路は設けない。
+GithubieはMoyaiを必須としない。Server起動引数`--moyai`がなければ単体動作となり、`provider_authentication`を無視する。Moyai連携モードでは、Moyai由来のHeaderを持たないローカル直接呼び出しに、読み取りToolだけを許可する（`direct_connection: read_only`）。`--direct-unrestricted`を付けた場合は、すべてのRepository Toolを許可する（`direct_connection: unrestricted`）。この場合、同じPC上の任意のプロセスがMoyaiを経由せずにRepositoryを変更できるが、2026-09-27にユーザーが受け入れた条件である。いずれもLoopback／Origin境界、Repository Policy、対話承認で保護する。`Authorization`または`X-Moyai-Operation-Id`を持つRepository単位の呼び出し、および`require_assertion`が`true`の場合の全呼び出しには、短寿命のMoyai ES256 Provider Assertionを必須とし、直接呼び出しへ格下げしない。Githubieは正規Audience `githubie`、管理者設定済みProject UUID、正規Repository、Tool、固定Scope集合、Protocol Version、Operation ID、時刻、最新の署名鍵状態、未使用JTIを実行前に検証する。対話承認を伴う履歴訂正では、承認後かつGit処理開始直前にも期限・鍵・Capabilityを再検証する。`list_projects`、Repository管理、`get_version`は別のLocal管理者／Bootstrap境界である。旧MCP EndpointにService Tokenは存在しないため、旧Tokenとのdual-accept経路は設けない。
 
 ## Personal Access Token
 

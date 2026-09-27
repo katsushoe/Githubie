@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Reflection;
+using Githubie.Application.Configuration;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
@@ -16,7 +17,8 @@ public sealed class GithubieMcpTools(
     IGitHubRepositoryGateway gitHubGateway,
     IRepositoryRegistrationService registrationService,
     IRepositoryManagementService managementService,
-    RepositoryAllowlist repositoryAllowlist)
+    RepositoryAllowlist repositoryAllowlist,
+    GithubieOptions? options = null)
 {
     [McpServerTool(Name = "list_projects", ReadOnly = true, UseStructuredContent = true)]
     [Description("Githubieに登録済みのRepository ID一覧を取得します。")]
@@ -279,7 +281,12 @@ public sealed class GithubieMcpTools(
             return GithubieToolResultMapper.Map(
                 "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
-            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true));
+            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true)
+            {
+                Authentication = new(
+                    GithubieIntegrationMode.IntegrationMode(options),
+                    GithubieIntegrationMode.DirectConnection(options)),
+            });
     }
 
     [McpServerTool(Name = "github_branch_get", ReadOnly = true, UseStructuredContent = true)]

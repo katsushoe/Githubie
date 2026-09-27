@@ -29,7 +29,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie mcp call <tool> --file <path>` | Calls an MCP tool with a JSON object read from a file |
 | `githubie doctor` | Waits up to 30 seconds for service readiness, then reports configuration, Git, read-only service composition, token, and repository checks |
 | `githubie start` / `stop` / `restart` / `status` | Changes or reads the Windows Service state |
-| `githubie service install [--moyai]` / `uninstall` / `status` | Registers, unregisters, or reads the Windows Service. The service runs standalone by default; `--moyai` registers it with `Githubie.Server.exe <config-path> --moyai` (Moyai integration mode) |
+| `githubie service install [--moyai [--direct-unrestricted]]` / `uninstall` / `status` | Registers, unregisters, or reads the Windows Service. The service runs standalone by default; `--moyai` registers it with `Githubie.Server.exe <config-path> --moyai` (Moyai integration mode, direct calls read-only), and `--moyai --direct-unrestricted` also lets header-less loopback clients use every repository tool |
 
 Successful diagnostic commands print `[OK]`; failures print `[NG]` and return a nonzero exit code. Commands that query repository state derive branch, HEAD, ahead/behind, and cleanliness values from the configured local repository at call time.
 

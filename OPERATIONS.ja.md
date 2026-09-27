@@ -27,7 +27,7 @@ githubie.exe status
 
 ## Moyai Provider Assertion
 
-Moyai連携は任意である。Serviceは既定で単体動作モードとなり、Serverを`--moyai`付きで起動した場合だけMoyai連携モードとなる（MSIプロパティ`MOYAI=1`、または`githubie service install --moyai`）。`MOYAI=0`で単体動作モードへ戻し、MSIは選択したモードをUpgrade後も引き継ぐ。有効化前に`githubie.exe config check --moyai`を実行する。Moyaiと連携する場合は、管理者が承認したMoyai公開鍵Trust Bundleを`provider_authentication.trust_bundle_path`へ配置し、登録済みの全Repository IDをMoyai Project UUIDへ対応させる。`replay_database_path`はAssertion Replay専用Fileとする。Issuer、Path、鍵、Project対応を変更した場合は`githubie.exe config check`、Service再起動、Readiness確認を行う。Trust Bundleが未配置・読取不能、またはReplay Databaseが利用不能なら処理を拒否する。Trust Bundleは検証時と実行直前確認時に再読込するため、鍵ローテーションは次の要求から反映される。
+Moyai連携は任意である。Serviceは既定で単体動作モードとなり、Serverを`--moyai`付きで起動した場合だけMoyai連携モードとなる（MSIプロパティ`MOYAI=1`、または`githubie service install --moyai`）。`MOYAI=0`で単体動作モードへ戻し、MSIは選択したモードをUpgrade後も引き継ぐ。`MOYAI=1`とあわせて`DIRECT_UNRESTRICTED=1`（または`githubie service install --moyai --direct-unrestricted`）を指定すると`--direct-unrestricted`を付け、Moyai経由の要求を検証したまま、Authorizationなしのloopback直接接続にすべてのRepository Toolを許可する。`DIRECT_UNRESTRICTED=0`で解除でき、この選択も引き継ぐ。有効化前に`githubie.exe config check --moyai`を実行する。Moyaiと連携する場合は、管理者が承認したMoyai公開鍵Trust Bundleを`provider_authentication.trust_bundle_path`へ配置し、登録済みの全Repository IDをMoyai Project UUIDへ対応させる。`replay_database_path`はAssertion Replay専用Fileとする。Issuer、Path、鍵、Project対応を変更した場合は`githubie.exe config check`、Service再起動、Readiness確認を行う。Trust Bundleが未配置・読取不能、またはReplay Databaseが利用不能なら処理を拒否する。Trust Bundleは検証時と実行直前確認時に再読込するため、鍵ローテーションは次の要求から反映される。
 
 Repository登録時にProject UUIDは推測・自動生成しない。新規登録をRepository Toolで使う前に、承認済みUUID対応を`githubie.json`へ追加してServiceを再起動する。隔離結合試験では、本番と異なるPort、設定、Repository Database、Trust Bundle、Replay Database、使い捨てIssuer／鍵、Project UUID、MCP Client Profileを使う。
 

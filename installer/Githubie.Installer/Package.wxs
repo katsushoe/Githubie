@@ -22,7 +22,15 @@
       <RegistrySearch Id="MoyaiModeSearch" Root="HKLM" Key="SOFTWARE\Akatsukisoft\Githubie" Name="MoyaiIntegration" Type="raw" />
     </Property>
     <SetProperty Id="MOYAI" Value="[MOYAI_REMEMBERED]" After="AppSearch" Sequence="both" Condition="NOT MOYAI AND MOYAI_REMEMBERED" />
-    <SetProperty Id="GITHUBIE_MOYAI_SWITCH" Value=" --moyai" Before="InstallInitialize" Sequence="execute" Condition="MOYAI = &quot;1&quot;" />
+    <!-- DIRECT_UNRESTRICTED=1 (only with MOYAI=1) also lets header-less loopback clients use every repository tool.
+         The value is remembered in the registry in the same way; DIRECT_UNRESTRICTED=0 turns it off. -->
+    <Property Id="DIRECT_UNRESTRICTED" Secure="yes" />
+    <Property Id="DIRECT_UNRESTRICTED_REMEMBERED" Secure="yes">
+      <RegistrySearch Id="DirectUnrestrictedSearch" Root="HKLM" Key="SOFTWARE\Akatsukisoft\Githubie" Name="DirectUnrestricted" Type="raw" />
+    </Property>
+    <SetProperty Id="DIRECT_UNRESTRICTED" Value="[DIRECT_UNRESTRICTED_REMEMBERED]" After="AppSearch" Sequence="both" Condition="NOT DIRECT_UNRESTRICTED AND DIRECT_UNRESTRICTED_REMEMBERED" />
+    <SetProperty Action="SetMoyaiSwitch" Id="GITHUBIE_MOYAI_SWITCH" Value=" --moyai" Before="InstallInitialize" Sequence="execute" Condition="MOYAI = &quot;1&quot; AND NOT DIRECT_UNRESTRICTED = &quot;1&quot;" />
+    <SetProperty Action="SetMoyaiDirectUnrestrictedSwitch" Id="GITHUBIE_MOYAI_SWITCH" Value=" --moyai --direct-unrestricted" Before="InstallInitialize" Sequence="execute" Condition="MOYAI = &quot;1&quot; AND DIRECT_UNRESTRICTED = &quot;1&quot;" />
 
     <StandardDirectory Id="TARGETDIR">
       <Directory Id="INSTALLROOT" Name="Githubie" ComponentGuidGenerationSeed="8A814A4E-0993-471B-960C-461C01187CFD">
@@ -72,6 +80,12 @@
           Name="MoyaiIntegration"
           Type="string"
           Value="[MOYAI]" />
+        <RegistryValue
+          Root="HKLM"
+          Key="SOFTWARE\Akatsukisoft\Githubie"
+          Name="DirectUnrestricted"
+          Type="string"
+          Value="[DIRECT_UNRESTRICTED]" />
         <ServiceControl
           Id="GithubieServiceControl"
           Name="Githubie"

@@ -18,6 +18,10 @@ public sealed record GithubieOptions(
     /// 未設定の場合、GithubieはMoyaiなしの単体動作となりAssertionを検証しません。
     /// </summary>
     public ProviderAuthenticationOptions? ProviderAuthentication { get; init; }
+
+    /// <summary>Moyai連携中にloopbackの無Assertion直接接続を許可する起動時設定です。</summary>
+    [JsonIgnore]
+    public bool DirectUnrestricted { get; init; }
 }
 
 /// <summary>

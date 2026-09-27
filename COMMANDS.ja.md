@@ -84,7 +84,7 @@ MCP Toolの失敗時は、既存の`code`、`message`、`summary`に加え、`co
 | コマンド | 説明 |
 | --- | --- |
 | `githubie start` / `stop` / `restart` / `status` | Windows Service「Githubie」の起動・停止・再起動・状態確認（内部で`sc.exe`を実行） |
-| `githubie service install [--moyai]` | Windows Serviceとして登録する（`binPath`は`Githubie.Server.exe <config-path>`、`start=auto`）。既定は単体動作モードで、`--moyai`指定時だけ`binPath`へ`--moyai`を付けてMoyai連携モードで登録する |
+| `githubie service install [--moyai]` | Windows Serviceとして登録する（`binPath`は`Githubie.Server.exe <config-path>`、`start=auto`）。既定は単体動作モードで、`--moyai`指定時だけ`binPath`へ`--moyai`を付けてMoyai連携モードで登録する（直接接続は読み取りのみ）。`--moyai --direct-unrestricted`では、Authorizationなしのloopback直接接続にすべてのRepository Toolを許可する |
 | `githubie service uninstall` | Windows Serviceの登録を解除する |
 | `githubie service status` | サービスの状態を確認する（`status`と同じ） |
 

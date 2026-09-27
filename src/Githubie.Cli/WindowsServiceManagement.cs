@@ -51,10 +51,14 @@ public sealed class WindowsServiceManager(IServiceCommandExecutor executor, Text
     public const string ServiceName = "Githubie";
 
     public async Task<int> InstallAsync(
-        string serverExecutablePath, string configPath, bool moyaiIntegration, CancellationToken cancellationToken)
+        string serverExecutablePath, string configPath, bool moyaiIntegration, CancellationToken cancellationToken,
+        bool directUnrestricted = false)
     {
+        if (directUnrestricted && !moyaiIntegration)
+            throw new ArgumentException("--direct-unrestricted requires --moyai.", nameof(directUnrestricted));
         var binPath = $"\"{serverExecutablePath}\" \"{configPath}\"";
         if (moyaiIntegration) binPath += $" {Githubie.Server.GithubieServerArguments.MoyaiOption}";
+        if (directUnrestricted) binPath += $" {Githubie.Server.GithubieServerArguments.DirectUnrestrictedOption}";
         var (exitCode, result) = await executor.RunAsync(
             ["create", ServiceName, "binPath=", binPath, "start=", "auto", "DisplayName=", "Githubie MCP Server"], cancellationToken);
 

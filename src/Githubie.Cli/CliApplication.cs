@@ -86,6 +86,8 @@ public static class CliApplication
                 .InstallAsync(Path.Combine(binDirectory, "Githubie.Server.exe"), effectiveConfigPath, false, cancellationToken),
             ["service", "install", GithubieServerArguments.MoyaiOption] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output)
                 .InstallAsync(Path.Combine(binDirectory, "Githubie.Server.exe"), effectiveConfigPath, true, cancellationToken),
+            ["service", "install", GithubieServerArguments.MoyaiOption, GithubieServerArguments.DirectUnrestrictedOption] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output)
+                .InstallAsync(Path.Combine(binDirectory, "Githubie.Server.exe"), effectiveConfigPath, true, cancellationToken, directUnrestricted: true),
             ["service", "uninstall"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).UninstallAsync(cancellationToken),
             ["service", "status"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).StatusAsync(cancellationToken),
 
@@ -146,8 +148,9 @@ public static class CliApplication
               doctor
 
               start | stop | restart | status
-              service install [--moyai] | uninstall | status
+              service install [--moyai [--direct-unrestricted]] | uninstall | status
                 The service runs standalone by default; --moyai registers it in Moyai integration mode.
+                --direct-unrestricted (with --moyai) lets header-less loopback clients use every repository tool.
 
               --config <path>   githubie.json の場所を指定します（省略時は既定位置）
             """);
@@ -226,6 +229,10 @@ public static class CliApplication
 
             if (moyaiErrors.Count == 0) output.WriteLine("[OK] Moyai integration settings");
             errors += moyaiErrors.Count;
+            foreach (var repositoryId in JsonGithubieOptionsLoader.FindUnmappedRepositories(options))
+            {
+                output.WriteLine($"[WARN] {repositoryId}: no Moyai Project UUID in provider_authentication.projects; Moyai requests are rejected, direct calls follow direct_connection");
+            }
         }
 
         output.WriteLine(errors == 0 ? "[OK] config check passed" : $"[NG] config check found {errors} issue(s)");

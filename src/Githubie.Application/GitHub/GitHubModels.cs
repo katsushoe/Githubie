@@ -38,7 +38,14 @@ public sealed record GitHubProviderCapabilities(
     bool TagPush,
     bool RepositoryDiff,
     bool RepositoryCommit,
-    bool RepositoryCreate);
+    bool RepositoryCreate)
+{
+    /// <summary>Moyai Consumer Contractの`integration_mode`と`direct_connection`です。</summary>
+    public GitHubProviderAuthentication? Authentication { get; init; }
+}
+
+/// <summary>`integration_mode`は`standalone`／`moyai`、`direct_connection`は`read_only`／`unrestricted`です。</summary>
+public sealed record GitHubProviderAuthentication(string IntegrationMode, string DirectConnection);
 
 public sealed record GitHubTagInfo(string Name, string TargetCommitSha, string? Message, string? Tagger, DateTimeOffset? Date);
 
