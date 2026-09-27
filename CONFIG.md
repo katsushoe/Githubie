@@ -44,12 +44,15 @@ During upgrade, legacy IDs matching the former `^[A-Za-z0-9._-]+$` rule are migr
 | `merge_method` | Yes | string | None | One of `merge`, `squash`, or `rebase` |
 | `require_clean_working_tree` | Yes | boolean | None | Rejects push when the working tree is not clean |
 | `workflows` | No | object | `{}` | Allowlisted workflow filename/ID mapped to refs, input schemas, concurrency, and correlation timeout |
+| `commit_author_name` / `commit_author_email` | No | string pair | None | Commit author identity stored per registered repository; supply both or neither |
 
 Each workflow policy requires `allowed_refs`; inputs may use `string`, `boolean`, or `integer`, with `required`, `max_length` (1–4096), and `secret`. `max_concurrent` is 1–10 and `correlation_timeout_seconds` is 1–120. Policy changes through `github_repository_update` require desktop approval.
 
 The pull-request route is always `develop_branch` to `main_branch`; clients cannot supply another route.
 
 The repository source of truth is `<install-root>\data\githubie.db`. `github_repository_register` adds an existing local GitHub repository to that database at runtime. It derives `github_owner` and `github_repo` from the selected local remote, requires desktop approval, and applies safe branch-policy defaults. The selected remote must use `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are rejected. A service restart is not required.
+
+Registration accepts `commit_author_name` and `commit_author_email`. If omitted, Githubie copies valid repository-local `user.name` and `user.email` into the registration; it never relies on the service account's global Git configuration. `github_repository_update` can set both values for an existing registration after desktop approval. A legacy registration without stored values can still use valid repository-local Git configuration. If neither source supplies both values, `github_repository_commit` returns `author_identity_missing` before staging files.
 
 At the first startup after upgrading, validated entries under `repositories` are imported transactionally. A migration marker prevents later startups from overwriting database changes with stale JSON. Keep the legacy JSON until migration and backup verification are complete; use repository management operations for later changes.
 

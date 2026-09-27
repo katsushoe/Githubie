@@ -1,0 +1,5 @@
+# Git Provider MCP selection: this repository's remote is github.com, so only Githubie is enabled.
+[mcp_servers.githubie]
+enabled = true
+[mcp_servers.buckettie]
+enabled = false

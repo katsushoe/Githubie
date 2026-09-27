@@ -116,7 +116,14 @@ public static class GithubieToolResultMapper
     public static GithubieToolResult<T> Map<T>(string operation, string repository, GitHubResult<T> result) =>
         result.IsSuccess
             ? GithubieToolResult<T>.Success(operation, repository, result.Value!)
-            : GithubieToolResult<T>.Failure(operation, repository, MapGitHubError(result.Error!.Value));
+            : GithubieToolResult<T>.Failure(
+                operation,
+                repository,
+                MapGitHubError(result.Error!.Value) with
+                {
+                    CorrelationId = result.CorrelationId ?? Guid.NewGuid().ToString("N"),
+                    Diagnostic = result.Diagnostic,
+                });
 
     public static GithubieToolResult<RepositoryRegistrationInfo> Map(
         string operation,
@@ -141,6 +148,7 @@ public static class GithubieToolResultMapper
         RepositoryMutationError.InvalidRepositoryId => new("invalid_repository_id", "Repository ID is invalid."),
         RepositoryMutationError.RepositoryNotRegistered => new("repository_not_registered", "Repository is not registered."),
         RepositoryMutationError.InvalidPolicy => new("invalid_policy", "Repository branch policy is invalid."),
+        RepositoryMutationError.InvalidAuthorIdentity => new("invalid_author_identity", "Commit author name and email must be supplied together and be valid."),
         RepositoryMutationError.ApprovalDenied => new("approval_denied", "Repository update was denied."),
         RepositoryMutationError.ApprovalTimedOut => new("approval_timed_out", "Repository update approval timed out."),
         RepositoryMutationError.ApprovalUnavailable => new("approval_unavailable", "The approval prompt could not be displayed."),
@@ -162,6 +170,7 @@ public static class GithubieToolResultMapper
         RepositoryRegistrationError.NonGitHubRemote => new("non_github_remote", "Git remote does not point to github.com."),
         RepositoryRegistrationError.RemoteHttpsRequired => new("remote_https_required", "Git remote must use an HTTPS GitHub URL."),
         RepositoryRegistrationError.GitFailed => new("git_failed", "Git remote validation failed."),
+        RepositoryRegistrationError.InvalidAuthorIdentity => new("invalid_author_identity", "Commit author name and email must be supplied together and be valid."),
         RepositoryRegistrationError.ApprovalDenied => new("approval_denied", "Repository registration was denied."),
         RepositoryRegistrationError.ApprovalTimedOut => new("approval_timed_out", "Repository registration approval timed out."),
         RepositoryRegistrationError.ApprovalUnavailable => new("approval_unavailable", "The approval prompt could not be displayed."),
@@ -187,6 +196,8 @@ public static class GithubieToolResultMapper
         GitGatewayError.AuthenticationFailed => new("authentication_failed", "Git authentication failed.", false, "Refresh or replace the configured credential, then retry."),
         GitGatewayError.WorkingTreeDirty => new("working_tree_dirty", "Working tree has uncommitted changes."),
         GitGatewayError.NothingToCommit => new("nothing_to_commit", "Working tree has no changes to commit."),
+        GitGatewayError.AuthorIdentityMissing => new("author_identity_missing", "Commit author name and email are not configured.", false,
+            "Set commit_author_name and commit_author_email with github_repository_update, or set repository-local user.name and user.email."),
         GitGatewayError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed for this operation."),
         GitGatewayError.ProtectedBranch => new("protected_branch", "Direct push to a protected branch is not allowed."),
         GitGatewayError.InvalidRef => new("invalid_ref", "The supplied Git ref is invalid."),
@@ -246,6 +257,15 @@ public static class GithubieToolResultMapper
         GitHubError.PullRequestBlocked => new("pull_request_blocked", "Pull request merge is blocked by repository requirements.")
         {
             Status = GitHubMergeabilityStatus.Blocked,
+        },
+        GitHubError.PullRequestMergeRejected => new(
+            "pull_request_merge_rejected",
+            "GitHub rejected the merge although the pull request is reported as mergeable.",
+            false,
+            "Read error.diagnostic for GitHub's reason (for example the allowed merge method or repository rules), fix the cause, then merge again.")
+        {
+            CommonCode = GithubieCommonErrorCode.PolicyRejected,
+            SuggestedAction = GithubieSuggestedAction.InspectPolicy,
         },
         GitHubError.PullRequestRouteNotAllowed => new("pull_request_route_not_allowed", "Pull request route is not allowed."),
         GitHubError.PullRequestStateNotAllowed => new("pull_request_state_not_allowed", "A merged pull request cannot be closed or reopened."),

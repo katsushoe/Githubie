@@ -28,10 +28,46 @@ public sealed class RepositoryRegistrationServiceTests
         _environment.ContainsReparsePoint(LocalRoot).Returns(false);
         _git.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
             .Returns(GitCommandResult.Success("https://github.com/derived-owner/derived-repo.git"));
+        _git.GetLocalConfigAsync(LocalRoot, Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed));
         _approval.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
             .Returns(ApprovalPromptOutcome.Approved());
         _tokenPrompt.RequestTokenAsync(Arg.Any<TokenPromptRequest>(), Arg.Any<CancellationToken>())
             .Returns(InteractiveTokenPromptResult.Failure(InteractiveTokenPromptOutcome.Skipped));
+    }
+
+    [Fact]
+    public async Task RegisterAsync_ExplicitAuthor_StoresIdentity()
+    {
+        var service = CreateService();
+
+        var result = await service.RegisterAsync(
+            new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null, "Writer", "writer@example.com"),
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        _allowlist.TryGet("sample", out var options).Should().BeTrue();
+        options.CommitAuthorName.Should().Be("Writer");
+        options.CommitAuthorEmail.Should().Be("writer@example.com");
+    }
+
+    [Fact]
+    public async Task RegisterAsync_LocalAuthor_StoresIdentityWhenNotExplicit()
+    {
+        _git.GetLocalConfigAsync(LocalRoot, "user.name", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("Local Writer"));
+        _git.GetLocalConfigAsync(LocalRoot, "user.email", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("local@example.com"));
+        var service = CreateService();
+
+        var result = await service.RegisterAsync(
+            new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null),
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        _allowlist.TryGet("sample", out var options).Should().BeTrue();
+        options.CommitAuthorName.Should().Be("Local Writer");
+        options.CommitAuthorEmail.Should().Be("local@example.com");
     }
 
     [Fact]

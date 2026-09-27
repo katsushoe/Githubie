@@ -49,7 +49,7 @@ CLI: save the following object in `branch-create.json`, then run `githubie mcp c
 
 Every tool returns `{ ok, operation, repository, data, error }`. `ok` reflects the operation outcome. `data` is populated on success from local Git state, GitHub API state, configuration, or the server version as appropriate. `error` is populated on failure and includes a stable code documented in [Troubleshooting](TROUBLESHOOTING.md).
 
-The error object also contains `common_code`, `outcome`, `retryable`, `suggested_action`, `correlation_id`, and `provider`. `outcome` is `not_executed`, `failed`, or `unknown`. `provider` preserves the Githubie-specific `code`, `diagnostic`, `exit_code`, and `recommendation`. `suggested_action` is a stable machine-readable value. A Push result with `outcome: "unknown"` uses `retryable: false` and `suggested_action: "check_status"`; callers must inspect remote status before attempting another Push. Existing `code`, `message`, `summary`, and diagnostic fields remain available for compatibility.
+The error object also contains `common_code`, `outcome`, `retryable`, `suggested_action`, `correlation_id`, and `provider`. `outcome` is `not_executed`, `failed`, or `unknown`. `provider` preserves the Githubie-specific `code`, `diagnostic`, `exit_code`, and `recommendation`. `suggested_action` is a stable machine-readable value. A Push result with `outcome: "unknown"` uses `retryable: false` and `suggested_action: "check_status"`; callers must inspect remote status before attempting another Push. Existing `code`, `message`, `summary`, and diagnostic fields remain available for compatibility. When a GitHub REST API call fails, `diagnostic` contains the GitHub HTTP status and the response `message` (and `documentation_url` when present), sanitized and limited to 500 characters; credentials and request headers are never included. The same diagnostic and `correlation_id` are written to the audit log.
 
 ```json
 {"ok":true,"operation":"github_branch_get","repository":"example","data":{"name":"develop","sha":"..."},"error":null}
@@ -66,7 +66,7 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `list_projects` | None | Registered repository IDs from the live allowlist; call before selecting a repository and immediately before `github_push` |
 | `github_repository_status` | `repository` | Local/remote HEAD, ahead/behind, and working-tree state from Git; an unborn branch returns an empty local HEAD and zero divergence |
 | `github_repository_diff` | `repository` | Working-tree diff for the registered repository |
-| `github_repository_commit` | `repository`, `message` | Create a local commit on a policy-allowed branch |
+| `github_repository_commit` | `repository`, `message` | Create a local commit on a policy-allowed branch with the stored or repository-local author pair; return `author_identity_missing` before staging if neither is configured |
 | `github_repository_description_get` | `repository` | Repository description from GitHub |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run status and metadata without logs |
 | `github_workflow_run_list` | `repository`, optional filters, `limit` | Up to 100 workflow runs without logs |
@@ -89,8 +89,8 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 
 | Tool | Parameters | State and constraints |
 | --- | --- | --- |
-| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?` | Registers after desktop approval, then optionally stores a token in a separate foreground dialog; returns `token_configured` and `token_status` without exposing the token |
-| `github_repository_update` | `repository`, branch policy fields | Updates branch policy only after desktop approval; identity and paths remain unchanged |
+| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | Registers after desktop approval, storing an explicit commit author or valid repository-local Git identity; then optionally stores a token in a separate foreground dialog |
+| `github_repository_update` | `repository`, branch policy fields, `commit_author_name?`, `commit_author_email?` | Updates branch policy and optional commit author after desktop approval; GitHub identity and paths remain unchanged |
 | `github_repository_unregister` | `repository` | Removes the entry from Githubie configuration and the live allowlist without deleting GitHub or local data |
 | `github_repository_rename` | `old_repository`, `new_repository` | Migrates configuration and encrypted token together; keeps the old ID usable if migration fails |
 | `github_repository_description_update` | `repository`, `description` | Patches only `description`; empty string removes it; maximum 350 characters |

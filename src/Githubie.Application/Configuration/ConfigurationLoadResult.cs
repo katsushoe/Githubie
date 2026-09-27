@@ -36,6 +36,7 @@ public enum ConfigurationErrorCode
     InvalidBranchName,
     InvalidTagPattern,
     InvalidMergeMethod,
+    InvalidAuthorIdentity,
     InvalidWorkflowPolicy,
     InvalidProviderAuthentication,
     UnknownProperty,

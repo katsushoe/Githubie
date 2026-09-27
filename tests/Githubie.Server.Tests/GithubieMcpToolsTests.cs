@@ -47,6 +47,28 @@ public sealed class GithubieMcpToolsTests
     }
 
     [Fact]
+    public async Task PrMerge_Rejection_AuditAndResponseShareCorrelationIdAndGitHubReason()
+    {
+        const string reason = "GitHub HTTP 405: Merge commits are not allowed on this repository.";
+        var gateway = Substitute.For<IGitHubRepositoryGateway>();
+        var audit = Substitute.For<IGithubieAuditLogger>();
+        gateway.MergePullRequestAsync("sample", Arg.Any<GitHubPullRequestMerge>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestMergeRejected, reason, 405));
+        var tools = CreateTools(new AuditedGitHubRepositoryGateway(gateway, audit));
+
+        var result = await tools.MergePullRequestAsync("sample", 37, null, null, TestContext.Current.CancellationToken);
+
+        result.Ok.Should().BeFalse();
+        result.Error!.Code.Should().Be("pull_request_merge_rejected");
+        result.Error.Diagnostic.Should().Be(reason);
+        audit.Received(1).Write(Arg.Is<GithubieAuditEvent>(e =>
+            e.Tool == "github_pr_merge"
+            && e.Result == "failure"
+            && e.Diagnostic == reason
+            && e.CorrelationId == result.Error.CorrelationId));
+    }
+
+    [Fact]
     public async Task TagCreate_PersistsTheTagInTheSameRegisteredRepositoryBeforeSuccess()
     {
         const string repository = "sample";

@@ -71,7 +71,7 @@ CLIは次のJSONをファイルへ保存し、`githubie mcp call github_branch_c
 
 `mcp call`はJSON-RPC応答をJSONで出力し、通信・JSON-RPC・MCP・構造化Tool結果の失敗時は非0を返す。処理は実行中MCP Serverへ委譲するため、Allowlist・承認・監査・安全PolicyはMCP Client利用時と共通になる。Tool引数へSecretを含めてはならない。
 
-MCP Toolの失敗時は、既存の`code`、`message`、`summary`に加え、`common_code`、`outcome`、`retryable`、`suggested_action`、`correlation_id`、`provider`を返す。`outcome`は`not_executed`、`failed`、`unknown`のいずれかである。`provider`はGithubie固有の`code`、`diagnostic`、`exit_code`、`recommendation`を保持する。`suggested_action`は機械判定可能な固定値である。Push結果が`outcome: "unknown"`の場合は`retryable: false`かつ`suggested_action: "check_status"`となり、呼出元は再Push前にリモート状態を確認しなければならない。
+MCP Toolの失敗時は、既存の`code`、`message`、`summary`に加え、`common_code`、`outcome`、`retryable`、`suggested_action`、`correlation_id`、`provider`を返す。`outcome`は`not_executed`、`failed`、`unknown`のいずれかである。`provider`はGithubie固有の`code`、`diagnostic`、`exit_code`、`recommendation`を保持する。`suggested_action`は機械判定可能な固定値である。Push結果が`outcome: "unknown"`の場合は`retryable: false`かつ`suggested_action: "check_status"`となり、呼出元は再Push前にリモート状態を確認しなければならない。GitHub REST APIの呼び出しが失敗した場合、`diagnostic`にはGitHubのHTTP statusと応答本文の`message`（あれば`documentation_url`）が入る。制御文字を除き、500文字までに制限し、Token等の資格情報や要求Headerは含めない。同じ`diagnostic`と`correlation_id`を監査ログへ記録する。
 
 ### 診断
 
@@ -99,7 +99,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `list_projects` | — | 実行中Allowlistに登録済みのRepository ID一覧を取得。Repository選択時と`github_push`直前に呼び出す |
 | `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得。初回Commit前はlocal headを空、ahead/behindを0として返す |
 | `github_repository_diff` | `repository` | 登録Repositoryのworking tree差分を取得 |
-| `github_repository_commit` | `repository`, `message` | Policyで許可されたbranchにlocal commitを作成 |
+| `github_repository_commit` | `repository`, `message` | 登録済みまたはRepositoryローカルの作成者で許可Branchへlocal commitを作成する。作成者がなければStage前に`author_identity_missing`を返す |
 | `github_repository_description_get` | `repository` | Repository Descriptionを取得 |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run状態を取得。log本文は返さない |
 | `github_workflow_run_list` | `repository`、任意filter、`limit` | Workflow runを最大100件取得。log本文は返さない |
@@ -122,8 +122,8 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 
 | Tool | パラメータ | 説明 |
 | --- | --- | --- |
-| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?` | 対話Desktop承認後に登録し、別画面でTokenを任意保存。Token本体を露出せず`token_configured`と`token_status`を返す |
-| `github_repository_update` | `repository`、Branch Policy項目 | 対話Desktop承認後にBranch Policyだけを更新。識別情報とPathは変更しない |
+| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | 対話Desktop承認後にCommit作成者を含めて登録し、別画面でTokenを任意保存する |
+| `github_repository_update` | `repository`、Branch Policy項目、`commit_author_name?`、`commit_author_email?` | 対話Desktop承認後にBranch PolicyとCommit作成者を更新する。GitHub識別情報とPathは変更しない |
 | `github_repository_unregister` | `repository` | Githubie設定と実行中Allowlistから登録解除。GitHub／Localのデータは削除しない |
 | `github_repository_rename` | `old_repository`、`new_repository` | 設定と暗号化Tokenを一括移行し、失敗時は旧IDを維持する |
 | `github_repository_description_update` | `repository`, `description` | Descriptionだけを更新。空文字列で削除、最大350文字 |

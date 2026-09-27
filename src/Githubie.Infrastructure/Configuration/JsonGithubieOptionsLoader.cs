@@ -143,6 +143,13 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
                 errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidMergeMethod, $"{path}.merge_method", "merge_method must be one of: merge, squash, rebase."));
             }
 
+            if ((repository.CommitAuthorName is null) != (repository.CommitAuthorEmail is null)
+                || (repository.CommitAuthorName is not null && !CommitAuthorIdentity.IsValid(repository.CommitAuthorName, repository.CommitAuthorEmail)))
+            {
+                errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidAuthorIdentity, $"{path}.commit_author_name",
+                    "commit_author_name and commit_author_email must be supplied together and be valid."));
+            }
+
             foreach (var (workflow, policy) in repository.Workflows)
             {
                 var workflowPath = $"{path}.workflows.{workflow}";

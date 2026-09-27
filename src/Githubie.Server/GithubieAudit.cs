@@ -7,7 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace Githubie.Server;
 
 /// <summary>
-/// 監査ログの1件を表します。Personal Access Token・Authorization Header・生エラーメッセージは含めません。
+/// 監査ログの1件を表します。Personal Access Token・Authorization Headerは含めません。
+/// GitHub APIの失敗は、応答本文の`message`等から作った長さ制限付きの診断だけを記録します。
 /// </summary>
 public sealed record GithubieAuditEvent(
     string Client,
@@ -284,10 +285,17 @@ public sealed class AuditedGitHubRepositoryGateway(IGitHubRepositoryGateway inne
         var result = await action();
         stopwatch.Stop();
 
+        // 失敗時はMCP応答と同じcorrelation IDでGitHubの拒否理由（秘密値を含まない診断）を記録する。
+        if (!result.IsSuccess && result.CorrelationId is null)
+        {
+            result = result with { CorrelationId = Guid.NewGuid().ToString("N") };
+        }
+
         audit.Write(new GithubieAuditEvent(
             Client: "mcp", Tool: tool, Repository: repository, Branch: branch, PullRequestNumber: pullRequestNumber, Tag: tag,
             Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
-            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(), Source: source));
+            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(), Source: source,
+            CorrelationId: result.CorrelationId, Diagnostic: result.Diagnostic));
 
         return result;
     }

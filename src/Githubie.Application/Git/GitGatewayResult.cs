@@ -81,6 +81,7 @@ public enum GitGatewayError
 
     WorkingTreeDirty,
     NothingToCommit,
+    AuthorIdentityMissing,
     BranchNotAllowed,
     ProtectedBranch,
 

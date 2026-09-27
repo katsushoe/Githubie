@@ -26,6 +26,8 @@ Version `1.8.9.2`では、既存の`provider_authentication`設定を変更せ�
 
 Version `1.8.9.3`では、`MOYAI`プロパティを指定せずに`C:\Githubie`へUpgrade Installしました。実機では次を検証しました。Serviceが`--moyai`なしの`Githubie.Server.exe "<config>"`として登録されること、起動ログに`started in standalone mode`が出力されること、MCP／File Versionが`1.8.9.3`であること、`config check`と`config check --moyai`がともに合格すること、直接の`github_repository_status`呼び出しが成功すること。MSIのSHA-256は`49562B98850D41933E7B0AB57C54859F89872240C7ADD1D246CCA0BD9506D2E6`です。`MOYAI=1`でのInstallは実機で未検証です。
 
+続いて、リリース版の`1.8.9.3` MSI（SHA-256 `5ED7BB9473BA4A847896F0C81CF64D5B5A87ADDB526F100DEACBB38ACAA9D929`）を`MOYAI=1`でUpgrade Installしました。Serviceは`--moyai`付きで登録され、レジストリに`MoyaiIntegration=1`が保存され、起動ログに`started in Moyai integration mode`が出力されました。その後、Moyai 1.3.3.0経由でKotodamaの`provider-capabilities`と`repository-status`、Githubieの`repository-status`と`branch-list`が成功し、偽のAssertionは`auth_assertion_invalid`で拒否されました。
+
 ## 前提
 
 - Windows 10/11 または Windows Server（DPAPI / Windows Service / `sc.exe`を使用するためWindows専用）

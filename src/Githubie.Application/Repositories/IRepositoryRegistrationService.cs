@@ -14,7 +14,9 @@ public sealed record RepositoryRegistrationRequest(
     string LocalRoot,
     string? Remote,
     string? DevelopBranch,
-    string? MainBranch);
+    string? MainBranch,
+    string? CommitAuthorName = null,
+    string? CommitAuthorEmail = null);
 
 /// <summary>Repository登録結果です。</summary>
 public sealed record RepositoryRegistrationInfo(
@@ -41,6 +43,7 @@ public enum RepositoryRegistrationError
     NonGitHubRemote,
     RemoteHttpsRequired,
     GitFailed,
+    InvalidAuthorIdentity,
     ApprovalDenied,
     ApprovalTimedOut,
     ApprovalUnavailable,

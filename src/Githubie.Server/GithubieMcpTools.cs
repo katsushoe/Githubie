@@ -37,10 +37,13 @@ public sealed class GithubieMcpTools(
         [Description("検証・使用するGit remote名。省略時はorigin")] string? remote,
         [Description("開発Branch名。省略時はdevelop")] string? develop_branch,
         [Description("主要Branch名。省略時はmain")] string? main_branch,
-        CancellationToken cancellationToken)
+        [Description("Commit作成者名。メールアドレスと同時指定")] string? commit_author_name = null,
+        [Description("Commit作成者メールアドレス。名前と同時指定")] string? commit_author_email = null,
+        CancellationToken cancellationToken = default)
     {
         var result = await registrationService.RegisterAsync(
-            new RepositoryRegistrationRequest(repository, local_root, remote, develop_branch, main_branch),
+            new RepositoryRegistrationRequest(repository, local_root, remote, develop_branch, main_branch,
+                commit_author_name, commit_author_email),
             cancellationToken);
         return GithubieToolResultMapper.Map("repository_register", repository, result);
     }
@@ -56,7 +59,7 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_repository_update", Destructive = true, UseStructuredContent = true)]
-    [Description("登録済みRepositoryのBranch Policyを対話承認後に更新します。識別情報とLocal Rootは変更しません。")]
+    [Description("登録済みRepositoryのBranch PolicyとCommit作成者を対話承認後に更新します。GitHub識別情報とLocal Rootは変更しません。")]
     public async Task<GithubieToolResult<RepositoryMutationInfo>> UpdateRepositoryAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("直接Pushを許可するBranch")] IReadOnlyList<string> direct_push_branches,
@@ -66,11 +69,14 @@ public sealed class GithubieMcpTools(
         [Description("許可するTag名の正規表現")] string tag_pattern,
         [Description("Push時にcleanな作業Treeを要求するか")] bool require_clean_working_tree = true,
         [Description("起動を許可するworkflow別Policy。省略時は既存設定を維持")] IReadOnlyDictionary<string, Application.Configuration.WorkflowPolicyOptions>? workflows = null,
+        [Description("Commit作成者名。メールアドレスと同時指定、省略時は既存設定を維持")] string? commit_author_name = null,
+        [Description("Commit作成者メールアドレス。名前と同時指定、省略時は既存設定を維持")] string? commit_author_email = null,
         CancellationToken cancellationToken = default)
     {
         var request = new RepositoryUpdateRequest(
             direct_push_branches, pull_branches, protected_branches,
-            tag_target_branch, tag_pattern, require_clean_working_tree, workflows);
+            tag_target_branch, tag_pattern, require_clean_working_tree, workflows,
+            commit_author_name, commit_author_email);
         var result = await managementService.UpdateAsync(repository, request, cancellationToken);
         return GithubieToolResultMapper.Map("repository_update", repository, result);
     }
@@ -248,8 +254,8 @@ public sealed class GithubieMcpTools(
     {
         var repositoryResult = await gitHubGateway.GetRepositoryAsync(repository, cancellationToken);
         if (!repositoryResult.IsSuccess)
-            return GithubieToolResult<GitHubProviderCapabilities>.Failure(
-                "provider_capabilities", repository, GithubieToolResultMapper.MapError(repositoryResult.Error!.Value));
+            return GithubieToolResultMapper.Map(
+                "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
             "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true));
     }
@@ -597,7 +603,7 @@ public sealed class GithubieMcpTools(
             var releases = await gitHubGateway.ListReleasesAsync(repository, cancellationToken);
             if (!releases.IsSuccess)
                 return GithubieToolResultMapper.Map<GitHubReleaseInfo>("release_publish", repository,
-                    GitHubResult<GitHubReleaseInfo>.Failure(releases.Error!.Value));
+                    GitHubResult<GitHubReleaseInfo>.FailureFrom(releases));
             var matchingReleases = releases.Value!.Where(release =>
                 string.Equals(release.Tag, tag, StringComparison.Ordinal)).Take(2).ToArray();
             if (matchingReleases.Length > 1)
@@ -638,7 +644,7 @@ public sealed class GithubieMcpTools(
         var current = await gitHubGateway.GetReleaseAsync(repository, tag, cancellationToken);
         if (!current.IsSuccess)
             return GithubieToolResultMapper.Map<bool>("release_withdraw", repository,
-                GitHubResult<bool>.Failure(current.Error!.Value));
+                GitHubResult<bool>.FailureFrom(current));
         var result = await gitHubGateway.DeleteReleaseAsync(repository, current.Value!.Id, cancellationToken);
         return GithubieToolResultMapper.Map("release_withdraw", repository, result);
     }

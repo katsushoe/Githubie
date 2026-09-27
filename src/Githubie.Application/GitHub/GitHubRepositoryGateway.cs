@@ -62,12 +62,12 @@ public sealed class GitHubRepositoryGateway(
             var before = await _apiClient.ListWorkflowRunsAsync(
                 repository, options.GitHubOwner, options.GitHubRepo, request.Workflow, request.Ref,
                 "workflow_dispatch", null, 20, cancellationToken);
-            if (!before.IsSuccess) return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(before.Error!.Value);
+            if (!before.IsSuccess) return GitHubResult<GitHubWorkflowDispatchInfo>.FailureFrom(before);
             var previousIds = before.Value!.Select(x => x.Id).ToHashSet();
             var dispatchedAt = DateTimeOffset.UtcNow;
             var dispatched = await _apiClient.DispatchWorkflowAsync(
                 repository, options.GitHubOwner, options.GitHubRepo, request, cancellationToken);
-            if (!dispatched.IsSuccess) return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(dispatched.Error!.Value);
+            if (!dispatched.IsSuccess) return GitHubResult<GitHubWorkflowDispatchInfo>.FailureFrom(dispatched);
 
             var timeout = TimeSpan.FromSeconds(Math.Clamp(policy.CorrelationTimeoutSeconds, 1, 120));
             var deadline = DateTimeOffset.UtcNow + timeout;
@@ -76,7 +76,7 @@ public sealed class GitHubRepositoryGateway(
                 var after = await _apiClient.ListWorkflowRunsAsync(
                     repository, options.GitHubOwner, options.GitHubRepo, request.Workflow, request.Ref,
                     "workflow_dispatch", null, 20, cancellationToken);
-                if (!after.IsSuccess) return GitHubResult<GitHubWorkflowDispatchInfo>.Failure(after.Error!.Value);
+                if (!after.IsSuccess) return GitHubResult<GitHubWorkflowDispatchInfo>.FailureFrom(after);
                 var candidates = after.Value!.Where(x => !previousIds.Contains(x.Id) && x.CreatedAt >= dispatchedAt.AddSeconds(-2)).ToArray();
                 if (candidates.Length == 1)
                     return GitHubResult<GitHubWorkflowDispatchInfo>.Success(
@@ -166,13 +166,13 @@ public sealed class GitHubRepositoryGateway(
         if (source.Length == 40 && source.All(Uri.IsHexDigit))
         {
             var commit = await _apiClient.GetCommitShaAsync(repository, options.GitHubOwner, options.GitHubRepo, source, cancellationToken);
-            if (!commit.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(commit.Error!.Value);
+            if (!commit.IsSuccess) return GitHubResult<GitHubBranchInfo>.FailureFrom(commit);
             sourceSha = commit.Value!;
         }
         else
         {
             var sourceBranch = await _apiClient.GetBranchAsync(repository, options.GitHubOwner, options.GitHubRepo, source, cancellationToken);
-            if (!sourceBranch.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(sourceBranch.Error!.Value);
+            if (!sourceBranch.IsSuccess) return GitHubResult<GitHubBranchInfo>.FailureFrom(sourceBranch);
             sourceSha = sourceBranch.Value!.HeadSha;
         }
         return await _apiClient.CreateBranchAsync(
@@ -317,10 +317,19 @@ public sealed class GitHubRepositoryGateway(
             return refreshed;
         }
 
-        var refreshedError = MapMergeabilityError(refreshed.Value!.MergeabilityStatus);
-        return GitHubResult<GitHubPullRequestInfo>.Failure(
-            refreshedError ?? GitHubError.MergeabilityUnknownRetryable);
+        // GitHubの拒否理由（merged.Diagnostic）は、再取得後の判定でも失わずに返す。
+        var refreshedError = MapMergeabilityError(refreshed.Value!.MergeabilityStatus)
+            ?? ClassifyMergeRejection(merged.HttpStatus);
+        return GitHubResult<GitHubPullRequestInfo>.Failure(refreshedError, merged.Diagnostic, merged.HttpStatus);
     }
+
+    /// <summary>
+    /// 再取得でmergeableと判定されたのにmerge APIが拒否した場合の分類です。
+    /// 409（Head branchの変更など）は再試行で解消し得るため再試行可能とし、
+    /// 405はmerge方式の不許可やリポジトリ規則など再試行では解消しない拒否として扱う。
+    /// </summary>
+    private static GitHubError ClassifyMergeRejection(int? httpStatus) =>
+        httpStatus == 405 ? GitHubError.PullRequestMergeRejected : GitHubError.MergeabilityUnknownRetryable;
 
     private async Task<GitHubResult<GitHubPullRequestInfo>> GetStableMergeabilityAsync(
         string repository, string owner, string repo, int number, CancellationToken cancellationToken)
@@ -367,7 +376,7 @@ public sealed class GitHubRepositoryGateway(
         var options = resolved.Options!;
         var pullRequest = await _apiClient.GetPullRequestAsync(
             repository, options.GitHubOwner, options.GitHubRepo, number, cancellationToken);
-        if (!pullRequest.IsSuccess) return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.Failure(pullRequest.Error!.Value);
+        if (!pullRequest.IsSuccess) return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.FailureFrom(pullRequest);
         return await _apiClient.ListPullRequestCommentsAsync(
             repository, options.GitHubOwner, options.GitHubRepo, number, cancellationToken);
     }
@@ -382,7 +391,7 @@ public sealed class GitHubRepositoryGateway(
         var options = resolved.Options!;
         var pullRequest = await _apiClient.GetPullRequestAsync(
             repository, options.GitHubOwner, options.GitHubRepo, number, cancellationToken);
-        if (!pullRequest.IsSuccess) return GitHubResult<GitHubPullRequestComment>.Failure(pullRequest.Error!.Value);
+        if (!pullRequest.IsSuccess) return GitHubResult<GitHubPullRequestComment>.FailureFrom(pullRequest);
         return await _apiClient.CreatePullRequestCommentAsync(
             repository, options.GitHubOwner, options.GitHubRepo, number, body, cancellationToken);
     }
@@ -405,7 +414,7 @@ public sealed class GitHubRepositoryGateway(
         var options = resolved.Options!;
         var pullRequest = await _apiClient.GetPullRequestAsync(
             repository, options.GitHubOwner, options.GitHubRepo, number, cancellationToken);
-        if (!pullRequest.IsSuccess) return GitHubResult<GitHubPullRequestReview>.Failure(pullRequest.Error!.Value);
+        if (!pullRequest.IsSuccess) return GitHubResult<GitHubPullRequestReview>.FailureFrom(pullRequest);
         if (pullRequest.Value!.State != GitHubPullRequestState.Open)
             return GitHubResult<GitHubPullRequestReview>.Failure(GitHubError.PullRequestNotOpen);
         return await _apiClient.CreatePullRequestReviewAsync(
@@ -561,7 +570,7 @@ public sealed class GitHubRepositoryGateway(
         var options = resolved.Options!;
         var releases = await _apiClient.ListReleasesAsync(
             repository, options.GitHubOwner, options.GitHubRepo, cancellationToken);
-        if (!releases.IsSuccess) return GitHubResult<bool>.Failure(releases.Error!.Value);
+        if (!releases.IsSuccess) return GitHubResult<bool>.FailureFrom(releases);
         var release = releases.Value!.FirstOrDefault(candidate => candidate.Id == releaseId);
         if (release is null) return GitHubResult<bool>.Failure(GitHubError.ReleaseNotFound);
         if (!release.Draft) return GitHubResult<bool>.Failure(GitHubError.ReleaseNotDraft);
@@ -593,9 +602,9 @@ public sealed class GitHubRepositoryGateway(
         if (!tagPolicy.IsAllowed) return GitHubResult<GitHubReleaseInfo>.Failure(MapPolicyError(tagPolicy.ErrorCode!.Value));
 
         var tag = await _apiClient.GetTagAsync(repository, options.GitHubOwner, options.GitHubRepo, request.Tag, cancellationToken);
-        if (!tag.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(tag.Error!.Value);
+        if (!tag.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(tag);
         var main = await _apiClient.GetBranchAsync(repository, options.GitHubOwner, options.GitHubRepo, options.TagTargetBranch, cancellationToken);
-        if (!main.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(main.Error!.Value);
+        if (!main.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(main);
         if (!string.Equals(tag.Value!.TargetCommitSha, main.Value!.HeadSha, StringComparison.OrdinalIgnoreCase))
             return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.TagTargetNotAllowed);
 

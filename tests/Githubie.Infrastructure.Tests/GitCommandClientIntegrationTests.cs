@@ -8,6 +8,23 @@ namespace Githubie.Infrastructure.Tests;
 public sealed class GitCommandClientIntegrationTests
 {
     [Fact]
+    public async Task CommitAsync_NoRepositoryIdentity_UsesExplicitAuthor()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        await File.WriteAllTextAsync(Path.Combine(repository.Root, "first.txt"), "first commit", TestContext.Current.CancellationToken);
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+
+        var add = await client.AddAllAsync(repository.Root, TestContext.Current.CancellationToken);
+        var commit = await client.CommitAsync(repository.Root, "first", "Registered Writer", "writer@example.com",
+            TestContext.Current.CancellationToken);
+
+        add.IsSuccess.Should().BeTrue(add.StandardError);
+        commit.IsSuccess.Should().BeTrue(commit.StandardError);
+        var author = await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "log", "-1", "--format=%an <%ae>");
+        author.Should().Be("Registered Writer <writer@example.com>");
+    }
+
+    [Fact]
     public async Task GetBranchAndHeadAsync_EmptyRepository_ReturnsUnbornBranchAndEmptyHead()
     {
         using var repository = await TemporaryGitRepository.CreateEmptyAsync();

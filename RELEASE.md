@@ -4,7 +4,11 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.9.3`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.9.5`.
+
+Version `1.8.9.5` returns GitHub REST API failures with the GitHub HTTP status and response `message` (plus `documentation_url` when present) in `error.diagnostic`, and writes the same diagnostic to the audit log under the same correlation ID. Credentials are never included, and diagnostics are limited to 500 characters. A merge that GitHub rejects with 405 while the pull request is reported mergeable now returns the non-retryable `pull_request_merge_rejected`. All 451 automated tests passed. On Windows, the upgrade at `C:\Githubie` (keeping the `--moyai` integration mode), MCP version 1.8.9.5, a diagnostic and matching audit correlation ID for a missing pull request, and the absence of tokens in the log were verified. The MSI SHA-256 is `1084CBAF07B70A82E8C2806CDFDCEB1E4364FC50B1A649B7260E58A5A6AD83C2`, and the ZIP SHA-256 is `3706670E0D7CFD2B1C401DBC73D927E9860BAC12AFCF5FF7E338AC0D60A71A80`.
+
+Version `1.8.9.4` stores an optional commit author name and email per registered repository. `github_repository_commit` passes that identity explicitly to Git, uses valid repository-local settings for legacy registrations, and returns `author_identity_missing` before staging when neither source provides both values. All 441 automated tests passed. The MSI and ZIP were built locally with SHA-256 files. The MSI upgrade at `C:\Githubie`, installed version, automatic service startup, configuration check, and preservation of configuration and data were verified. Publication remains pending.
 
 Version `1.8.9.3` introduces the following changes:
 

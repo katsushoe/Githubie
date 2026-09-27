@@ -36,7 +36,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}", null, cancellationToken);
         if (!response.IsSuccess)
         {
-            return GitHubResult<GitHubRepositoryInfo>.Failure(response.Error!.Value);
+            return GitHubResult<GitHubRepositoryInfo>.FailureFrom(response);
         }
 
         var body = await ReadAsync<RepositoryResponse>(response.Value!, cancellationToken);
@@ -77,7 +77,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             null, cancellationToken, jsonBody: new WorkflowDispatchBody(request.Ref, request.Inputs),
             notFoundError: GitHubError.WorkflowNotAllowed,
             unprocessableError: GitHubError.WorkflowInputInvalid);
-        if (!response.IsSuccess) return GitHubResult<bool>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<bool>.FailureFrom(response);
         response.Value!.Dispose();
         return GitHubResult<bool>.Success(true);
     }
@@ -89,7 +89,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(
             repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/actions/runs/{runId}", null, cancellationToken,
             notFoundError: GitHubError.WorkflowRunNotFound);
-        if (!response.IsSuccess) return GitHubResult<GitHubWorkflowRunInfo>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<GitHubWorkflowRunInfo>.FailureFrom(response);
         var body = await ReadAsync<WorkflowRunResponse>(response.Value!, cancellationToken);
         return body is null || !IsValidWorkflowRun(body)
             ? GitHubResult<GitHubWorkflowRunInfo>.Failure(GitHubError.InvalidResponse)
@@ -109,7 +109,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         if (status is not null) query.Add($"status={Uri.EscapeDataString(status)}");
         var response = await SendAsync(repositoryId, HttpMethod.Get, $"{path}?{string.Join('&', query)}", null, cancellationToken,
             notFoundError: GitHubError.WorkflowNotAllowed);
-        if (!response.IsSuccess) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.FailureFrom(response);
         var body = await ReadAsync<WorkflowRunsResponse>(response.Value!, cancellationToken);
         if (body?.WorkflowRuns is null) return GitHubResult<IReadOnlyList<GitHubWorkflowRunInfo>>.Failure(GitHubError.InvalidResponse);
         var runs = body.WorkflowRuns.Where(IsValidWorkflowRun).Take(limit).Select(ToWorkflowRunInfo).ToArray();
@@ -121,7 +121,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var page = await GetAllPagesAsync<BranchResponse>(repositoryId, $"repos/{owner}/{repo}/branches", cancellationToken);
         if (!page.IsSuccess)
         {
-            return GitHubResult<IReadOnlyList<GitHubBranchInfo>>.Failure(page.Error!.Value);
+            return GitHubResult<IReadOnlyList<GitHubBranchInfo>>.FailureFrom(page);
         }
 
         var items = page.Value!
@@ -139,7 +139,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             notFoundError: GitHubError.BranchNotFound);
         if (!response.IsSuccess)
         {
-            return GitHubResult<GitHubBranchInfo>.Failure(response.Error!.Value);
+            return GitHubResult<GitHubBranchInfo>.FailureFrom(response);
         }
 
         var body = await ReadAsync<BranchResponse>(response.Value!, cancellationToken);
@@ -158,7 +158,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(repositoryId, HttpMethod.Get,
             $"repos/{owner}/{repo}/git/commits/{Uri.EscapeDataString(sha)}", null, cancellationToken,
             notFoundError: GitHubError.BranchSourceNotFound);
-        if (!response.IsSuccess) return GitHubResult<string>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<string>.FailureFrom(response);
         var body = await ReadAsync<CommitRef>(response.Value!, cancellationToken);
         return body?.Sha is { Length: 40 } resolved && resolved.All(Uri.IsHexDigit)
             && string.Equals(resolved, sha, StringComparison.OrdinalIgnoreCase)
@@ -173,7 +173,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(
             repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/git/refs", null, cancellationToken,
             jsonBody: payload, unprocessableError: GitHubError.BranchAlreadyExists);
-        if (!response.IsSuccess) return GitHubResult<GitHubBranchInfo>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<GitHubBranchInfo>.FailureFrom(response);
 
         var body = await ReadAsync<GitRefResponse>(response.Value!, cancellationToken);
         return string.IsNullOrWhiteSpace(body?.Object?.Sha)
@@ -187,7 +187,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(
             repositoryId, HttpMethod.Delete, $"repos/{owner}/{repo}/git/refs/heads/{Uri.EscapeDataString(branch)}", null,
             cancellationToken, notFoundError: GitHubError.BranchNotFound);
-        if (!response.IsSuccess) return GitHubResult<bool>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<bool>.FailureFrom(response);
         response.Value!.Dispose();
         return GitHubResult<bool>.Success(true);
     }
@@ -215,7 +215,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var page = await GetAllPagesAsync<PullRequestResponse>(repositoryId, path, cancellationToken);
         if (!page.IsSuccess)
         {
-            return GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>.Failure(page.Error!.Value);
+            return GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>.FailureFrom(page);
         }
 
         var items = page.Value!.Where(IsValidPullRequest).Select(ToPullRequestInfo).ToArray();
@@ -227,7 +227,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/pulls/{number}", null, cancellationToken, notFoundError: GitHubError.PullRequestNotFound);
         if (!response.IsSuccess)
         {
-            return GitHubResult<GitHubPullRequestInfo>.Failure(response.Error!.Value);
+            return GitHubResult<GitHubPullRequestInfo>.FailureFrom(response);
         }
 
         var body = await ReadAsync<PullRequestResponse>(response.Value!, cancellationToken);
@@ -245,7 +245,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var stateQuery = state is null ? "all" : state == GitHubIssueState.Open ? "open" : "closed";
         var path = $"repos/{owner}/{repo}/issues?state={stateQuery}";
         var page = await GetAllPagesAsync<IssueResponse>(repositoryId, path, cancellationToken);
-        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubIssueInfo>>.Failure(page.Error!.Value);
+        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubIssueInfo>>.FailureFrom(page);
         var issues = page.Value!.Where(x => x.PullRequest is null && IsValidIssue(x)).Select(ToIssueInfo).ToArray();
         return GitHubResult<IReadOnlyList<GitHubIssueInfo>>.Success(issues);
     }
@@ -255,7 +255,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     {
         var response = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/issues/{number}", null,
             cancellationToken, notFoundError: GitHubError.IssueNotFound);
-        if (!response.IsSuccess) return GitHubResult<GitHubIssueInfo>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<GitHubIssueInfo>.FailureFrom(response);
         var body = await ReadAsync<IssueResponse>(response.Value!, cancellationToken);
         if (body is null || body.PullRequest is not null || !IsValidIssue(body))
             return GitHubResult<GitHubIssueInfo>.Failure(GitHubError.IssueNotFound);
@@ -267,7 +267,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var stats = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/pulls/{number}", null, cancellationToken, notFoundError: GitHubError.PullRequestNotFound);
         if (!stats.IsSuccess)
         {
-            return GitHubResult<GitHubPullRequestDiff>.Failure(stats.Error!.Value);
+            return GitHubResult<GitHubPullRequestDiff>.FailureFrom(stats);
         }
 
         var statsBody = await ReadAsync<PullRequestResponse>(stats.Value!, cancellationToken);
@@ -280,7 +280,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/pulls/{number}", "application/vnd.github.v3.diff", cancellationToken, notFoundError: GitHubError.PullRequestNotFound);
         if (!diffResponse.IsSuccess)
         {
-            return GitHubResult<GitHubPullRequestDiff>.Failure(diffResponse.Error!.Value);
+            return GitHubResult<GitHubPullRequestDiff>.FailureFrom(diffResponse);
         }
 
         var diffText = await diffResponse.Value!.Content.ReadAsStringAsync(cancellationToken);
@@ -296,7 +296,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/pulls", null, cancellationToken, jsonBody: payload);
         if (!response.IsSuccess)
         {
-            return GitHubResult<GitHubPullRequestInfo>.Failure(response.Error!.Value);
+            return GitHubResult<GitHubPullRequestInfo>.FailureFrom(response);
         }
 
         var body = await ReadAsync<PullRequestResponse>(response.Value!, cancellationToken);
@@ -317,7 +317,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             jsonBody: payload, notFoundError: GitHubError.PullRequestNotFound, conflictError: GitHubError.PullRequestNotMergeable);
         if (!response.IsSuccess)
         {
-            return GitHubResult<GitHubPullRequestInfo>.Failure(response.Error!.Value);
+            return GitHubResult<GitHubPullRequestInfo>.FailureFrom(response);
         }
 
         return await GetPullRequestAsync(repositoryId, owner, repo, request.Number, cancellationToken);
@@ -333,7 +333,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             repositoryId, HttpMethod.Patch, $"repos/{owner}/{repo}/pulls/{number}", null, cancellationToken,
             jsonBody: payload, notFoundError: GitHubError.PullRequestNotFound,
             unprocessableError: GitHubError.PullRequestStateNotAllowed);
-        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestInfo>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestInfo>.FailureFrom(response);
         var body = await ReadAsync<PullRequestResponse>(response.Value!, cancellationToken);
         return body is not null && IsValidPullRequest(body)
             ? GitHubResult<GitHubPullRequestInfo>.Success(ToPullRequestInfo(body))
@@ -345,7 +345,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     {
         var page = await GetAllPagesAsync<IssueCommentResponse>(
             repositoryId, $"repos/{owner}/{repo}/issues/{number}/comments", cancellationToken);
-        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.Failure(page.Error!.Value);
+        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.FailureFrom(page);
         var comments = page.Value!.Where(IsValidComment).Select(ToPullRequestComment).ToArray();
         return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.Success(comments);
     }
@@ -357,7 +357,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/issues/{number}/comments", null, cancellationToken,
             jsonBody: new CreateIssueCommentRequest(body), notFoundError: GitHubError.PullRequestNotFound,
             unprocessableError: GitHubError.PullRequestCommentInvalid);
-        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestComment>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestComment>.FailureFrom(response);
         var item = await ReadAsync<IssueCommentResponse>(response.Value!, cancellationToken);
         return item is not null && IsValidComment(item)
             ? GitHubResult<GitHubPullRequestComment>.Success(ToPullRequestComment(item))
@@ -374,7 +374,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             jsonBody: new CreatePullRequestReviewRequest(body, reviewEvent),
             notFoundError: GitHubError.PullRequestNotFound,
             unprocessableError: GitHubError.PullRequestReviewInvalid);
-        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestReview>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestReview>.FailureFrom(response);
         var review = await ReadAsync<PullRequestReviewResponse>(response.Value!, cancellationToken);
         return review is not null && IsValidReview(review)
             ? GitHubResult<GitHubPullRequestReview>.Success(ToPullRequestReview(review))
@@ -386,7 +386,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var page = await GetAllPagesAsync<TagResponse>(repositoryId, $"repos/{owner}/{repo}/tags", cancellationToken);
         if (!page.IsSuccess)
         {
-            return GitHubResult<IReadOnlyList<GitHubTagInfo>>.Failure(page.Error!.Value);
+            return GitHubResult<IReadOnlyList<GitHubTagInfo>>.FailureFrom(page);
         }
 
         var items = page.Value!
@@ -403,7 +403,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/git/refs/tags/{Uri.EscapeDataString(tag)}", null, cancellationToken, notFoundError: GitHubError.TagNotFound);
         if (!refResponse.IsSuccess)
         {
-            return GitHubResult<GitHubTagInfo>.Failure(refResponse.Error!.Value);
+            return GitHubResult<GitHubTagInfo>.FailureFrom(refResponse);
         }
 
         var refBody = await ReadAsync<GitRefResponse>(refResponse.Value!, cancellationToken);
@@ -420,7 +420,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var tagObjectResponse = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/git/tags/{refBody.Object.Sha}", null, cancellationToken);
         if (!tagObjectResponse.IsSuccess)
         {
-            return GitHubResult<GitHubTagInfo>.Failure(tagObjectResponse.Error!.Value);
+            return GitHubResult<GitHubTagInfo>.FailureFrom(tagObjectResponse);
         }
 
         var tagObjectBody = await ReadAsync<GitTagObjectResponse>(tagObjectResponse.Value!, cancellationToken);
@@ -439,7 +439,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var tagObjectResponse = await SendAsync(repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/git/tags", null, cancellationToken, jsonBody: tagObjectPayload);
         if (!tagObjectResponse.IsSuccess)
         {
-            return GitHubResult<GitHubTagInfo>.Failure(tagObjectResponse.Error!.Value);
+            return GitHubResult<GitHubTagInfo>.FailureFrom(tagObjectResponse);
         }
 
         var tagObjectBody = await ReadAsync<CreateTagObjectResponse>(tagObjectResponse.Value!, cancellationToken);
@@ -454,7 +454,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             jsonBody: refPayload, unprocessableError: GitHubError.TagAlreadyExists);
         if (!refResponse.IsSuccess)
         {
-            return GitHubResult<GitHubTagInfo>.Failure(refResponse.Error!.Value);
+            return GitHubResult<GitHubTagInfo>.FailureFrom(refResponse);
         }
 
         return GitHubResult<GitHubTagInfo>.Success(new GitHubTagInfo(
@@ -466,7 +466,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(
             repositoryId, HttpMethod.Delete, $"repos/{owner}/{repo}/git/refs/tags/{Uri.EscapeDataString(tag)}", null,
             cancellationToken, notFoundError: GitHubError.TagNotFound);
-        if (!response.IsSuccess) return GitHubResult<bool>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<bool>.FailureFrom(response);
         response.Value!.Dispose();
         return GitHubResult<bool>.Success(true);
     }
@@ -475,7 +475,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         string repositoryId, string owner, string repo, CancellationToken cancellationToken)
     {
         var page = await GetAllPagesAsync<ReleaseResponse>(repositoryId, $"repos/{owner}/{repo}/releases", cancellationToken);
-        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.Failure(page.Error!.Value);
+        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.FailureFrom(page);
         var releases = page.Value!;
         if (releases.Any(release => !IsValidRelease(release)))
             return GitHubResult<IReadOnlyList<GitHubReleaseInfo>>.Failure(GitHubError.InvalidResponse);
@@ -488,7 +488,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(
             repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/releases/tags/{Uri.EscapeDataString(tag)}", null,
             cancellationToken, notFoundError: GitHubError.ReleaseNotFound);
-        if (!response.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(response);
         var release = await ReadAsync<ReleaseResponse>(response.Value!, cancellationToken);
         return IsValidRelease(release)
             ? GitHubResult<GitHubReleaseInfo>.Success(ToReleaseInfo(release!))
@@ -502,7 +502,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(
             repositoryId, HttpMethod.Patch, $"repos/{owner}/{repo}/releases/{releaseId}", null, cancellationToken,
             jsonBody: request, notFoundError: GitHubError.ReleaseNotFound);
-        if (!response.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(response);
         var release = await ReadAsync<ReleaseResponse>(response.Value!, cancellationToken);
         return IsValidRelease(release)
             ? GitHubResult<GitHubReleaseInfo>.Success(ToReleaseInfo(release!))
@@ -516,7 +516,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(
             repositoryId, HttpMethod.Delete, $"repos/{owner}/{repo}/releases/{releaseId}", null, cancellationToken,
             notFoundError: GitHubError.ReleaseNotFound);
-        if (!response.IsSuccess) return GitHubResult<bool>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<bool>.FailureFrom(response);
         response.Value!.Dispose();
         return GitHubResult<bool>.Success(true);
     }
@@ -529,7 +529,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var currentResponse = await SendAsync(
             repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/releases/{request.ReleaseId}", null, cancellationToken,
             notFoundError: GitHubError.ReleaseNotFound);
-        if (!currentResponse.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(currentResponse.Error!.Value);
+        if (!currentResponse.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(currentResponse);
         var release = await ReadAsync<ReleaseResponse>(currentResponse.Value!, cancellationToken);
         if (!IsValidRelease(release)) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
 
@@ -544,11 +544,11 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
                 var deleted = await SendAsync(
                     repositoryId, HttpMethod.Delete, $"repos/{owner}/{repo}/releases/assets/{existing.Id}", null,
                     cancellationToken, notFoundError: GitHubError.ReleaseAssetNotFound);
-                if (!deleted.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(deleted.Error!.Value);
+                if (!deleted.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(deleted);
                 deleted.Value!.Dispose();
             }
             var upload = await UploadReleaseAssetAsync(repositoryId, owner, repo, release.UploadUrl!, path, cancellationToken);
-            if (!upload.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(upload.Error!.Value);
+            if (!upload.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(upload);
         }
 
         return await GetReleaseAsync(repositoryId, owner, repo, release!.TagName!, cancellationToken);
@@ -579,7 +579,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         }
         else if (existingResponse.Error != GitHubError.ReleaseNotFound)
         {
-            return GitHubResult<GitHubReleaseInfo>.Failure(existingResponse.Error!.Value);
+            return GitHubResult<GitHubReleaseInfo>.FailureFrom(existingResponse);
         }
 
         if (release is null)
@@ -588,7 +588,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             var created = await SendAsync(
                 repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/releases", null, cancellationToken,
                 jsonBody: createPayload, unprocessableError: GitHubError.ReleaseAlreadyExists);
-            if (!created.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(created.Error!.Value);
+            if (!created.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(created);
             release = await ReadAsync<ReleaseResponse>(created.Value!, cancellationToken);
             if (!IsValidRelease(release)) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
         }
@@ -600,7 +600,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             if (uploadedAssets.Any(asset => string.Equals(asset.Name, Path.GetFileName(path), StringComparison.OrdinalIgnoreCase)))
                 continue;
             var upload = await UploadReleaseAssetAsync(repositoryId, owner, repo, release!.UploadUrl!, path, cancellationToken);
-            if (!upload.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(upload.Error!.Value);
+            if (!upload.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(upload);
             uploadedAssets.Add(upload.Value!);
         }
 
@@ -609,7 +609,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             var publish = await SendAsync(
                 repositoryId, HttpMethod.Patch, $"repos/{owner}/{repo}/releases/{release!.Id}", null, cancellationToken,
                 jsonBody: new PublishReleaseRequest(false));
-            if (!publish.IsSuccess) return GitHubResult<GitHubReleaseInfo>.Failure(publish.Error!.Value);
+            if (!publish.IsSuccess) return GitHubResult<GitHubReleaseInfo>.FailureFrom(publish);
             var published = await ReadAsync<ReleaseResponse>(publish.Value!, cancellationToken);
             if (!IsValidRelease(published)) return GitHubResult<GitHubReleaseInfo>.Failure(GitHubError.InvalidResponse);
             release = published;
@@ -637,7 +637,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         var response = await SendAsync(
             repositoryId, HttpMethod.Post, builder.Uri.ToString(), null, cancellationToken,
             rawContent: content, unprocessableError: GitHubError.ReleaseUploadFailed);
-        if (!response.IsSuccess) return GitHubResult<GitHubReleaseAssetInfo>.Failure(response.Error!.Value);
+        if (!response.IsSuccess) return GitHubResult<GitHubReleaseAssetInfo>.FailureFrom(response);
         var body = await ReadAsync<ReleaseAssetResponse>(response.Value!, cancellationToken);
         return body is null || string.IsNullOrWhiteSpace(body.Name) || string.IsNullOrWhiteSpace(body.BrowserDownloadUrl)
             ? GitHubResult<GitHubReleaseAssetInfo>.Failure(GitHubError.InvalidResponse)
@@ -696,7 +696,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             var response = await SendAsync(repositoryId, HttpMethod.Get, path, null, cancellationToken);
             if (!response.IsSuccess)
             {
-                return GitHubResult<IReadOnlyList<T>>.Failure(response.Error!.Value);
+                return GitHubResult<IReadOnlyList<T>>.FailureFrom(response);
             }
 
             var pageItems = await ReadAsync<T[]>(response.Value!, cancellationToken);
@@ -811,13 +811,65 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             }
 
             var error = MapStatusCode(response, notFoundError, conflictError, unprocessableError);
+            var diagnostic = await ReadErrorDiagnosticAsync(response, cancellationToken);
             response.Dispose();
-            return GitHubResult<HttpResponseMessage>.Failure(error);
+            return GitHubResult<HttpResponseMessage>.Failure(error, diagnostic, (int)response.StatusCode);
         }
         finally
         {
             CryptographicOperations.ZeroMemory(System.Runtime.InteropServices.MemoryMarshal.AsBytes(tokenChars.AsSpan()));
         }
+    }
+
+    private const int MaxErrorBodyBytes = 16 * 1024;
+    private const int MaxDiagnosticLength = 500;
+
+    /// <summary>
+    /// GitHubのエラー応答本文から`message`と`documentation_url`だけを取り出し、長さを制限した診断文字列を作ります。
+    /// 要求側の秘密値は応答本文に含まれないため、ここでToken等を扱うことはありません。
+    /// </summary>
+    private static async Task<string> ReadErrorDiagnosticAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var status = $"GitHub HTTP {(int)response.StatusCode}";
+        try
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            var buffer = new byte[MaxErrorBodyBytes];
+            var length = 0;
+            int read;
+            while (length < buffer.Length && (read = await stream.ReadAsync(buffer.AsMemory(length), cancellationToken)) > 0)
+            {
+                length += read;
+            }
+
+            using var document = JsonDocument.Parse(buffer.AsMemory(0, length));
+            if (document.RootElement.ValueKind != JsonValueKind.Object)
+            {
+                return status;
+            }
+
+            var message = document.RootElement.TryGetProperty("message", out var messageElement)
+                && messageElement.ValueKind == JsonValueKind.String ? messageElement.GetString() : null;
+            var documentation = document.RootElement.TryGetProperty("documentation_url", out var urlElement)
+                && urlElement.ValueKind == JsonValueKind.String ? urlElement.GetString() : null;
+            var text = string.IsNullOrWhiteSpace(message) ? status : $"{status}: {message}";
+            if (!string.IsNullOrWhiteSpace(documentation))
+            {
+                text += $" ({documentation})";
+            }
+
+            return SanitizeDiagnostic(text);
+        }
+        catch (Exception exception) when (exception is JsonException or IOException or HttpRequestException or InvalidOperationException)
+        {
+            return status;
+        }
+    }
+
+    private static string SanitizeDiagnostic(string text)
+    {
+        var sanitized = new string(text.Select(character => char.IsControl(character) ? ' ' : character).ToArray()).Trim();
+        return sanitized.Length <= MaxDiagnosticLength ? sanitized : sanitized[..MaxDiagnosticLength];
     }
 
     private static GitHubError MapStatusCode(HttpResponseMessage response, GitHubError notFoundError, GitHubError conflictError, GitHubError unprocessableError)

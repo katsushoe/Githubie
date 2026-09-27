@@ -5,3 +5,4 @@ TestResults/
 .local/
 *.user
 *.suo
+.claude/settings.local.json
