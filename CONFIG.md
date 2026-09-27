@@ -33,7 +33,7 @@ During upgrade, legacy IDs matching the former `^[A-Za-z0-9._-]+$` rule are migr
 | `github_owner` | Yes | string | None | Non-empty GitHub user or organization |
 | `github_repo` | Yes | string | None | Non-empty GitHub repository name |
 | `local_root` | Yes | string | None | Existing local repository root; `.git` must exist and reparse points are rejected |
-| `remote` | Yes | string | None | Fixed Git remote used by Git operations; the example uses `origin` |
+| `remote` | Yes | string | None | Git remote tried first by Git operations; the example uses `origin`. Its URL must point to the registered repository (`provider_remote_mismatch` otherwise). An empty value resolves the remote automatically by URL (ADR 0032). A tool call's `remote` argument takes precedence |
 | `develop_branch` | Yes | string | None | Non-empty source branch of the allowed pull-request route |
 | `main_branch` | Yes | string | None | Non-empty destination branch of the allowed pull-request route |
 | `direct_push_branches` | Yes | string array | None | Branches accepted by `github_push` unless protected |

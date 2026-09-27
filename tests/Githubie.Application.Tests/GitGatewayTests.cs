@@ -26,6 +26,9 @@ public sealed class GitGatewayTests
         _environment.DirectoryExists(Arg.Any<string>()).Returns(true);
         _environment.GitMetadataExists(Arg.Any<string>()).Returns(true);
         _environment.ContainsReparsePoint(Arg.Any<string>()).Returns(false);
+        // 既定では登録済みリモート`origin`が登録Repositoryを指す。個別テストで上書きする。
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
 
         var allowlist = new RepositoryAllowlist(new Dictionary<string, RepositoryOptions>
         {
@@ -559,6 +562,129 @@ public sealed class GitGatewayTests
         var result = await _gateway.FetchAsync(RepositoryId, CancellationToken.None);
 
         result.Error.Should().Be(expected);
+    }
+
+    private GitGateway CreateAutoResolvingGateway() => new(
+        new RepositoryAllowlist(new Dictionary<string, RepositoryOptions> { [RepositoryId] = CreateOptions() with { Remote = string.Empty } }),
+        new LocalPathValidator(_environment), _commandClient, _approvalPrompt);
+
+    private void GivenRemotes(string output) =>
+        _commandClient.ListRemoteUrlsAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(output));
+
+    [Fact]
+    public async Task FetchAsync_WithoutStoredRemote_UsesTheOnlyRemoteMatchingTheRepositoryUrl()
+    {
+        GivenRemotes("remote.upstream.url https://github.com/other/repo.git\nremote.mine.url https://github.com/owner/repo\n");
+        _commandClient.FetchAsync(LocalRoot, RepositoryId, "mine", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await CreateAutoResolvingGateway().FetchAsync(RepositoryId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task FetchAsync_SeveralMatches_PrefersTheConventionalName()
+    {
+        GivenRemotes("remote.origin.url https://github.com/owner/repo.git\nremote.github-origin-https.url https://github.com/owner/repo.git\n");
+        _commandClient.FetchAsync(LocalRoot, RepositoryId, "github-origin-https", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await CreateAutoResolvingGateway().FetchAsync(RepositoryId, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task FetchAsync_SeveralMatchesWithoutConventionalName_IsAmbiguous()
+    {
+        GivenRemotes("remote.origin.url https://github.com/owner/repo.git\nremote.backup.url https://github.com/owner/repo\n");
+
+        var result = await CreateAutoResolvingGateway().FetchAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.RemoteAmbiguous);
+        await _commandClient.DidNotReceive().FetchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("remote.origin.url git@github.com:owner/repo.git\n")]
+    [InlineData("remote.origin.url https://github.com/owner/other.git\n")]
+    [InlineData("remote.origin.url https://user:secret@github.com/owner/repo.git\n")]
+    public async Task FetchAsync_NoSupportedMatchingRemote_IsNotFoundWithoutFallingBackToOrigin(string remotes)
+    {
+        GivenRemotes(remotes);
+
+        var result = await CreateAutoResolvingGateway().FetchAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.RemoteNotFound);
+        await _commandClient.DidNotReceive().FetchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FetchAsync_RequestedRemote_OverridesStoredRemoteAfterUrlCheck()
+    {
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "github-origin-https", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/repo.git"));
+        _commandClient.FetchAsync(LocalRoot, RepositoryId, "github-origin-https", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+
+        using (GitRemoteSelection.Begin("github-origin-https"))
+        {
+            var result = await _gateway.FetchAsync(RepositoryId, CancellationToken.None);
+            result.IsSuccess.Should().BeTrue();
+        }
+
+        GitRemoteSelection.Current.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task FetchAsync_RequestedRemoteWithOtherUrl_IsMismatch()
+    {
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "fork", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/someone/repo.git"));
+
+        using var scope = GitRemoteSelection.Begin("fork");
+        var result = await _gateway.FetchAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.RemoteMismatch);
+        await _commandClient.DidNotReceive().FetchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("-bad")]
+    public async Task FetchAsync_RequestedRemoteMissingOrInvalid_IsNotFound(string remote)
+    {
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "missing", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "error: No such remote 'missing'", exitCode: 2));
+
+        using var scope = GitRemoteSelection.Begin(remote);
+        var result = await _gateway.FetchAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.RemoteNotFound);
+    }
+
+    [Fact]
+    public async Task FetchAsync_StoredRemotePointingElsewhere_IsMismatchWithoutAutoResolution()
+    {
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("https://github.com/owner/renamed.git"));
+
+        var result = await _gateway.FetchAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.RemoteMismatch);
+        await _commandClient.DidNotReceive().ListRemoteUrlsAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task StatusAsync_StoredSshRemote_ReportsHttpsRequired()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("git@github.com:owner/repo.git"));
+
+        var result = await _gateway.GetStatusAsync(RepositoryId, CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.RemoteHttpsRequired);
     }
 
     [Fact]

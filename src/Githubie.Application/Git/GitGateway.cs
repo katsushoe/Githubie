@@ -44,10 +44,16 @@ public sealed class GitGateway(
             return GitGatewayResult<GitRepositoryStatus>.Failure(MapCommandFailure(head.Failure!.Value));
         }
 
-        var remoteDevelopHead = await _commandClient.GetRemoteHeadAsync(root, options.Remote, options.DevelopBranch, cancellationToken);
-        var remoteMainHead = await _commandClient.GetRemoteHeadAsync(root, options.Remote, options.MainBranch, cancellationToken);
+        var remote = await ResolveRemoteAsync(options, cancellationToken);
+        if (remote.Error is not null)
+        {
+            return GitGatewayResult<GitRepositoryStatus>.Failure(remote.Error.Value, remote.Diagnostic);
+        }
 
-        var aheadBehind = await _commandClient.GetAheadBehindAsync(root, options.Remote, branch.StandardOutput, cancellationToken);
+        var remoteDevelopHead = await _commandClient.GetRemoteHeadAsync(root, remote.Name!, options.DevelopBranch, cancellationToken);
+        var remoteMainHead = await _commandClient.GetRemoteHeadAsync(root, remote.Name!, options.MainBranch, cancellationToken);
+
+        var aheadBehind = await _commandClient.GetAheadBehindAsync(root, remote.Name!, branch.StandardOutput, cancellationToken);
         var (ahead, behind) = ParseAheadBehind(aheadBehind.StandardOutput);
 
         var status = await _commandClient.GetStatusAsync(root, cancellationToken);
@@ -162,7 +168,13 @@ public sealed class GitGateway(
             return GitGatewayResult<Unit>.Failure(resolved.Error.Value);
         }
 
-        var result = await _commandClient.FetchAsync(resolved.Options!.LocalRoot, repository, resolved.Options.Remote, cancellationToken);
+        var remote = await ResolveRemoteAsync(resolved.Options!, cancellationToken);
+        if (remote.Error is not null)
+        {
+            return GitGatewayResult<Unit>.Failure(remote.Error.Value, remote.Diagnostic);
+        }
+
+        var result = await _commandClient.FetchAsync(resolved.Options!.LocalRoot, repository, remote.Name!, cancellationToken);
         return result.IsSuccess
             ? GitGatewayResult<Unit>.Success(Unit.Value)
             : CreateCommandFailure<Unit>(result);
@@ -182,7 +194,13 @@ public sealed class GitGateway(
             return GitGatewayResult<Unit>.Failure(GitGatewayError.BranchNotAllowed);
         }
 
-        var result = await _commandClient.PullFastForwardOnlyAsync(options.LocalRoot, repository, options.Remote, branch, cancellationToken);
+        var remote = await ResolveRemoteAsync(options, cancellationToken);
+        if (remote.Error is not null)
+        {
+            return GitGatewayResult<Unit>.Failure(remote.Error.Value, remote.Diagnostic);
+        }
+
+        var result = await _commandClient.PullFastForwardOnlyAsync(options.LocalRoot, repository, remote.Name!, branch, cancellationToken);
         if (result.IsSuccess)
         {
             return GitGatewayResult<Unit>.Success(Unit.Value);
@@ -208,17 +226,10 @@ public sealed class GitGateway(
             return CreateCommandFailure<Unit>(branch);
         }
 
-        var remoteUrl = await _commandClient.GetRemoteUrlAsync(root, options.Remote, cancellationToken);
-        if (!remoteUrl.IsSuccess)
+        var remote = await ResolveRemoteAsync(options, cancellationToken);
+        if (remote.Error is not null)
         {
-            return CreateCommandFailure<Unit>(remoteUrl);
-        }
-
-        if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
-        {
-            return GitGatewayResult<Unit>.Failure(GitHubRemoteUrlValidator.IsSshRemote(remoteUrl.StandardOutput)
-                ? GitGatewayError.RemoteHttpsRequired
-                : GitGatewayError.RemoteMismatch);
+            return GitGatewayResult<Unit>.Failure(remote.Error.Value, remote.Diagnostic);
         }
 
         var policy = options.ToPolicy(repository);
@@ -233,7 +244,7 @@ public sealed class GitGateway(
         }
 
         var remoteRef = await _commandClient.GetRemoteRefAsync(
-            root, repository, options.Remote, $"refs/heads/{branch.StandardOutput}", cancellationToken);
+            root, repository, remote.Name!, $"refs/heads/{branch.StandardOutput}", cancellationToken);
         if (!remoteRef.IsSuccess)
         {
             return CreateCommandFailure<Unit>(remoteRef);
@@ -241,7 +252,7 @@ public sealed class GitGateway(
 
         if (!string.IsNullOrWhiteSpace(remoteRef.StandardOutput))
         {
-            var aheadBehind = await _commandClient.GetAheadBehindAsync(root, options.Remote, branch.StandardOutput, cancellationToken);
+            var aheadBehind = await _commandClient.GetAheadBehindAsync(root, remote.Name!, branch.StandardOutput, cancellationToken);
             if (!aheadBehind.IsSuccess)
             {
                 return CreateCommandFailure<Unit>(aheadBehind);
@@ -254,7 +265,7 @@ public sealed class GitGateway(
             }
         }
 
-        var result = await _commandClient.PushAsync(root, repository, options.Remote, branch.StandardOutput, cancellationToken);
+        var result = await _commandClient.PushAsync(root, repository, remote.Name!, branch.StandardOutput, cancellationToken);
         if (result.IsSuccess)
         {
             return GitGatewayResult<Unit>.Success(Unit.Value);
@@ -275,11 +286,8 @@ public sealed class GitGateway(
                 GitGatewayError.InvalidRef,
                 "The tag name does not match the configured tag policy.");
 
-        var remoteUrl = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, options.Remote, cancellationToken);
-        if (!remoteUrl.IsSuccess) return CreateCommandFailure<Unit>(remoteUrl);
-        if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
-            return GitGatewayResult<Unit>.Failure(GitHubRemoteUrlValidator.IsSshRemote(remoteUrl.StandardOutput)
-                ? GitGatewayError.RemoteHttpsRequired : GitGatewayError.RemoteMismatch);
+        var remote = await ResolveRemoteAsync(options, cancellationToken);
+        if (remote.Error is not null) return GitGatewayResult<Unit>.Failure(remote.Error.Value, remote.Diagnostic);
 
         var reference = $"refs/tags/{tag}";
         var local = await _commandClient.GetLocalRefAsync(options.LocalRoot, reference, cancellationToken);
@@ -287,12 +295,12 @@ public sealed class GitGateway(
             return GitGatewayResult<Unit>.Failure(
                 GitGatewayError.InvalidRef,
                 "The local tag ref does not exist.");
-        var remote = await _commandClient.GetRemoteRefAsync(
-            options.LocalRoot, repository, options.Remote, reference, cancellationToken);
-        if (!remote.IsSuccess) return CreateCommandFailure<Unit>(remote);
-        if (!string.IsNullOrWhiteSpace(remote.StandardOutput))
+        var remoteTag = await _commandClient.GetRemoteRefAsync(
+            options.LocalRoot, repository, remote.Name!, reference, cancellationToken);
+        if (!remoteTag.IsSuccess) return CreateCommandFailure<Unit>(remoteTag);
+        if (!string.IsNullOrWhiteSpace(remoteTag.StandardOutput))
         {
-            var remoteSha = ParseLsRemoteSha(remote.StandardOutput, reference);
+            var remoteSha = ParseLsRemoteSha(remoteTag.StandardOutput, reference);
             if (remoteSha is null)
                 return GitGatewayResult<Unit>.Failure(
                     GitGatewayError.InvalidRef,
@@ -305,7 +313,7 @@ public sealed class GitGateway(
         }
 
         var push = await _commandClient.PushTagAsync(
-            options.LocalRoot, repository, options.Remote, tag, cancellationToken);
+            options.LocalRoot, repository, remote.Name!, tag, cancellationToken);
         return push.IsSuccess
             ? GitGatewayResult<Unit>.Success(Unit.Value)
             : CreateCommandFailure<Unit>(push);
@@ -321,13 +329,10 @@ public sealed class GitGateway(
         if (!policy.IsAllowed)
             return GitGatewayResult<Unit>.Failure(GitGatewayError.InvalidRef, "The tag name does not match the configured tag policy.");
 
-        var remoteUrl = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, options.Remote, cancellationToken);
-        if (!remoteUrl.IsSuccess) return CreateCommandFailure<Unit>(remoteUrl);
-        if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
-            return GitGatewayResult<Unit>.Failure(GitHubRemoteUrlValidator.IsSshRemote(remoteUrl.StandardOutput)
-                ? GitGatewayError.RemoteHttpsRequired : GitGatewayError.RemoteMismatch);
+        var remote = await ResolveRemoteAsync(options, cancellationToken);
+        if (remote.Error is not null) return GitGatewayResult<Unit>.Failure(remote.Error.Value, remote.Diagnostic);
 
-        var fetch = await _commandClient.FetchTagAsync(options.LocalRoot, repository, options.Remote, tag, cancellationToken);
+        var fetch = await _commandClient.FetchTagAsync(options.LocalRoot, repository, remote.Name!, tag, cancellationToken);
         return fetch.IsSuccess ? GitGatewayResult<Unit>.Success(Unit.Value) : CreateCommandFailure<Unit>(fetch);
     }
 
@@ -345,14 +350,11 @@ public sealed class GitGateway(
             return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitGatewayError.DuplicateRef);
 
         var options = resolved.Options!;
-        var remoteUrl = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, options.Remote, cancellationToken);
-        if (!remoteUrl.IsSuccess) return GitGatewayResult<GitHistoryRewriteResult>.Failure(MapCommandFailure(remoteUrl.Failure!.Value));
-        if (!GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl.StandardOutput, options.GitHubOwner, options.GitHubRepo))
-            return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitHubRemoteUrlValidator.IsSshRemote(remoteUrl.StandardOutput)
-                ? GitGatewayError.RemoteHttpsRequired
-                : GitGatewayError.RemoteMismatch);
+        var remote = await ResolveRemoteAsync(options, cancellationToken);
+        if (remote.Error is not null)
+            return GitGatewayResult<GitHistoryRewriteResult>.Failure(remote.Error.Value, remote.Diagnostic);
 
-        var plan = await BuildRewritePlanAsync(options.LocalRoot, repository, options.Remote, refs, cancellationToken);
+        var plan = await BuildRewritePlanAsync(options.LocalRoot, repository, remote.Name!, refs, cancellationToken);
         if (plan.Error is not null) return GitGatewayResult<GitHistoryRewriteResult>.Failure(plan.Error.Value);
         if (dryRun)
             return GitGatewayResult<GitHistoryRewriteResult>.Success(new(true, "not_requested", plan.Results!));
@@ -369,13 +371,13 @@ public sealed class GitGateway(
         var approvalError = MapApprovalError(approval.Outcome);
         if (approvalError is not null) return GitGatewayResult<GitHistoryRewriteResult>.Failure(approvalError.Value);
 
-        var recheck = await BuildRewritePlanAsync(options.LocalRoot, repository, options.Remote, refs, cancellationToken);
+        var recheck = await BuildRewritePlanAsync(options.LocalRoot, repository, remote.Name!, refs, cancellationToken);
         if (recheck.Error is not null) return GitGatewayResult<GitHistoryRewriteResult>.Failure(recheck.Error.Value);
         if (recheck.Results!.Any(item => item.RejectionReason is not null))
             return GitGatewayResult<GitHistoryRewriteResult>.Failure(GitGatewayError.LeaseConflict);
 
         await _executionGuard.EnsureCurrentAsync(cancellationToken);
-        var push = await _commandClient.PushHistoryRewriteAsync(options.LocalRoot, repository, options.Remote, refs, cancellationToken);
+        var push = await _commandClient.PushHistoryRewriteAsync(options.LocalRoot, repository, remote.Name!, refs, cancellationToken);
         if (!push.IsSuccess)
         {
             var error = ClassifyHistoryRewriteFailure(push.StandardError);
@@ -438,6 +440,119 @@ public sealed class GitGateway(
         ApprovalOutcome.TimedOut => GitGatewayError.ApprovalTimedOut,
         _ => GitGatewayError.ApprovalUnavailable,
     };
+
+    /// <summary>
+    /// Repository Provider Contract「Gitリモートの解決」に従い、操作に使うリモートを実行直前に決めます。
+    /// 優先順は、Tool引数`remote` → 登録済みのリモート名 → 登録GitHub RepositoryとURLが一致するリモートの自動解決です。
+    /// 指定名・登録名はURLを検証し、`origin`などへ暗黙に退避しません。
+    /// </summary>
+    private async Task<RemoteResolution> ResolveRemoteAsync(
+        Configuration.RepositoryOptions options, CancellationToken cancellationToken)
+    {
+        var named = GitRemoteSelection.Current ?? (string.IsNullOrWhiteSpace(options.Remote) ? null : options.Remote.Trim());
+        if (named is not null)
+        {
+            return await VerifyNamedRemoteAsync(options, named, cancellationToken);
+        }
+
+        var listed = await _commandClient.ListRemoteUrlsAsync(options.LocalRoot, cancellationToken);
+        if (!listed.IsSuccess)
+        {
+            return RemoteResolution.Fail(MapCommandFailure(listed.Failure!.Value));
+        }
+
+        // Githubieは資格情報をAskPassで渡すため、HTTPSのリモートだけを候補にする（SSHは除外）。
+        var matches = ParseRemoteUrls(listed.StandardOutput)
+            .Where(remote => IsSupportedMatchingRemote(remote.Url, options))
+            .Select(remote => remote.Name)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (matches.Length == 0)
+        {
+            return RemoteResolution.Fail(GitGatewayError.RemoteNotFound);
+        }
+
+        if (matches.Length == 1)
+        {
+            return RemoteResolution.Ok(matches[0]);
+        }
+
+        var conventional = matches.Where(name => string.Equals(name, ConventionalRemoteName, StringComparison.Ordinal)).ToArray();
+        return conventional.Length == 1
+            ? RemoteResolution.Ok(conventional[0])
+            : RemoteResolution.Fail(GitGatewayError.RemoteAmbiguous, $"Matching remotes: {string.Join(", ", matches)}");
+    }
+
+    private async Task<RemoteResolution> VerifyNamedRemoteAsync(
+        Configuration.RepositoryOptions options, string remote, CancellationToken cancellationToken)
+    {
+        if (!IsValidRemoteName(remote))
+        {
+            return RemoteResolution.Fail(GitGatewayError.RemoteNotFound);
+        }
+
+        var url = await _commandClient.GetRemoteUrlAsync(options.LocalRoot, remote, cancellationToken);
+        if (!url.IsSuccess)
+        {
+            return RemoteResolution.Fail(url.Failure == GitCommandFailure.Failed
+                ? GitGatewayError.RemoteNotFound
+                : MapCommandFailure(url.Failure!.Value));
+        }
+
+        var value = url.StandardOutput.Trim();
+        if (value.Length == 0)
+        {
+            return RemoteResolution.Fail(GitGatewayError.RemoteNotFound);
+        }
+
+        if (GitHubRemoteUrlValidator.IsSshRemote(value))
+        {
+            return RemoteResolution.Fail(GitGatewayError.RemoteHttpsRequired);
+        }
+
+        return GitHubRemoteUrlValidator.IsExpectedRemote(value, options.GitHubOwner, options.GitHubRepo)
+            ? RemoteResolution.Ok(remote)
+            : RemoteResolution.Fail(GitGatewayError.RemoteMismatch);
+    }
+
+    private static bool IsSupportedMatchingRemote(string url, Configuration.RepositoryOptions options) =>
+        !string.IsNullOrWhiteSpace(url)
+        && !GitHubRemoteUrlValidator.IsSshRemote(url)
+        && GitHubRemoteUrlValidator.IsExpectedRemote(url, options.GitHubOwner, options.GitHubRepo);
+
+    private static IEnumerable<(string Name, string Url)> ParseRemoteUrls(string output)
+    {
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var separator = line.IndexOf(' ');
+            if (separator <= 0) continue;
+            var key = line[..separator];
+            if (!key.StartsWith("remote.", StringComparison.OrdinalIgnoreCase)
+                || !key.EndsWith(".url", StringComparison.OrdinalIgnoreCase)
+                || key.Length <= "remote..url".Length)
+            {
+                continue;
+            }
+
+            yield return (key["remote.".Length..^".url".Length], line[(separator + 1)..].Trim());
+        }
+    }
+
+    private static bool IsValidRemoteName(string remote) =>
+        remote.Length is > 0 and <= 255
+        && !remote.StartsWith('-')
+        && !remote.Any(character => char.IsWhiteSpace(character) || char.IsControl(character));
+
+    /// <summary>命名規則`<ホスト>-origin-<接続方式>`のうち、GithubieがサポートするHTTPSの名前です。</summary>
+    private const string ConventionalRemoteName = "github-origin-https";
+
+    private sealed record RemoteResolution(string? Name, GitGatewayError? Error, string? Diagnostic)
+    {
+        public static RemoteResolution Ok(string name) => new(name, null, null);
+
+        public static RemoteResolution Fail(GitGatewayError error, string? diagnostic = null) => new(null, error, diagnostic);
+    }
 
     private (Configuration.RepositoryOptions? Options, GitGatewayError? Error) Resolve(string repository)
     {

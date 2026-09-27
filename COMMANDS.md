@@ -116,6 +116,8 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | Updates explicitly supplied release fields |
 | `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | Adds up to ten approved assets; same-name replacement requires `replace_existing=true` |
 
+Git operations that contact the remote (`github_repository_status`, `github_fetch`, `github_pull`, `github_push`, `github_tag_push`, `github_tag_create`, `github_history_rewrite`) accept an optional `remote` argument (Moyai's `gitRemoteName`). The remote is chosen as: the `remote` argument, then the registered remote name, then the only HTTPS remote whose URL points to the registered repository (with several, the one named `github-origin-https`). Named remotes are verified and never fall back. Failures return `provider_remote_not_found`, `provider_remote_ambiguous`, or `provider_remote_mismatch`; an SSH remote returns `provider_remote_not_found` with `error.provider.code` `remote_https_required`. `github_repository_diff` and `github_repository_commit` also accept `remote` but do not use it. `github_provider_capabilities` reports `remote_resolution` (`version` 1, `mode` `repository_url`). See ADR 0032.
+
 ## Audit Log
 
 Each call records client, tool, repository, relevant branch/PR/tag/source fields, result, duration, and error code in `<install-root>\logs\githubie-yyyyMMdd.log`. Tokens, authorization headers, and raw error messages are excluded.

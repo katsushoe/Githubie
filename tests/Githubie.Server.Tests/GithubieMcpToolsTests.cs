@@ -79,9 +79,43 @@ public sealed class GithubieMcpToolsTests
         gitHubGateway.CreateTagAsync(repository, tag, sha, null, Arg.Any<CancellationToken>()).Returns(GitHubResult<GitHubTagInfo>.Success(new(tag, sha, null, null, null)));
         gitGateway.PersistTagAsync(repository, tag, Arg.Any<CancellationToken>()).Returns(GitGatewayResult<Unit>.Success(Unit.Value));
         var tools = new GithubieMcpTools(gitGateway, gitHubGateway, Substitute.For<IRepositoryRegistrationService>(), Substitute.For<IRepositoryManagementService>(), new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
-        var result = await tools.CreateTagAsync(repository, tag, sha, null, TestContext.Current.CancellationToken);
+        var result = await tools.CreateTagAsync(repository, tag, sha, null, cancellationToken: TestContext.Current.CancellationToken);
         result.Ok.Should().BeTrue();
         await gitGateway.Received(1).PersistTagAsync(repository, tag, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProviderCapabilities_DeclaresRemoteResolution()
+    {
+        var gitHubGateway = Substitute.For<IGitHubRepositoryGateway>();
+        gitHubGateway.GetRepositoryAsync("sample", Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubRepositoryInfo>.Success(new("owner", "repo", "main", null)));
+        var tools = new GithubieMcpTools(Substitute.For<IGitGateway>(), gitHubGateway, Substitute.For<IRepositoryRegistrationService>(), Substitute.For<IRepositoryManagementService>(), new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+
+        var result = await tools.GetProviderCapabilitiesAsync("sample", TestContext.Current.CancellationToken);
+
+        result.Data!.RemoteResolution.Should().Be(new GitHubRemoteResolution(1, "repository_url"));
+        System.Text.Json.JsonSerializer.Serialize(result.Data, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower })
+            .Should().Contain("\"remote_resolution\":{\"version\":1,\"mode\":\"repository_url\"}");
+    }
+
+    [Fact]
+    public async Task Status_RemoteArgument_IsVisibleToTheGatewayOnlyDuringTheCall()
+    {
+        var gitGateway = Substitute.For<IGitGateway>();
+        string? observed = null;
+        gitGateway.GetStatusAsync("sample", Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            observed = GitRemoteSelection.Current;
+            return GitGatewayResult<GitRepositoryStatus>.Failure(GitGatewayError.RemoteNotFound);
+        });
+        var tools = new GithubieMcpTools(gitGateway, Substitute.For<IGitHubRepositoryGateway>(), Substitute.For<IRepositoryRegistrationService>(), Substitute.For<IRepositoryManagementService>(), new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+
+        var result = await tools.GetRepositoryStatusAsync("sample", "github-origin-https", TestContext.Current.CancellationToken);
+
+        observed.Should().Be("github-origin-https");
+        GitRemoteSelection.Current.Should().BeNull();
+        result.Error!.Code.Should().Be("provider_remote_not_found");
     }
 
     [Fact]
@@ -95,7 +129,7 @@ public sealed class GithubieMcpToolsTests
         gitHubGateway.CreateTagAsync(repository, tag, sha, null, Arg.Any<CancellationToken>()).Returns(GitHubResult<GitHubTagInfo>.Success(new(tag, sha, null, null, null)));
         gitGateway.PersistTagAsync(repository, tag, Arg.Any<CancellationToken>()).Returns(GitGatewayResult<Unit>.Failure(GitGatewayError.GitFailed, "tag collision"));
         var tools = new GithubieMcpTools(gitGateway, gitHubGateway, Substitute.For<IRepositoryRegistrationService>(), Substitute.For<IRepositoryManagementService>(), new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
-        var result = await tools.CreateTagAsync(repository, tag, sha, null, TestContext.Current.CancellationToken);
+        var result = await tools.CreateTagAsync(repository, tag, sha, null, cancellationToken: TestContext.Current.CancellationToken);
         result.Ok.Should().BeFalse();
         result.Error!.Code.Should().Be("git_failed");
         result.Error.Diagnostic.Should().Be("tag collision");

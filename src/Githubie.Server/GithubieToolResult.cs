@@ -41,7 +41,10 @@ public sealed record GithubieToolError(string Code, string Message, bool Retryab
 
     public IReadOnlyList<string>? Candidates { get; init; }
 
-    public GithubieProviderError Provider => new("Githubie", Code, Diagnostic, ExitCode, Recommendation);
+    /// <summary>Provider固有の詳細コードです。共通コードと異なる場合だけ設定します（例: `remote_https_required`）。</summary>
+    public string? ProviderCode { get; init; }
+
+    public GithubieProviderError Provider => new("Githubie", ProviderCode ?? Code, Diagnostic, ExitCode, Recommendation);
 }
 
 public sealed record GithubieProviderError(string Name, string Code, string? Diagnostic, int? ExitCode, string? Recommendation);
@@ -229,8 +232,17 @@ public static class GithubieToolResultMapper
         GitGatewayError.LocalRootNotFound => new("local_root_not_found", "Local repository root was not found."),
         GitGatewayError.GitMetadataNotFound => new("git_metadata_not_found", "Local root does not contain a .git directory."),
         GitGatewayError.ReparsePointDetected => new("reparse_point_detected", "Local root path contains a symlink or junction."),
-        GitGatewayError.RemoteMismatch => new("remote_mismatch", "Git remote does not match the configured repository."),
-        GitGatewayError.RemoteHttpsRequired => new("remote_https_required", "Git remote must use an HTTPS GitHub URL."),
+        GitGatewayError.RemoteMismatch => new("provider_remote_mismatch", "The Git remote URL does not match the registered GitHub repository.", false,
+            "Specify a remote whose URL points to the registered repository, or omit remote to resolve it automatically."),
+        GitGatewayError.RemoteHttpsRequired => new("provider_remote_not_found", "The Git remote does not use an HTTPS GitHub URL, which Githubie requires.", false,
+            "Use an HTTPS remote such as github-origin-https.")
+        {
+            ProviderCode = "remote_https_required",
+        },
+        GitGatewayError.RemoteNotFound => new("provider_remote_not_found", "No Git remote matches the registered GitHub repository, or the specified remote does not exist.", false,
+            "Add an HTTPS remote for the registered repository (recommended name: github-origin-https)."),
+        GitGatewayError.RemoteAmbiguous => new("provider_remote_ambiguous", "Several Git remotes match the registered GitHub repository.", false,
+            "Specify remote, or name exactly one of them github-origin-https."),
         GitGatewayError.GitNotFound => new("git_not_found", "git executable was not found."),
         GitGatewayError.GitFailed => new("git_failed", "Git command failed."),
         GitGatewayError.GitTimedOut => new("timeout", "Git command timed out."),

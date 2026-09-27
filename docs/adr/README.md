@@ -27,5 +27,6 @@
 | [0029](0029-moyai-provider-assertion.md) | Operation-bound Moyai Provider Assertions with persistent replay protection |
 | [0030](0030-per-repository-commit-author.md) | Per-repository commit author independent of the Windows service account |
 | [0031](0031-approved-github-repository-creation.md) | Approved GitHub repository creation with optional local linking and registration |
+| [0032](0032-git-remote-resolution.md) | Git remote resolution by repository URL (Moyai Repository Provider Contract) |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

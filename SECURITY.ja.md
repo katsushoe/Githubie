@@ -44,7 +44,7 @@ GithubieはMoyaiを必須としない。Server起動引数`--moyai`がなけれ�
 
 - MCP Toolは常にGithubie内部のRepository ID（`repositories.<id>`のキー）を受け取り、GitHub Owner/Repo/ローカルパスをAgentへ自由指定させない。
 - ローカルRepositoryの操作は設定済み`local_root`配下のみに限定する。`..`によるroot外参照、symlink/junctionによるroot外参照は拒否する（`LocalPathValidator`）。
-- Git RemoteのURLはHTTPS形式かつ`github.com/<owner>/<repo>`と一致することをGit通信前に検証する（`GitHubRemoteUrlValidator`）。SSH形式は`remote_https_required`、接続先不一致は`remote_mismatch`で拒否する。
+- Git RemoteのURLはHTTPS形式かつ`github.com/<owner>/<repo>`と一致することをGit通信前に検証する（`GitHubRemoteUrlValidator`）。SSH形式は`provider_remote_not_found`（`error.provider.code`は`remote_https_required`）、接続先不一致は`provider_remote_mismatch`で拒否する。自動解決でもHTTPSかつ一致するRemoteだけを候補にし、資格情報を含むURLは一致させない（ADR 0032）。
 
 ## 任意コマンド実行の排除
 

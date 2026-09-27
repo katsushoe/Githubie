@@ -40,7 +40,7 @@ Upgrade時は旧規則`^[A-Za-z0-9._-]+$`のIDから`.`、`_`、`-`を除去し�
 | `github_owner` | 必須 | string | なし | 空ではないGitHub User名またはOrganization名 |
 | `github_repo` | 必須 | string | なし | 空ではないGitHub Repository名 |
 | `local_root` | 必須 | string | なし | 実在するLocal Repository Root。`.git`を必要とし、reparse pointを拒否する |
-| `remote` | 必須 | string | なし | Git操作に使う固定Remote名。Sampleは`origin` |
+| `remote` | 必須 | string | なし | Git操作で最初に使うRemote名。Sampleは`origin`。URLが登録Repositoryを指さなければ`provider_remote_mismatch`とする。空文字列ではURLによる自動解決を行う（ADR 0032）。Tool引数`remote`の指定が優先する |
 | `develop_branch` | 必須 | string | なし | 許可するPR経路のSource Branch |
 | `main_branch` | 必須 | string | なし | 許可するPR経路のDestination Branch |
 | `direct_push_branches` | 必須 | string[] | なし | `github_push`を許可するBranch一覧 |

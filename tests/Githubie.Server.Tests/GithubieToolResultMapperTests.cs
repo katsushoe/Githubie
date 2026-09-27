@@ -21,8 +21,10 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.LocalRootNotFound] = "local_root_not_found",
         [GitGatewayError.GitMetadataNotFound] = "git_metadata_not_found",
         [GitGatewayError.ReparsePointDetected] = "reparse_point_detected",
-        [GitGatewayError.RemoteMismatch] = "remote_mismatch",
-        [GitGatewayError.RemoteHttpsRequired] = "remote_https_required",
+        [GitGatewayError.RemoteMismatch] = "provider_remote_mismatch",
+        [GitGatewayError.RemoteHttpsRequired] = "provider_remote_not_found",
+        [GitGatewayError.RemoteNotFound] = "provider_remote_not_found",
+        [GitGatewayError.RemoteAmbiguous] = "provider_remote_ambiguous",
         [GitGatewayError.GitNotFound] = "git_not_found",
         [GitGatewayError.GitFailed] = "git_failed",
         [GitGatewayError.GitTimedOut] = "timeout",
@@ -189,6 +191,16 @@ public sealed class GithubieToolResultMapperTests
         mapped.Error.Status.Should().Be(GitHubMergeabilityStatus.CalculatingRetryable);
         mapped.Error.Retryable.Should().BeTrue();
         mapped.Error.RetryAfterSeconds.Should().Be(2);
+    }
+
+    [Fact]
+    public void Map_SshRemote_ReportsContractCodeAndProviderDetail()
+    {
+        var mapped = GithubieToolResultMapper.Map(
+            "push", "repo", GitGatewayResult<Unit>.Failure(GitGatewayError.RemoteHttpsRequired));
+
+        mapped.Error!.Code.Should().Be("provider_remote_not_found");
+        mapped.Error.Provider.Code.Should().Be("remote_https_required");
     }
 
     [Fact]
