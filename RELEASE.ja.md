@@ -19,7 +19,9 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.9.5`です。
+現在のDisplay Versionは`1.8.9.6`です。
+
+Version `1.8.9.6`では、対話承認付きでGitHub Repositoryを新規作成する`github_repository_create`を追加しました（ADR 0031）。`local_root`を指定すると、未設定の`origin`へ作成先を設定し、承認とToken入力を繰り返さずに登録まで行います。自動テスト478件が全件成功しました。`C:\Githubie`へのUpgrade（連携モード`--moyai`の引き継ぎ）と、実機での作成を検証しました。権限のないTokenでは`permission_denied`とGitHubの拒否理由が返り、Repositoryもoriginも作られず、保存したTokenが削除されることを確認しました。作成権限のあるTokenでは、private Repository `katsushoe/KotodamaSpecGuard`の作成、`origin`の設定、`kotodamaspecguard`としての登録が成功しました。MSIのSHA-256は`435F1E4F52B40A4001C9241F761C0D59FDF9D39CB670A3DF3353B154D547FD65`です。
 
 Version `1.8.9.5`では、GitHub REST APIが失敗したとき、GitHubのHTTP statusと応答本文の`message`（あれば`documentation_url`）を`error.diagnostic`として返し、同じcorrelation IDで監査ログへ記録します。Tokenは含めず、500文字までに制限します。mergeableと判定されたPull Requestのmergeが405で拒否された場合は、再試行不要の`pull_request_merge_rejected`を返します。自動テスト451件が全件成功しました。`C:\Githubie`へのUpgrade（連携モード`--moyai`の引き継ぎ）、MCP版1.8.9.5、存在しないPull Requestの取得で`diagnostic`とcorrelation IDの一致する監査記録が得られること、ログにTokenが含まれないことをWindows実機で検証しました。MSIのSHA-256は`1084CBAF07B70A82E8C2806CDFDCEB1E4364FC50B1A649B7260E58A5A6AD83C2`、ZIPは`3706670E0D7CFD2B1C401DBC73D927E9860BAC12AFCF5FF7E338AC0D60A71A80`です。
 
