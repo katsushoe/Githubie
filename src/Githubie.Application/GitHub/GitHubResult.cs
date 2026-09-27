@@ -38,6 +38,8 @@ public sealed record GitHubResult<T>(bool IsSuccess, T? Value, GitHubError? Erro
 public enum GitHubError
 {
     RepositoryNotFound,
+    /// <summary>作成しようとした名前のRepositoryがGitHub上に既に存在する。</summary>
+    RepositoryAlreadyExists,
     RepositoryDescriptionInvalid,
     WorkflowNotAllowed,
     WorkflowRefNotAllowed,

@@ -2,7 +2,7 @@ namespace Githubie.Application.Git;
 
 /// <summary>
 /// `repositoryRoot`を起点とした低レベルGitコマンド実行のポートです。
-/// 許可されたコマンド以外は公開しません（`status` / `rev-parse` / `remote get-url` / `fetch` / `pull --ff-only` / `push`）。
+/// 許可されたコマンド以外は公開しません（`status` / `rev-parse` / `remote get-url` / `remote add` / `fetch` / `pull --ff-only` / `push`）。
 /// </summary>
 public interface IGitCommandClient
 {
@@ -25,6 +25,9 @@ public interface IGitCommandClient
     Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken);
+
+    /// <summary>未設定のremoteを追加します（`remote add`）。既存remoteの変更には使いません。</summary>
+    Task<GitCommandResult> AddRemoteAsync(string repositoryRoot, string remote, string url, CancellationToken cancellationToken);
 
     Task<GitCommandResult> FetchAsync(string repositoryRoot, string repositoryId, string remote, CancellationToken cancellationToken);
 

@@ -11,6 +11,10 @@
 | `reparse_point_detected` | Configure the physical path without a symlink or junction. |
 | `remote_mismatch` | Make the Git remote match the configured GitHub owner and repository. |
 | `remote_https_required` | Change the Git remote to `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are not accepted. |
+| `repository_already_exists` | `github_repository_create` found a GitHub repository with the same name; choose another name or register the existing repository with `github_repository_register`. |
+| `remote_already_configured` | `github_repository_create` does not rewrite an existing `origin`; use `github_repository_register` for a repository that already points to GitHub. |
+| `token_unavailable` | No token is stored for the repository ID and none was entered; enter a token that can create repositories for the owner. |
+| `permission_denied` (repository creation) | The token cannot create repositories for the user or organization; read `error.diagnostic` and use a token with that permission. |
 | `git_not_found` / `git_failed` | Install Git for Windows, check `PATH`, inspect `diagnostic` and `exit_code`, then use `correlation_id` to locate the audit event if needed. |
 | `authentication_failed` / `permission_denied` | Refresh the configured credential or grant the required repository permission. |
 | `network_error` | Check DNS, proxy, TLS, and network connectivity, then retry. |

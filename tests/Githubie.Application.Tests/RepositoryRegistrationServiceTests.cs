@@ -2,6 +2,7 @@ using FluentAssertions;
 using Githubie.Application.Configuration;
 using Githubie.Application.Credentials;
 using Githubie.Application.Git;
+using Githubie.Application.GitHub;
 using Githubie.Application.Interactive;
 using Githubie.Application.Repositories;
 using NSubstitute;
@@ -18,6 +19,7 @@ public sealed class RepositoryRegistrationServiceTests
     private readonly IInteractiveTokenPrompt _tokenPrompt = Substitute.For<IInteractiveTokenPrompt>();
     private readonly IRepositoryConfigurationStore _store = Substitute.For<IRepositoryConfigurationStore>();
     private readonly RecordingTokenStore _tokenStore = new();
+    private readonly IGitHubApiClient _gitHub = Substitute.For<IGitHubApiClient>();
     private readonly RepositoryAllowlist _allowlist = new(new Dictionary<string, RepositoryOptions>());
 
     public RepositoryRegistrationServiceTests()
@@ -237,6 +239,190 @@ public sealed class RepositoryRegistrationServiceTests
             Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task CreateAsync_WithLocalRoot_CreatesRepositorySetsOriginAndRegisters()
+    {
+        ArrangeLocalRootWithoutOrigin();
+        ArrangeTokenEntered();
+        ArrangeLogin("owner");
+        ArrangeCreated(isPrivate: true);
+        var service = CreateService();
+
+        var result = await service.CreateAsync(
+            new RepositoryCreateRequest("newrepo", "owner", "NewRepo", null, "desc", LocalRoot),
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Registered.Should().BeTrue();
+        result.Value.Private.Should().BeTrue();
+        result.Value.TokenStatus.Should().Be("saved");
+        await _gitHub.Received(1).CreateRepositoryAsync(
+            "newrepo",
+            Arg.Is<GitHubRepositoryCreate>(x => x.Owner == "owner" && x.Name == "NewRepo" && x.Private
+                && x.Description == "desc" && !x.ForOrganization),
+            Arg.Any<CancellationToken>());
+        await _git.Received(1).AddRemoteAsync(
+            LocalRoot, "origin", "https://github.com/owner/NewRepo.git", Arg.Any<CancellationToken>());
+        _allowlist.TryGet("newrepo", out var options).Should().BeTrue();
+        options.GitHubOwner.Should().Be("owner");
+        options.GitHubRepo.Should().Be("NewRepo");
+        _tokenStore.Repository.Should().Be("newrepo");
+    }
+
+    [Fact]
+    public async Task CreateAsync_OwnerDiffersFromTokenUser_CreatesUnderOrganization()
+    {
+        ArrangeTokenEntered();
+        ArrangeLogin("someone");
+        ArrangeCreated(isPrivate: false, owner: "acme");
+        var service = CreateService();
+
+        var result = await service.CreateAsync(
+            new RepositoryCreateRequest("acmerepo", "acme", "NewRepo", "public", null, null),
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Registered.Should().BeFalse();
+        await _gitHub.Received(1).CreateRepositoryAsync(
+            "acmerepo",
+            Arg.Is<GitHubRepositoryCreate>(x => x.ForOrganization && !x.Private),
+            Arg.Any<CancellationToken>());
+        await _git.DidNotReceive().AddRemoteAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        _allowlist.TryGet("acmerepo", out _).Should().BeFalse();
+    }
+
+    [Theory]
+    [InlineData(GitHubError.RepositoryAlreadyExists, RepositoryRegistrationError.GitHubRepositoryAlreadyExists)]
+    [InlineData(GitHubError.PermissionDenied, RepositoryRegistrationError.GitHubPermissionDenied)]
+    [InlineData(GitHubError.AuthenticationFailed, RepositoryRegistrationError.GitHubAuthenticationFailed)]
+    [InlineData(GitHubError.ApiError, RepositoryRegistrationError.GitHubFailed)]
+    public async Task CreateAsync_GitHubRejects_ReturnsDistinctErrorKeepsReasonAndRemovesNewToken(
+        GitHubError gitHubError, RepositoryRegistrationError expected)
+    {
+        const string reason = "GitHub HTTP 422: Repository creation failed. [name already exists on this account]";
+        ArrangeLocalRootWithoutOrigin();
+        ArrangeTokenEntered();
+        ArrangeLogin("owner");
+        _gitHub.CreateRepositoryAsync("newrepo", Arg.Any<GitHubRepositoryCreate>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubCreatedRepository>.Failure(gitHubError, reason, 422));
+        var service = CreateService();
+
+        var result = await service.CreateAsync(
+            new RepositoryCreateRequest("newrepo", "owner", "NewRepo", null, null, LocalRoot),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(expected);
+        result.Diagnostic.Should().Be(reason);
+        _tokenStore.Deleted.Should().Contain("newrepo");
+        await _git.DidNotReceive().AddRemoteAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _store.DidNotReceive().SaveRepositoryAsync(
+            Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateAsync_ApprovalDenied_DoesNotCallGitHubOrPromptToken()
+    {
+        _approval.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Denied());
+        var service = CreateService();
+
+        var result = await service.CreateAsync(
+            new RepositoryCreateRequest("newrepo", "owner", "NewRepo", null, null, null),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.ApprovalDenied);
+        await _tokenPrompt.DidNotReceive().RequestTokenAsync(Arg.Any<TokenPromptRequest>(), Arg.Any<CancellationToken>());
+        await _gitHub.DidNotReceive().CreateRepositoryAsync(
+            Arg.Any<string>(), Arg.Any<GitHubRepositoryCreate>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateAsync_OriginAlreadyConfigured_RejectsBeforeApproval()
+    {
+        var service = CreateService();
+
+        var result = await service.CreateAsync(
+            new RepositoryCreateRequest("newrepo", "owner", "NewRepo", null, null, LocalRoot),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.RemoteAlreadyConfigured);
+        await _approval.DidNotReceive().RequestApprovalAsync(
+            Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateAsync_TokenNotEntered_ReturnsTokenUnavailable()
+    {
+        var service = CreateService();
+
+        var result = await service.CreateAsync(
+            new RepositoryCreateRequest("newrepo", "owner", "NewRepo", null, null, null),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.TokenUnavailable);
+        await _gitHub.DidNotReceive().GetAuthenticatedUserLoginAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateAsync_StoredToken_IsUsedWithoutPromptAndKeptOnFailure()
+    {
+        _tokenStore.Stored = "stored-token";
+        ArrangeLogin("owner");
+        _gitHub.CreateRepositoryAsync("newrepo", Arg.Any<GitHubRepositoryCreate>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubCreatedRepository>.Failure(GitHubError.RepositoryAlreadyExists));
+        var service = CreateService();
+
+        var result = await service.CreateAsync(
+            new RepositoryCreateRequest("newrepo", "owner", "NewRepo", null, null, null),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.GitHubRepositoryAlreadyExists);
+        await _tokenPrompt.DidNotReceive().RequestTokenAsync(Arg.Any<TokenPromptRequest>(), Arg.Any<CancellationToken>());
+        _tokenStore.Deleted.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("-owner", "repo", null, RepositoryRegistrationError.InvalidGitHubName)]
+    [InlineData("owner", "bad name", null, RepositoryRegistrationError.InvalidGitHubName)]
+    [InlineData("owner", "..", null, RepositoryRegistrationError.InvalidGitHubName)]
+    [InlineData("owner", "repo", "internal", RepositoryRegistrationError.InvalidVisibility)]
+    public async Task CreateAsync_InvalidInput_RejectsBeforeApproval(
+        string owner, string name, string? visibility, RepositoryRegistrationError expected)
+    {
+        var service = CreateService();
+
+        var result = await service.CreateAsync(
+            new RepositoryCreateRequest("newrepo", owner, name, visibility, null, null),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(expected);
+        await _approval.DidNotReceive().RequestApprovalAsync(
+            Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+    }
+
+    private void ArrangeLocalRootWithoutOrigin()
+    {
+        _git.GetRemoteUrlAsync(LocalRoot, "origin", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed));
+        _git.AddRemoteAsync(LocalRoot, "origin", Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(string.Empty));
+    }
+
+    private void ArrangeTokenEntered() =>
+        _tokenPrompt.RequestTokenAsync(Arg.Any<TokenPromptRequest>(), Arg.Any<CancellationToken>())
+            .Returns(InteractiveTokenPromptResult.Accepted("entered-token".ToCharArray()));
+
+    private void ArrangeLogin(string login) =>
+        _gitHub.GetAuthenticatedUserLoginAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<string>.Success(login));
+
+    private void ArrangeCreated(bool isPrivate, string owner = "owner") =>
+        _gitHub.CreateRepositoryAsync(Arg.Any<string>(), Arg.Any<GitHubRepositoryCreate>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubCreatedRepository>.Success(new GitHubCreatedRepository(
+                owner, "NewRepo", isPrivate, $"https://github.com/{owner}/NewRepo", $"https://github.com/{owner}/NewRepo.git")));
+
     private RepositoryRegistrationService CreateService() => new(
         _allowlist,
         new LocalPathValidator(_environment),
@@ -244,7 +430,8 @@ public sealed class RepositoryRegistrationServiceTests
         _approval,
         _store,
         _tokenPrompt,
-        _tokenStore);
+        _tokenStore,
+        _gitHub);
 
     private static RepositoryOptions CreateOptions() => new(
         "owner", "repo", LocalRoot, "origin", "develop", "main",
@@ -266,10 +453,20 @@ public sealed class RepositoryRegistrationServiceTests
                 : ApiTokenStoreResult.Failure(SaveError.Value);
         }
 
-        public ApiTokenStoreReadResult Read(string repositoryId) =>
-            ApiTokenStoreReadResult.Failure(ApiTokenStoreError.TokenNotFound);
+        public string? Stored { get; set; }
 
-        public ApiTokenStoreResult Delete(string repositoryId) => ApiTokenStoreResult.Success();
+        public List<string> Deleted { get; } = [];
+
+        public ApiTokenStoreReadResult Read(string repositoryId) =>
+            Stored is null
+                ? ApiTokenStoreReadResult.Failure(ApiTokenStoreError.TokenNotFound)
+                : ApiTokenStoreReadResult.Success(Stored.ToCharArray());
+
+        public ApiTokenStoreResult Delete(string repositoryId)
+        {
+            Deleted.Add(repositoryId);
+            return ApiTokenStoreResult.Success();
+        }
 
         public ApiTokenStoreResult Rename(string oldRepositoryId, string newRepositoryId) =>
             ApiTokenStoreResult.Success();

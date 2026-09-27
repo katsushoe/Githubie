@@ -53,6 +53,7 @@ public sealed class GithubieToolResultMapperTests
     private static readonly IReadOnlyDictionary<GitHubError, string> ExpectedGitHubCodes = new Dictionary<GitHubError, string>
     {
         [GitHubError.RepositoryNotFound] = "repository_not_found",
+        [GitHubError.RepositoryAlreadyExists] = "repository_already_exists",
         [GitHubError.RepositoryDescriptionInvalid] = "repository_description_invalid",
         [GitHubError.BranchSourceInvalid] = "branch_source_invalid",
         [GitHubError.BranchSourceNotFound] = "branch_source_not_found",
@@ -157,6 +158,25 @@ public sealed class GithubieToolResultMapperTests
         mapped.Error.Diagnostic.Should().Be("GitHub HTTP 405: Merge commits are not allowed.");
         mapped.Error.Provider.Diagnostic.Should().Be("GitHub HTTP 405: Merge commits are not allowed.");
         mapped.Error.CorrelationId.Should().Be("abc123");
+    }
+
+    [Theory]
+    [InlineData(RepositoryRegistrationError.GitHubRepositoryAlreadyExists, "repository_already_exists", "CONFLICT")]
+    [InlineData(RepositoryRegistrationError.GitHubPermissionDenied, "permission_denied", "PERMISSION_DENIED")]
+    [InlineData(RepositoryRegistrationError.ApprovalDenied, "approval_denied", "PROVIDER_ERROR")]
+    [InlineData(RepositoryRegistrationError.RemoteAlreadyConfigured, "remote_already_configured", "PROVIDER_ERROR")]
+    [InlineData(RepositoryRegistrationError.TokenUnavailable, "token_unavailable", "PROVIDER_ERROR")]
+    public void Map_RepositoryCreateError_ProducesDistinctCodeAndKeepsDiagnostic(
+        RepositoryRegistrationError error, string code, string commonCode)
+    {
+        var mapped = GithubieToolResultMapper.Map(
+            "repository_create", "newrepo", RepositoryCreateResult.Failure(error, "GitHub HTTP 422: reason"));
+
+        mapped.Ok.Should().BeFalse();
+        mapped.Error!.Code.Should().Be(code);
+        mapped.Error.CommonCode.Should().Be(commonCode);
+        mapped.Error.Retryable.Should().BeFalse();
+        mapped.Error.Diagnostic.Should().Be("GitHub HTTP 422: reason");
     }
 
     [Fact]

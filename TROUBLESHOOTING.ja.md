@@ -36,6 +36,10 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `remote_unavailable` | RemoteまたはRemote refを利用できない | 設定済みRepository、Remote、refを確認する |
 | `non_fast_forward` | Remote変更によりfast-forwardできない | fetch後にRemote変更を統合して再試行する |
 | `remote_https_required` | Git RemoteがSSH形式になっている | `git remote set-url <remote> https://github.com/OWNER/REPOSITORY.git`でHTTPS形式へ変更する |
+| `repository_already_exists` | `github_repository_create`で同名のGitHub Repositoryが既に存在する | 別の名前を指定するか、既存Repositoryを`github_repository_register`で登録する |
+| `remote_already_configured` | `github_repository_create`は既存の`origin`を書き換えない | 既にGitHubを指すRepositoryは`github_repository_register`で登録する |
+| `token_unavailable` | Repository IDのTokenが保存されておらず、入力もされなかった | ownerへRepositoryを作成できるTokenを入力して再実行する |
+| `permission_denied`（Repository作成） | Tokenにユーザー／OrganizationへのRepository作成権限がない | `error.diagnostic`を確認し、作成権限のあるTokenを使う |
 | `timeout` | Gitコマンド（fetch/pull/push）が既定時間内に完了しなかった | ネットワーク状態を確認する。大きなリポジトリでは再試行する |
 | `working_tree_dirty` | `require_clean_working_tree=true`でWorking Treeに未コミット変更がある | ローカルでcommitまたはstashしてから再実行する |
 | `branch_protection_denied` | Branch保護またはRepository Rulesetが履歴訂正を拒否した | 対象refのRulesetとforce-push許可を確認する |

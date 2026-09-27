@@ -48,6 +48,28 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("repository_register", repository, result);
     }
 
+    [McpServerTool(Name = "github_repository_create", Destructive = true, UseStructuredContent = true)]
+    [Description("対話承認後にGitHub上へRepositoryを新規作成します。local_rootを指定すると、未設定のoriginへ作成先を設定し、そのまま登録します。")]
+    public async Task<GithubieToolResult<RepositoryCreateInfo>> CreateRepositoryAsync(
+        [Description("Githubie内部の新規Repository ID")] string repository,
+        [Description("作成先のGitHubユーザー名またはOrganization名")] string owner,
+        [Description("作成するGitHub Repository名")] string name,
+        [Description("private（既定）またはpublic")] string? visibility = null,
+        [Description("Repositoryの説明（任意）")] string? description = null,
+        [Description("originを未設定の既存ローカルGit Repositoryの絶対Path（任意）。指定時は作成後に登録まで行う")] string? local_root = null,
+        [Description("開発Branch名。省略時はdevelop")] string? develop_branch = null,
+        [Description("主要Branch名。省略時はmain")] string? main_branch = null,
+        [Description("Commit作成者名。メールアドレスと同時指定")] string? commit_author_name = null,
+        [Description("Commit作成者メールアドレス。名前と同時指定")] string? commit_author_email = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await registrationService.CreateAsync(
+            new RepositoryCreateRequest(repository, owner, name, visibility, description, local_root,
+                develop_branch, main_branch, commit_author_name, commit_author_email),
+            cancellationToken);
+        return GithubieToolResultMapper.Map("repository_create", repository, result);
+    }
+
     [McpServerTool(Name = "github_repository_unregister", Destructive = true, UseStructuredContent = true)]
     [Description("登録済みRepositoryをGithubieの設定とAllowlistから登録解除します。GitHub/ローカルRepositoryは削除しません。")]
     public async Task<GithubieToolResult<RepositoryMutationInfo>> UnregisterRepositoryAsync(
@@ -257,7 +279,7 @@ public sealed class GithubieMcpTools(
             return GithubieToolResultMapper.Map(
                 "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
-            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true));
+            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true));
     }
 
     [McpServerTool(Name = "github_branch_get", ReadOnly = true, UseStructuredContent = true)]

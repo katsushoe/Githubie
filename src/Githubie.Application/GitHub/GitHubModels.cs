@@ -2,6 +2,12 @@ namespace Githubie.Application.GitHub;
 
 public sealed record GitHubRepositoryInfo(string Owner, string Repo, string DefaultBranch, string? Description);
 
+/// <summary>GitHub上に新規作成したRepositoryです。</summary>
+public sealed record GitHubCreatedRepository(string Owner, string Repo, bool Private, string HtmlUrl, string CloneUrl);
+
+/// <summary>GitHub上へ作成するRepositoryの指定です。`ForOrganization`がtrueならOrganization配下に作成します。</summary>
+public sealed record GitHubRepositoryCreate(string Owner, string Name, bool Private, string? Description, bool ForOrganization);
+
 public sealed record GitHubWorkflowRunInfo(
     long Id,
     string Workflow,
@@ -31,7 +37,8 @@ public sealed record GitHubProviderCapabilities(
     bool TagDelete,
     bool TagPush,
     bool RepositoryDiff,
-    bool RepositoryCommit);
+    bool RepositoryCommit,
+    bool RepositoryCreate);
 
 public sealed record GitHubTagInfo(string Name, string TargetCommitSha, string? Message, string? Tagger, DateTimeOffset? Date);
 

@@ -125,6 +125,15 @@ public static class GithubieToolResultMapper
                     Diagnostic = result.Diagnostic,
                 });
 
+    public static GithubieToolResult<RepositoryCreateInfo> Map(
+        string operation,
+        string repository,
+        RepositoryCreateResult result) =>
+        result.IsSuccess
+            ? GithubieToolResult<RepositoryCreateInfo>.Success(operation, repository, result.Value!)
+            : GithubieToolResult<RepositoryCreateInfo>.Failure(
+                operation, repository, MapRegistrationError(result.Error!.Value) with { Diagnostic = result.Diagnostic });
+
     public static GithubieToolResult<RepositoryRegistrationInfo> Map(
         string operation,
         string repository,
@@ -175,6 +184,41 @@ public static class GithubieToolResultMapper
         RepositoryRegistrationError.ApprovalTimedOut => new("approval_timed_out", "Repository registration approval timed out."),
         RepositoryRegistrationError.ApprovalUnavailable => new("approval_unavailable", "The approval prompt could not be displayed."),
         RepositoryRegistrationError.PersistenceFailed => new("persistence_failed", "Repository configuration could not be saved."),
+        RepositoryRegistrationError.InvalidGitHubName => new("invalid_github_name", "GitHub owner or repository name is invalid."),
+        RepositoryRegistrationError.InvalidVisibility => new("invalid_visibility", "Visibility must be private or public."),
+        RepositoryRegistrationError.RemoteAlreadyConfigured => new(
+            "remote_already_configured",
+            "The local repository already has an origin remote.",
+            false,
+            "Use github_repository_register for a repository whose remote already points to GitHub."),
+        RepositoryRegistrationError.TokenUnavailable => new(
+            "token_unavailable",
+            "No GitHub token is stored for the repository ID and none was entered.",
+            false,
+            "Enter a token that can create repositories for the owner, then run the tool again."),
+        RepositoryRegistrationError.GitHubAuthenticationFailed => new("authentication_failed", "GitHub authentication failed.")
+        {
+            CommonCode = GithubieCommonErrorCode.AuthenticationRequired,
+            SuggestedAction = GithubieSuggestedAction.ConfigureAuthentication,
+        },
+        RepositoryRegistrationError.GitHubPermissionDenied => new(
+            "permission_denied",
+            "The token cannot create repositories for the owner.",
+            false,
+            "Use a token with repository creation permission for the user or organization.")
+        {
+            CommonCode = GithubieCommonErrorCode.PermissionDenied,
+            SuggestedAction = GithubieSuggestedAction.VerifyPermissions,
+        },
+        RepositoryRegistrationError.GitHubRepositoryAlreadyExists => new(
+            "repository_already_exists",
+            "A repository with the same name already exists on GitHub.",
+            false,
+            "Choose another name, or register the existing repository with github_repository_register.")
+        {
+            CommonCode = GithubieCommonErrorCode.Conflict,
+        },
+        RepositoryRegistrationError.GitHubFailed => new("github_api_error", "GitHub API returned an error."),
         _ => new("internal", "Repository registration failed."),
     };
 
@@ -219,6 +263,10 @@ public static class GithubieToolResultMapper
     private static GithubieToolError MapGitHubError(GitHubError error) => error switch
     {
         GitHubError.RepositoryNotFound => new("repository_not_found", "Repository is not registered."),
+        GitHubError.RepositoryAlreadyExists => new("repository_already_exists", "A repository with the same name already exists on GitHub.")
+        {
+            CommonCode = GithubieCommonErrorCode.Conflict,
+        },
         GitHubError.RepositoryDescriptionInvalid => new("repository_description_invalid", "Repository description must be at most 350 characters."),
         GitHubError.WorkflowNotAllowed => new("workflow_not_allowed", "Workflow is not allowed by repository policy."),
         GitHubError.WorkflowRefNotAllowed => new("workflow_ref_not_allowed", "Workflow ref is not allowed by repository policy."),
