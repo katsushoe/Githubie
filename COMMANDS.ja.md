@@ -123,6 +123,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | Tool | パラメータ | 説明 |
 | --- | --- | --- |
 | `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | 対話Desktop承認後にCommit作成者を含めて登録し、別画面でTokenを任意保存する |
+| `github_repository_create` | `repository`, `owner`, `name`, `visibility?`, `description?`, `local_root?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | 対話Desktop承認後、GitHub上にRepositoryを新規作成する（既定は`private`、初期Commitなし）。Tokenの利用者と`owner`が一致すれば個人、異なればOrganization配下に作成する。`repository`の保存済みTokenを使い、なければToken画面で受け取る。`local_root`を指定すると、未設定の`origin`へ作成先を設定し、承認とToken入力を繰り返さずに登録する。失敗時は`repository_already_exists`、`permission_denied`、`authentication_failed`、`approval_denied`、`remote_already_configured`、`token_unavailable`を返し、GitHubの拒否理由を`error.diagnostic`に入れる。ローカル履歴のpushは`github_push`で別に行う |
 | `github_repository_update` | `repository`、Branch Policy項目、`commit_author_name?`、`commit_author_email?` | 対話Desktop承認後にBranch PolicyとCommit作成者を更新する。GitHub識別情報とPathは変更しない |
 | `github_repository_unregister` | `repository` | Githubie設定と実行中Allowlistから登録解除。GitHub／Localのデータは削除しない |
 | `github_repository_rename` | `old_repository`、`new_repository` | 設定と暗号化Tokenを一括移行し、失敗時は旧IDを維持する |

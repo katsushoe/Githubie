@@ -217,6 +217,7 @@ public sealed class GithubieMcpToolsTests
         "github_workflow_run_get",
         "github_workflow_run_list",
         "github_repository_register",
+        "github_repository_create",
         "github_repository_unregister",
             "github_repository_update",
             "github_repository_rename",

@@ -8,6 +8,13 @@ public interface IGitHubApiClient
 {
     Task<GitHubResult<GitHubRepositoryInfo>> GetRepositoryAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken);
 
+    /// <summary>`repositoryId`のTokenで認証されたGitHubユーザーのloginを取得します。</summary>
+    Task<GitHubResult<string>> GetAuthenticatedUserLoginAsync(string repositoryId, CancellationToken cancellationToken);
+
+    /// <summary>GitHub上にRepositoryを新規作成します。同名が既にある場合は`RepositoryAlreadyExists`を返します。</summary>
+    Task<GitHubResult<GitHubCreatedRepository>> CreateRepositoryAsync(
+        string repositoryId, GitHubRepositoryCreate request, CancellationToken cancellationToken);
+
     Task<GitHubResult<GitHubRepositoryInfo>> UpdateRepositoryDescriptionAsync(
         string repositoryId, string owner, string repo, string description, CancellationToken cancellationToken);
 

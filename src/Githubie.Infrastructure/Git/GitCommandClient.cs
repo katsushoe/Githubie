@@ -64,6 +64,9 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["remote", "get-url", "--", remote], cancellationToken);
 
+    public Task<GitCommandResult> AddRemoteAsync(string repositoryRoot, string remote, string url, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["remote", "add", "--", remote, url], cancellationToken);
+
     public Task<GitCommandResult> FetchAsync(string repositoryRoot, string repositoryId, string remote, CancellationToken cancellationToken) =>
         ExecuteNetworkAsync(repositoryRoot, repositoryId, ["fetch", "--", remote], cancellationToken);
 

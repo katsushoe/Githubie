@@ -47,6 +47,97 @@ public sealed class GitHubApiClientTests
         return new GitHubApiClient(httpClient, new FakeTokenStore());
     }
 
+    [Theory]
+    [InlineData(false, "/user/repos")]
+    [InlineData(true, "/orgs/acme/repos")]
+    public async Task CreateRepositoryAsync_PostsToUserOrOrganizationEndpoint(bool forOrganization, string expectedPath)
+    {
+        string? capturedBody = null;
+        var client = CreateCapturingClient((request, body) =>
+        {
+            request.Method.Should().Be(HttpMethod.Post);
+            request.RequestUri!.AbsolutePath.Should().Be(expectedPath);
+            capturedBody = body;
+            return new HttpResponseMessage(HttpStatusCode.Created)
+            {
+                Content = new StringContent(
+                    """{"name":"NewRepo","private":true,"owner":{"login":"acme"},"html_url":"https://github.com/acme/NewRepo","clone_url":"https://github.com/acme/NewRepo.git"}""",
+                    System.Text.Encoding.UTF8, "application/json"),
+            };
+        });
+
+        var result = await client.CreateRepositoryAsync(
+            "repo-id", new GitHubRepositoryCreate("acme", "NewRepo", true, null, forOrganization), TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be(new GitHubCreatedRepository(
+            "acme", "NewRepo", true, "https://github.com/acme/NewRepo", "https://github.com/acme/NewRepo.git"));
+        using var document = System.Text.Json.JsonDocument.Parse(capturedBody!);
+        document.RootElement.GetProperty("name").GetString().Should().Be("NewRepo");
+        document.RootElement.GetProperty("private").GetBoolean().Should().BeTrue();
+        document.RootElement.GetProperty("auto_init").GetBoolean().Should().BeFalse();
+        document.RootElement.TryGetProperty("description", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CreateRepositoryAsync_NameAlreadyExists_ReturnsRepositoryAlreadyExistsWithReason()
+    {
+        var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.UnprocessableEntity)
+        {
+            Content = new StringContent(
+                """{"message":"Repository creation failed.","errors":[{"resource":"Repository","code":"custom","field":"name","message":"name already exists on this account"}]}"""),
+        });
+
+        var result = await client.CreateRepositoryAsync(
+            "repo-id", new GitHubRepositoryCreate("owner", "Dup", true, null, false), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.RepositoryAlreadyExists);
+        result.HttpStatus.Should().Be(422);
+        result.Diagnostic.Should().Be("GitHub HTTP 422: Repository creation failed. [name already exists on this account]");
+    }
+
+    [Fact]
+    public async Task CreateRepositoryAsync_OtherValidationFailure_IsNotReportedAsExisting()
+    {
+        var client = CreateClient(_ => new HttpResponseMessage(HttpStatusCode.UnprocessableEntity)
+        {
+            Content = new StringContent("""{"message":"Repository creation failed.","errors":[{"message":"name is too long"}]}"""),
+        });
+
+        var result = await client.CreateRepositoryAsync(
+            "repo-id", new GitHubRepositoryCreate("owner", "x", true, null, false), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.ApiError);
+        result.Diagnostic.Should().Contain("name is too long");
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.Forbidden)]
+    [InlineData(HttpStatusCode.NotFound)]
+    public async Task CreateRepositoryAsync_NoPermission_ReturnsPermissionDenied(HttpStatusCode status)
+    {
+        var client = CreateClient(_ => new HttpResponseMessage(status));
+
+        var result = await client.CreateRepositoryAsync(
+            "repo-id", new GitHubRepositoryCreate("acme", "x", true, null, true), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.PermissionDenied);
+    }
+
+    [Fact]
+    public async Task GetAuthenticatedUserLoginAsync_ReturnsLogin()
+    {
+        var client = CreateClient(request =>
+        {
+            request.RequestUri!.AbsolutePath.Should().Be("/user");
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"login":"katsushoe"}""") };
+        });
+
+        var result = await client.GetAuthenticatedUserLoginAsync("repo-id", TestContext.Current.CancellationToken);
+
+        result.Value.Should().Be("katsushoe");
+    }
+
     [Fact]
     public async Task GetRepositoryAsync_ReturnsDescription()
     {

@@ -31,6 +31,52 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private readonly HttpClient _httpClient = httpClient;
     private readonly IApiTokenStore _tokenStore = tokenStore;
 
+    public async Task<GitHubResult<string>> GetAuthenticatedUserLoginAsync(string repositoryId, CancellationToken cancellationToken)
+    {
+        var response = await SendAsync(repositoryId, HttpMethod.Get, "user", null, cancellationToken);
+        if (!response.IsSuccess)
+        {
+            return GitHubResult<string>.FailureFrom(response);
+        }
+
+        using var message = response.Value!;
+        var body = await ReadAsync<AuthenticatedUserResponse>(message, cancellationToken);
+        return string.IsNullOrWhiteSpace(body?.Login)
+            ? GitHubResult<string>.Failure(GitHubError.InvalidResponse)
+            : GitHubResult<string>.Success(body.Login);
+    }
+
+    public async Task<GitHubResult<GitHubCreatedRepository>> CreateRepositoryAsync(
+        string repositoryId, GitHubRepositoryCreate request, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        var path = request.ForOrganization ? $"orgs/{request.Owner}/repos" : "user/repos";
+        var payload = new CreateRepositoryBody(request.Name, request.Private, request.Description, AutoInit: false);
+        var response = await SendAsync(
+            repositoryId, HttpMethod.Post, path, null, cancellationToken,
+            jsonBody: payload, notFoundError: GitHubError.PermissionDenied);
+        if (!response.IsSuccess)
+        {
+            var failure = GitHubResult<GitHubCreatedRepository>.FailureFrom(response);
+            // GitHubは同名Repositoryの作成を422で拒否し、errors[].messageに「already exists」を含める。
+            return response.HttpStatus == 422
+                && response.Diagnostic?.Contains("already exists", StringComparison.OrdinalIgnoreCase) == true
+                ? failure with { Error = GitHubError.RepositoryAlreadyExists }
+                : failure;
+        }
+
+        using var message = response.Value!;
+        var body = await ReadAsync<CreatedRepositoryResponse>(message, cancellationToken);
+        if (body?.Owner?.Login is null || string.IsNullOrWhiteSpace(body.Name)
+            || string.IsNullOrWhiteSpace(body.HtmlUrl) || string.IsNullOrWhiteSpace(body.CloneUrl))
+        {
+            return GitHubResult<GitHubCreatedRepository>.Failure(GitHubError.InvalidResponse);
+        }
+
+        return GitHubResult<GitHubCreatedRepository>.Success(
+            new GitHubCreatedRepository(body.Owner.Login, body.Name, body.Private, body.HtmlUrl, body.CloneUrl));
+    }
+
     public async Task<GitHubResult<GitHubRepositoryInfo>> GetRepositoryAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken)
     {
         var response = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}", null, cancellationToken);
@@ -853,6 +899,20 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
             var documentation = document.RootElement.TryGetProperty("documentation_url", out var urlElement)
                 && urlElement.ValueKind == JsonValueKind.String ? urlElement.GetString() : null;
             var text = string.IsNullOrWhiteSpace(message) ? status : $"{status}: {message}";
+            // 422等では、具体的な理由（例: name already exists on this account）がerrors[].messageに入る。
+            if (document.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
+            {
+                var details = errors.EnumerateArray()
+                    .Where(item => item.ValueKind == JsonValueKind.Object
+                        && item.TryGetProperty("message", out var detail) && detail.ValueKind == JsonValueKind.String)
+                    .Select(item => item.GetProperty("message").GetString())
+                    .Where(detail => !string.IsNullOrWhiteSpace(detail))
+                    .ToArray();
+                if (details.Length > 0)
+                {
+                    text += $" [{string.Join("; ", details)}]";
+                }
+            }
             if (!string.IsNullOrWhiteSpace(documentation))
             {
                 text += $" ({documentation})";
@@ -1029,6 +1089,23 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
     private static GitHubPullRequestReview ToPullRequestReview(PullRequestReviewResponse review) => new(
         review.Id, review.Body, review.User!.Login!, review.State!, review.SubmittedAt!.Value,
         review.CommitId!, review.HtmlUrl!);
+
+    private sealed record AuthenticatedUserResponse(string? Login);
+
+    private sealed record CreateRepositoryBody(
+        string Name,
+        bool Private,
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Description,
+        [property: JsonPropertyName("auto_init")] bool AutoInit);
+
+    private sealed record CreatedRepositoryResponse(
+        string? Name,
+        bool Private,
+        RepositoryOwnerResponse? Owner,
+        [property: JsonPropertyName("html_url")] string? HtmlUrl,
+        [property: JsonPropertyName("clone_url")] string? CloneUrl);
+
+    private sealed record RepositoryOwnerResponse(string? Login);
 
     private sealed record RepositoryResponse(
         [property: JsonPropertyName("default_branch")] string? DefaultBranch,
