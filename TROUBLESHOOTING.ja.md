@@ -23,7 +23,9 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `local_root_not_found` | 設定済み`local_root`がファイルシステム上に存在しない | パスを修正するか、リポジトリを再クローンする |
 | `git_metadata_not_found` | `local_root`直下に`.git`がない | 正しいGitリポジトリのルートを指しているか確認する |
 | `reparse_point_detected` | `local_root`の経路にsymlink/junctionが含まれる | Local Path Security上意図的に拒否している。実体パスを直接指定する |
-| `remote_mismatch` | `git remote get-url`の結果が`github.com/<owner>/<repo>`と一致しない | ローカルRemote URLを設定値に合わせて修正する、または`github_owner`/`github_repo`を修正する |
+| `provider_remote_mismatch` | 指定・登録したRemoteのURLが`github.com/<owner>/<repo>`と一致しない | ローカルRemote URLを設定値に合わせて修正する、`github_owner`/`github_repo`を修正する、または正しいRemote名を`remote`に指定する |
+| `provider_remote_not_found` | 指定・登録したRemoteがない、または登録Repositoryと一致するHTTPSのRemoteがない | `git remote add github-origin-https https://github.com/OWNER/REPOSITORY.git`でRemoteを追加する |
+| `provider_remote_ambiguous` | 登録Repositoryと一致するRemoteが複数あり、`github-origin-https`でも決まらない | `remote`を指定する、または1つを`github-origin-https`へ改名する |
 
 ## Git実行関連
 
@@ -35,7 +37,7 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `network_error` | DNS、Proxy、TLSまたは通信に失敗した | 接続状態を確認してから再試行する |
 | `remote_unavailable` | RemoteまたはRemote refを利用できない | 設定済みRepository、Remote、refを確認する |
 | `non_fast_forward` | Remote変更によりfast-forwardできない | fetch後にRemote変更を統合して再試行する |
-| `remote_https_required` | Git RemoteがSSH形式になっている | `git remote set-url <remote> https://github.com/OWNER/REPOSITORY.git`でHTTPS形式へ変更する |
+| `provider_remote_not_found`（`error.provider.code`が`remote_https_required`）／登録時の`remote_https_required` | Git RemoteがSSH形式になっている | `git remote set-url <remote> https://github.com/OWNER/REPOSITORY.git`でHTTPS形式へ変更する |
 | `repository_already_exists` | `github_repository_create`で同名のGitHub Repositoryが既に存在する | 別の名前を指定するか、既存Repositoryを`github_repository_register`で登録する |
 | `remote_already_configured` | `github_repository_create`は既存の`origin`を書き換えない | 既にGitHubを指すRepositoryは`github_repository_register`で登録する |
 | `token_unavailable` | Repository IDのTokenが保存されておらず、入力もされなかった | ownerへRepositoryを作成できるTokenを入力して再実行する |

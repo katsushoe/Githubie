@@ -2,6 +2,7 @@ using Githubie.Application.Configuration;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
+using Githubie.Infrastructure.Configuration;
 using Githubie.Server;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -13,7 +14,16 @@ using Moyai.ProviderAuthentication;
 
 var binDirectory = AppContext.BaseDirectory;
 // 既定は単体動作モード。`--moyai`を指定した場合だけMoyai連携モード（Provider Assertion検証）で起動する。
-var serverArguments = GithubieServerArguments.Parse(args);
+GithubieServerArguments serverArguments;
+try
+{
+    serverArguments = GithubieServerArguments.Parse(args);
+}
+catch (ArgumentException ex)
+{
+    Console.Error.WriteLine(ex.Message);
+    return 1;
+}
 var configPath = serverArguments.ConfigPath
     ?? Path.Combine(GithubiePathLayout.FromBinDirectory(binDirectory).ConfigDirectory, "githubie.json");
 var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
@@ -21,10 +31,12 @@ var readinessStore = new ServiceReadinessStore(layout.ServiceStatePath);
 await readinessStore.WriteInitializingAsync(CancellationToken.None);
 
 var composition = await GithubieCompositionRoot.BuildAsync(
-    configPath, binDirectory, serverArguments.MoyaiIntegration, CancellationToken.None);
+    configPath, binDirectory, serverArguments.MoyaiIntegration, serverArguments.DirectUnrestricted, CancellationToken.None);
 if (!composition.IsSuccess)
 {
-    await readinessStore.WriteFailedAsync("service composition failed", CancellationToken.None);
+    // サービス起動時は標準エラーが残らないため、失敗理由をservice-state.jsonへ残す。
+    await readinessStore.WriteFailedAsync(
+        $"service composition failed: {string.Join("; ", composition.Errors)}", CancellationToken.None);
     foreach (var error in composition.Errors)
     {
         Console.Error.WriteLine(error);
@@ -132,8 +144,16 @@ try
 {
     await app.StartAsync();
     app.Logger.LogInformation(
-        "Githubie started in {Mode} mode.",
-        assertionValidator is null ? "standalone" : "Moyai integration");
+        "Githubie started with integration_mode={IntegrationMode}, direct_connection={DirectConnection}.",
+        GithubieIntegrationMode.IntegrationMode(options),
+        GithubieIntegrationMode.DirectConnection(options));
+    var unmappedRepositories = JsonGithubieOptionsLoader.FindUnmappedRepositories(options);
+    if (unmappedRepositories.Length > 0)
+    {
+        app.Logger.LogWarning(
+            "Repositories without a Moyai Project UUID reject Moyai requests (auth_project_mismatch): {Repositories}.",
+            string.Join(", ", unmappedRepositories));
+    }
     await readinessStore.WriteReadyAsync(CancellationToken.None);
 }
 catch (Exception ex) when (ex is IOException or InvalidOperationException)

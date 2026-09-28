@@ -29,7 +29,7 @@ public sealed class GithubieMcpProjectDiscoveryTests
         gitGateway.PushAsync("missing", Arg.Any<CancellationToken>())
             .Returns(GitGatewayResult<Unit>.Failure(GitGatewayError.RepositoryNotFound));
 
-        var result = await tools.PushAsync("missing", TestContext.Current.CancellationToken);
+        var result = await tools.PushAsync("missing", cancellationToken: TestContext.Current.CancellationToken);
 
         result.Error!.Code.Should().Be("repository_not_found");
         result.Error.Candidates.Should().Equal("Alpha", "zulu");

@@ -84,7 +84,7 @@ MCP Toolの失敗時は、既存の`code`、`message`、`summary`に加え、`co
 | コマンド | 説明 |
 | --- | --- |
 | `githubie start` / `stop` / `restart` / `status` | Windows Service「Githubie」の起動・停止・再起動・状態確認（内部で`sc.exe`を実行） |
-| `githubie service install [--moyai]` | Windows Serviceとして登録する（`binPath`は`Githubie.Server.exe <config-path>`、`start=auto`）。既定は単体動作モードで、`--moyai`指定時だけ`binPath`へ`--moyai`を付けてMoyai連携モードで登録する |
+| `githubie service install [--moyai]` | Windows Serviceとして登録する（`binPath`は`Githubie.Server.exe <config-path>`、`start=auto`）。既定は単体動作モードで、`--moyai`指定時だけ`binPath`へ`--moyai`を付けてMoyai連携モードで登録する（直接接続は読み取りのみ）。`--moyai --direct-unrestricted`では、Authorizationなしのloopback直接接続にすべてのRepository Toolを許可する |
 | `githubie service uninstall` | Windows Serviceの登録を解除する |
 | `githubie service status` | サービスの状態を確認する（`status`と同じ） |
 
@@ -146,6 +146,8 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_release_draft_delete` | `repository`, `release_id` | IDが一致するdraft Releaseだけを削除し、公開済みReleaseとTagは保持 |
 | `github_release_update` | `repository`, `release_id`, `name?`, `body?`, `draft?`, `prerelease?` | 明示指定したRelease項目だけを更新 |
 | `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | 許可成果物を最大10件追加。同名置換は`replace_existing=true`の場合のみ |
+
+Remoteと通信するGit操作（`github_repository_status`、`github_fetch`、`github_pull`、`github_push`、`github_tag_push`、`github_tag_create`、`github_history_rewrite`）は、任意引数`remote`（Moyaiの`gitRemoteName`）を受け付ける。使用するRemoteは、引数`remote`、登録済みのRemote名、登録RepositoryとURLが一致するHTTPSのRemote（複数あれば`github-origin-https`という名前のもの）の順に決める。名前で指定したRemoteはURLを検証し、ほかへ退避しない。失敗時は`provider_remote_not_found`、`provider_remote_ambiguous`、`provider_remote_mismatch`を返す。SSHのRemoteは`provider_remote_not_found`とし、`error.provider.code`を`remote_https_required`とする。`github_repository_diff`と`github_repository_commit`も`remote`を受け付けるが使わない。`github_provider_capabilities`は`remote_resolution`（`version` 1、`mode` `repository_url`）を返す。ADR 0032を参照。
 
 ### 未分類（局所的な状態変更を伴うが破壊的操作ではない）
 

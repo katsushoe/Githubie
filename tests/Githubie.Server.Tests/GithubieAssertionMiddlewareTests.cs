@@ -154,18 +154,43 @@ public sealed class GithubieAssertionMiddlewareTests
         context.Response.StatusCode.Should().Be(StatusCodes.Status401Unauthorized);
     }
 
-    [Fact]
-    public async Task InvokeAsync_DirectLocalCallWithoutMoyaiHeaders_DispatchesWithoutPrincipal()
+    [Theory]
+    [InlineData("github_repository_status", false, 1)]
+    [InlineData("github_branch_list", false, 1)]
+    [InlineData("github_push", false, 0)]
+    [InlineData("github_repository_commit", false, 0)]
+    [InlineData("github_push", true, 1)]
+    [InlineData("github_repository_commit", true, 1)]
+    public async Task InvokeAsync_DirectLocalCallWithoutMoyaiHeaders_FollowsDirectConnection(
+        string tool, bool directUnrestricted, int expectedDispatches)
     {
         using var fixture = new AssertionFixture();
+        var options = fixture.Options with { DirectUnrestricted = directUnrestricted };
         var dispatched = 0;
-        var context = fixture.CreateRequest(assertion: null, moyaiRequest: false);
+        var context = fixture.CreateRequest(assertion: null, tool: tool, moyaiRequest: false);
 
-        await CreateMiddleware(() => dispatched++).InvokeAsync(context, fixture.Options, fixture.Repositories,
+        await CreateMiddleware(() => dispatched++).InvokeAsync(context, options, fixture.Repositories,
             fixture.Validator, fixture.Validator, fixture.ExecutionContext);
 
-        dispatched.Should().Be(1);
-        context.Response.StatusCode.Should().Be(StatusCodes.Status200OK);
+        // direct_connection=read_only（--moyaiのみ）は読み取りScopeだけ、unrestrictedはすべてを許可する。
+        dispatched.Should().Be(expectedDispatches);
+        context.Response.StatusCode.Should().Be(
+            expectedDispatches == 1 ? StatusCodes.Status200OK : StatusCodes.Status401Unauthorized);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_DirectUnrestricted_StillRejectsInvalidAssertion()
+    {
+        using var fixture = new AssertionFixture();
+        var options = fixture.Options with { DirectUnrestricted = true };
+        var dispatched = 0;
+        var context = fixture.CreateRequest("test-legacy-service-token", moyaiRequest: false);
+
+        await CreateMiddleware(() => dispatched++).InvokeAsync(context, options, fixture.Repositories,
+            fixture.Validator, fixture.Validator, fixture.ExecutionContext);
+
+        dispatched.Should().Be(0);
+        context.Response.StatusCode.Should().NotBe(StatusCodes.Status200OK);
     }
 
     [Fact]

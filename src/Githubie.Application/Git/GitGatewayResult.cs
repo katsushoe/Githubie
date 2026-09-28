@@ -70,6 +70,8 @@ public enum GitGatewayError
 
     RemoteMismatch,
     RemoteHttpsRequired,
+    RemoteNotFound,
+    RemoteAmbiguous,
 
     GitNotFound,
     GitFailed,

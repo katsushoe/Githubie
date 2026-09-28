@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Reflection;
+using Githubie.Application.Configuration;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
@@ -16,7 +17,8 @@ public sealed class GithubieMcpTools(
     IGitHubRepositoryGateway gitHubGateway,
     IRepositoryRegistrationService registrationService,
     IRepositoryManagementService managementService,
-    RepositoryAllowlist repositoryAllowlist)
+    RepositoryAllowlist repositoryAllowlist,
+    GithubieOptions? options = null)
 {
     [McpServerTool(Name = "list_projects", ReadOnly = true, UseStructuredContent = true)]
     [Description("Githubieに登録済みのRepository ID一覧を取得します。")]
@@ -118,8 +120,10 @@ public sealed class GithubieMcpTools(
     [Description("指定リポジトリのGit状態(local/remote head, ahead/behind, working tree clean)を取得します。")]
     public async Task<GithubieToolResult<GitRepositoryStatus>> GetRepositoryStatusAsync(
         [Description("Githubie内部のRepository ID")] string repository,
-        CancellationToken cancellationToken)
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。省略時は登録名、なければ登録RepositoryとURLが一致するリモートを自動解決")] string? remote = null,
+        CancellationToken cancellationToken = default)
     {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitGateway.GetStatusAsync(repository, cancellationToken);
         return GithubieToolResultMapper.Map("repository_status", repository, result);
     }
@@ -128,8 +132,10 @@ public sealed class GithubieMcpTools(
     [Description("登録Repositoryのworking tree差分を取得します。")]
     public async Task<GithubieToolResult<GitRepositoryDiff>> GetRepositoryDiffAsync(
         [Description("Githubie内部のRepository ID")] string repository,
-        CancellationToken cancellationToken)
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。省略時は登録名、なければ登録RepositoryとURLが一致するリモートを自動解決")] string? remote = null,
+        CancellationToken cancellationToken = default)
     {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitGateway.GetDiffAsync(repository, cancellationToken);
         return GithubieToolResultMapper.Map("repository_diff", repository, result);
     }
@@ -139,8 +145,10 @@ public sealed class GithubieMcpTools(
     public async Task<GithubieToolResult<GitRepositoryCommit>> CommitRepositoryAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("Commit message")] string message,
-        CancellationToken cancellationToken)
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。省略時は登録名、なければ登録RepositoryとURLが一致するリモートを自動解決")] string? remote = null,
+        CancellationToken cancellationToken = default)
     {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitGateway.CommitAsync(repository, message, cancellationToken);
         return GithubieToolResultMapper.Map("repository_commit", repository, result);
     }
@@ -211,8 +219,10 @@ public sealed class GithubieMcpTools(
     [Description("設定済みRemoteからgit fetch相当を行います。")]
     public async Task<GithubieToolResult<Unit>> FetchAsync(
         [Description("Githubie内部のRepository ID")] string repository,
-        CancellationToken cancellationToken)
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。省略時は登録名、なければ登録RepositoryとURLが一致するリモートを自動解決")] string? remote = null,
+        CancellationToken cancellationToken = default)
     {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitGateway.FetchAsync(repository, cancellationToken);
         return GithubieToolResultMapper.Map("fetch", repository, result);
     }
@@ -222,8 +232,10 @@ public sealed class GithubieMcpTools(
     public async Task<GithubieToolResult<Unit>> PullAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("Pull対象branch")] string branch,
-        CancellationToken cancellationToken)
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。省略時は登録名、なければ登録RepositoryとURLが一致するリモートを自動解決")] string? remote = null,
+        CancellationToken cancellationToken = default)
     {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitGateway.PullAsync(repository, branch, cancellationToken);
         return GithubieToolResultMapper.Map("pull", repository, result);
     }
@@ -232,8 +244,10 @@ public sealed class GithubieMcpTools(
     [Description("ローカルCommitをGitHubへPushします。mainなどProtected Branchへの直接Pushは拒否します。")]
     public async Task<GithubieToolResult<Unit>> PushAsync(
         [Description("Githubie内部のRepository ID")] string repository,
-        CancellationToken cancellationToken)
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。省略時は登録名、なければ登録RepositoryとURLが一致するリモートを自動解決")] string? remote = null,
+        CancellationToken cancellationToken = default)
     {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitGateway.PushAsync(repository, cancellationToken);
         var mapped = GithubieToolResultMapper.Map("push", repository, result);
         if (mapped.Error?.Code is "repository_not_found" or "repository_not_allowed")
@@ -253,8 +267,10 @@ public sealed class GithubieMcpTools(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("対象ref、新local SHA、期待remote SHAの一覧")] IReadOnlyList<GitHistoryRewriteRef> refs,
         [Description("更新せず検証計画だけを返すか")] bool dry_run,
-        CancellationToken cancellationToken)
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。省略時は登録名、なければ登録RepositoryとURLが一致するリモートを自動解決")] string? remote = null,
+        CancellationToken cancellationToken = default)
     {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitGateway.RewriteHistoryAsync(repository, refs, dry_run, cancellationToken);
         return GithubieToolResultMapper.Map("history_rewrite", repository, result);
     }
@@ -279,7 +295,12 @@ public sealed class GithubieMcpTools(
             return GithubieToolResultMapper.Map(
                 "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
-            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true));
+            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true)
+            {
+                Authentication = new(
+                    GithubieIntegrationMode.IntegrationMode(options),
+                    GithubieIntegrationMode.DirectConnection(options)),
+            });
     }
 
     [McpServerTool(Name = "github_branch_get", ReadOnly = true, UseStructuredContent = true)]
@@ -470,8 +491,11 @@ public sealed class GithubieMcpTools(
     [McpServerTool(Name = "github_tag_push", Destructive = true, UseStructuredContent = true)]
     [Description("既存の許可されたLocal TagをRemoteへ明示的にPushします。")]
     public async Task<GithubieToolResult<Unit>> PushTagAsync(
-        string repository, string tag, CancellationToken cancellationToken)
+        string repository, string tag,
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。省略時は登録名、なければ登録RepositoryとURLが一致するリモートを自動解決")] string? remote = null,
+        CancellationToken cancellationToken = default)
     {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitGateway.PushTagAsync(repository, tag, cancellationToken);
         return GithubieToolResultMapper.Map("tag_push", repository, result);
     }
@@ -504,8 +528,10 @@ public sealed class GithubieMcpTools(
         [Description("Tag名(例: v1.0.0)")] string tag,
         [Description("作成元branch名または完全な40桁commit SHA（必須）")] string source,
         [Description("Annotated tag message")] string? message,
-        CancellationToken cancellationToken)
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。省略時は登録名、なければ登録RepositoryとURLが一致するリモートを自動解決")] string? remote = null,
+        CancellationToken cancellationToken = default)
     {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitHubGateway.CreateTagAsync(repository, tag, source, message, cancellationToken);
         if (!result.IsSuccess) return GithubieToolResultMapper.Map("tag_create", repository, result);
 

@@ -9,8 +9,10 @@
 | `repository_not_found` / `repository_not_allowed` | Call `list_projects` and use a registered ID. A failed `github_push` also returns registered IDs in `error.candidates`. |
 | `local_root_not_found` / `git_metadata_not_found` | Correct `local_root` and ensure its `.git` directory exists. |
 | `reparse_point_detected` | Configure the physical path without a symlink or junction. |
-| `remote_mismatch` | Make the Git remote match the configured GitHub owner and repository. |
-| `remote_https_required` | Change the Git remote to `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are not accepted. |
+| `provider_remote_mismatch` | Make the named Git remote match the configured GitHub owner and repository, or pass the correct `remote`. |
+| `provider_remote_not_found` | Add an HTTPS remote for the repository, for example `git remote add github-origin-https https://github.com/OWNER/REPOSITORY.git`. With `error.provider.code` `remote_https_required`, change the SSH remote to HTTPS. |
+| `provider_remote_ambiguous` | Pass `remote`, or name exactly one matching remote `github-origin-https`. |
+| `remote_https_required` (registration) | Change the Git remote to `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are not accepted. |
 | `repository_already_exists` | `github_repository_create` found a GitHub repository with the same name; choose another name or register the existing repository with `github_repository_register`. |
 | `remote_already_configured` | `github_repository_create` does not rewrite an existing `origin`; use `github_repository_register` for a repository that already points to GitHub. |
 | `token_unavailable` | No token is stored for the repository ID and none was entered; enter a token that can create repositories for the owner. |

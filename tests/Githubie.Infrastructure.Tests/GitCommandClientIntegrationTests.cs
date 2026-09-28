@@ -25,6 +25,22 @@ public sealed class GitCommandClientIntegrationTests
     }
 
     [Fact]
+    public async Task ListRemoteUrlsAsync_ReturnsConfiguredRemotesOrEmptyWhenNone()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+
+        var none = await client.ListRemoteUrlsAsync(repository.Root, TestContext.Current.CancellationToken);
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "remote", "add", "github-origin-https", "https://github.com/owner/repo.git");
+        var listed = await client.ListRemoteUrlsAsync(repository.Root, TestContext.Current.CancellationToken);
+
+        none.IsSuccess.Should().BeTrue(none.StandardError);
+        none.StandardOutput.Should().BeEmpty();
+        listed.IsSuccess.Should().BeTrue(listed.StandardError);
+        listed.StandardOutput.Trim().Should().Be("remote.github-origin-https.url https://github.com/owner/repo.git");
+    }
+
+    [Fact]
     public async Task GetBranchAndHeadAsync_EmptyRepository_ReturnsUnbornBranchAndEmptyHead()
     {
         using var repository = await TemporaryGitRepository.CreateEmptyAsync();

@@ -64,6 +64,17 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["remote", "get-url", "--", remote], cancellationToken);
 
+    public async Task<GitCommandResult> ListRemoteUrlsAsync(string repositoryRoot, CancellationToken cancellationToken)
+    {
+        var result = await ExecuteLocalAsync(
+            repositoryRoot, ["config", "--get-regexp", @"^remote\..*\.url$"], cancellationToken);
+        // 一致する設定がない場合、git configは終了コード1で何も出力しない。リモートなしとして扱う。
+        return !result.IsSuccess && result.Failure == GitCommandFailure.Failed && result.ExitCode == 1
+            && string.IsNullOrWhiteSpace(result.StandardError)
+            ? GitCommandResult.Success(string.Empty)
+            : result;
+    }
+
     public Task<GitCommandResult> AddRemoteAsync(string repositoryRoot, string remote, string url, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["remote", "add", "--", remote, url], cancellationToken);
 

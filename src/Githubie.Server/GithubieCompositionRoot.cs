@@ -26,7 +26,7 @@ public static class GithubieCompositionRoot
 
     /// <summary>単体動作モードのサービスグラフを構築します。`provider_authentication`は使用しません。</summary>
     public static async Task<GithubieCompositionResult> BuildAsync(string configPath, string binDirectory, CancellationToken cancellationToken)
-        => await BuildAsync(configPath, binDirectory, initializeDatabase: true, moyaiIntegration: false, cancellationToken);
+        => await BuildAsync(configPath, binDirectory, initializeDatabase: true, moyaiIntegration: false, directUnrestricted: false, cancellationToken);
 
     /// <summary>
     /// サービスグラフを構築します。`moyaiIntegration`がtrueの場合だけMoyai連携モードとなり、
@@ -34,22 +34,30 @@ public static class GithubieCompositionRoot
     /// </summary>
     public static async Task<GithubieCompositionResult> BuildAsync(
         string configPath, string binDirectory, bool moyaiIntegration, CancellationToken cancellationToken)
-        => await BuildAsync(configPath, binDirectory, initializeDatabase: true, moyaiIntegration, cancellationToken);
+        => await BuildAsync(configPath, binDirectory, initializeDatabase: true, moyaiIntegration, directUnrestricted: false, cancellationToken);
+
+    /// <summary>Moyai連携と直接接続の許可範囲を指定してサービスグラフを構築します。</summary>
+    public static async Task<GithubieCompositionResult> BuildAsync(
+        string configPath, string binDirectory, bool moyaiIntegration, bool directUnrestricted, CancellationToken cancellationToken)
+        => await BuildAsync(configPath, binDirectory, initializeDatabase: true, moyaiIntegration, directUnrestricted, cancellationToken);
 
     /// <summary>Databaseを変更せず、診断用のサービスグラフを構築します。</summary>
     public static async Task<GithubieCompositionResult> BuildForDoctorAsync(
         string configPath,
         string binDirectory,
         CancellationToken cancellationToken) =>
-        await BuildAsync(configPath, binDirectory, initializeDatabase: false, moyaiIntegration: false, cancellationToken);
+        await BuildAsync(configPath, binDirectory, initializeDatabase: false, moyaiIntegration: false, directUnrestricted: false, cancellationToken);
 
     private static async Task<GithubieCompositionResult> BuildAsync(
         string configPath,
         string binDirectory,
         bool initializeDatabase,
         bool moyaiIntegration,
+        bool directUnrestricted,
         CancellationToken cancellationToken)
     {
+        if (directUnrestricted && !moyaiIntegration)
+            return GithubieCompositionResult.Failure("--direct-unrestricted requires --moyai.");
         if (!File.Exists(configPath))
         {
             return GithubieCompositionResult.Failure($"config file not found: {configPath}");
@@ -94,6 +102,7 @@ public static class GithubieCompositionRoot
         {
             Repositories = repositories,
             ProviderAuthentication = moyaiIntegration ? options.ProviderAuthentication : null,
+            DirectUnrestricted = directUnrestricted,
         };
         var databaseErrors = JsonGithubieOptionsLoader.Validate(options);
         if (moyaiIntegration)

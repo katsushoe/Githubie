@@ -110,7 +110,7 @@ public sealed class JsonGithubieOptionsLoaderTests
     }
 
     [Fact]
-    public async Task LoadAsync_UnmappedRepository_IsRejectedOnlyInMoyaiIntegration()
+    public async Task LoadAsync_UnmappedRepository_IsWarningNotStartupError()
     {
         var json = ValidJson.Replace(
             "\"projects\": { \"example\": \"11111111-1111-1111-1111-111111111111\" }",
@@ -121,10 +121,8 @@ public sealed class JsonGithubieOptionsLoaderTests
         var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
 
         result.IsSuccess.Should().BeTrue();
-        JsonGithubieOptionsLoader.ValidateMoyaiIntegration(result.Options!).Should().Contain(e =>
-            e.Code == ConfigurationErrorCode.InvalidProviderAuthentication
-            && e.Path == "$.provider_authentication.projects"
-            && e.Message.Contains("example"));
+        JsonGithubieOptionsLoader.ValidateMoyaiIntegration(result.Options!).Should().BeEmpty();
+        JsonGithubieOptionsLoader.FindUnmappedRepositories(result.Options!).Should().Equal("example");
     }
 
     [Fact]

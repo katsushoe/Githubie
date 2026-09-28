@@ -36,6 +36,30 @@ public sealed class WindowsServiceManagementTests
     }
 
     [Fact]
+    public async Task InstallAsync_DirectUnrestricted_AppendsBothOptions()
+    {
+        var executor = new RecordingServiceCommandExecutor();
+        using var output = new StringWriter();
+        var manager = new WindowsServiceManager(executor, output);
+
+        await manager.InstallAsync("C:\\Githubie\\bin\\Githubie.Server.exe", "C:\\Githubie\\config\\githubie.json", true,
+            CancellationToken.None, directUnrestricted: true);
+
+        executor.CapturedArguments![3].Should().Be(
+            "\"C:\\Githubie\\bin\\Githubie.Server.exe\" \"C:\\Githubie\\config\\githubie.json\" --moyai --direct-unrestricted");
+    }
+
+    [Fact]
+    public async Task InstallAsync_DirectUnrestrictedWithoutMoyai_Rejects()
+    {
+        var manager = new WindowsServiceManager(new RecordingServiceCommandExecutor(), new StringWriter());
+
+        var install = () => manager.InstallAsync("server.exe", "config.json", false, CancellationToken.None, directUnrestricted: true);
+
+        await install.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
     public async Task InstallAsync_MoyaiIntegration_AppendsMoyaiOption()
     {
         var executor = new RecordingServiceCommandExecutor();

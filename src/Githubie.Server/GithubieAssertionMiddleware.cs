@@ -39,9 +39,12 @@ public sealed class GithubieAssertionMiddleware(RequestDelegate next, ILogger<Gi
             }
 
             // Moyai由来の目印がない要求はローカル直接呼び出しとして扱う。目印がある要求は別経路へ落とさず厳密に検証する。
+            // direct_connection=read_only（--moyaiのみ）では読み取りScopeだけのToolを許可し、
+            // unrestricted（--direct-unrestricted）では単体動作と同じくすべてのRepository Toolを許可する。
             if (!IsProviderRequest(httpContext.Request))
             {
-                if (options.ProviderAuthentication is { RequireAssertion: true })
+                if (!options.DirectUnrestricted
+                    && (options.ProviderAuthentication is { RequireAssertion: true } || !IsReadOnly(scopes)))
                 {
                     throw new ProviderAuthenticationException("auth_assertion_missing");
                 }
@@ -105,6 +108,9 @@ public sealed class GithubieAssertionMiddleware(RequestDelegate next, ILogger<Gi
             scopes,
             operationId);
     }
+
+    private static bool IsReadOnly(string[] scopes) =>
+        scopes.Length > 0 && scopes.All(scope => string.Equals(scope, "repository.read", StringComparison.Ordinal));
 
     private static bool IsProviderRequest(HttpRequest request) =>
         request.Headers.Authorization.Count > 0 || request.Headers.ContainsKey("X-Moyai-Operation-Id");

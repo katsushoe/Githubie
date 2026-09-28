@@ -19,7 +19,11 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.9.6`です。
+現在のDisplay Versionは`1.8.9.8`です。
+
+Version `1.8.9.8`では、Moyai Repository Provider Contractの「Gitリモートの解決」に対応しました（ADR 0032）。Remoteと通信するGit操作は任意引数`remote`を受け付け、引数、登録名、登録RepositoryとURLが一致する唯一のHTTPSのRemote（複数あれば`github-origin-https`）の順にRemoteを決めます。名前で指定したRemoteは退避せずに検証し、失敗時は`provider_remote_not_found`、`provider_remote_ambiguous`、`provider_remote_mismatch`を返します（SSHは`error.provider.code`に`remote_https_required`を残します）。`github_provider_capabilities`は`remote_resolution`（version 1、mode `repository_url`）を返します。自動テスト510件が全件成功しました。実機では、`C:\Githubie`へのUpgradeで`--moyai --direct-unrestricted`が引き継がれ、capabilitiesが`remote_resolution`を返し、登録済み`origin`および`remote=origin`でstatusとfetchが成功し、`remote=no-such-remote`が`provider_remote_not_found`になることを確認しました。MSIのSHA-256は`8F4C60D1DA39957D99A4D585B525154F1FD7DE77CA03028E2D4B79D2215996A3`です。
+
+Version `1.8.9.7`では、Moyai Consumer Contractの`direct_connection`に対応しました。`--moyai`だけではHeaderなしのloopback直接接続に`repository.read`のToolだけを許可し、`--moyai --direct-unrestricted`（MSI `DIRECT_UNRESTRICTED=1`、引き継ぎあり）ではすべてのRepository Toolを許可します。`github_provider_capabilities`は`authentication.integration_mode`と`authentication.direct_connection`を返します。Moyai Project UUIDのないRepository（`github_repository_create`で作成したものなど）があっても、Moyai連携モードのサービスが起動しなくなることはなくなり、そのRepositoryへのMoyai要求は拒否して警告をログへ記録します。起動失敗時の構成エラーは`service-state.json`へ残します。自動テスト491件が全件成功しました。実機では、初回のインストールが対応付けのない`kotodamaspecguard`により失敗してロールバックしました。修正後、`C:\Githubie`へのインストールで`--moyai --direct-unrestricted`が登録され、`integration_mode=moyai, direct_connection=unrestricted`で起動し、capabilitiesが同じ値を返し、直接の`github_fetch`が成功し、不正なAssertionが401になることを確認しました。MSIのSHA-256は`5CA0AC3F183AFCD202592C1417197A6DE1583832D39B64B6812A490BF09F9B7B`です。
 
 Version `1.8.9.6`では、対話承認付きでGitHub Repositoryを新規作成する`github_repository_create`を追加しました（ADR 0031）。`local_root`を指定すると、未設定の`origin`へ作成先を設定し、承認とToken入力を繰り返さずに登録まで行います。自動テスト478件が全件成功しました。`C:\Githubie`へのUpgrade（連携モード`--moyai`の引き継ぎ）と、実機での作成を検証しました。権限のないTokenでは`permission_denied`とGitHubの拒否理由が返り、Repositoryもoriginも作られず、保存したTokenが削除されることを確認しました。作成権限のあるTokenでは、private Repository `katsushoe/KotodamaSpecGuard`の作成、`origin`の設定、`kotodamaspecguard`としての登録が成功しました。MSIのSHA-256は`435F1E4F52B40A4001C9241F761C0D59FDF9D39CB670A3DF3353B154D547FD65`です。
 

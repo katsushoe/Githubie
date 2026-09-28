@@ -26,6 +26,12 @@ public interface IGitCommandClient
 
     Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// 設定済みリモートのURLを`remote.<name>.url <url>`の行で返します（`config --get-regexp`）。
+    /// リモートがない場合は空の成功結果を返します。
+    /// </summary>
+    Task<GitCommandResult> ListRemoteUrlsAsync(string repositoryRoot, CancellationToken cancellationToken);
+
     /// <summary>未設定のremoteを追加します（`remote add`）。既存remoteの変更には使いません。</summary>
     Task<GitCommandResult> AddRemoteAsync(string repositoryRoot, string remote, string url, CancellationToken cancellationToken);
 

@@ -209,7 +209,8 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
 
     /// <summary>
     /// Moyai連携モード（`--moyai`）でだけ必要な条件を検証します。
-    /// 単体動作モードでは`provider_authentication`の有無やProject対応の網羅を要求しません。
+    /// 単体動作モードでは`provider_authentication`の有無を要求しません。
+    /// Project UUIDへ対応付けていないRepositoryは起動を妨げず、<see cref="FindUnmappedRepositories"/>で警告します。
     /// </summary>
     public static List<ConfigurationError> ValidateMoyaiIntegration(GithubieOptions options)
     {
@@ -225,19 +226,26 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
             return errors;
         }
 
-        var unmapped = options.Repositories.Keys
-            .Where(repository => !authentication.Projects.ContainsKey(repository))
-            .Order(StringComparer.Ordinal)
-            .ToArray();
-        if (unmapped.Length > 0)
+        return errors;
+    }
+
+    /// <summary>
+    /// Moyai連携モードでProject UUIDへ対応付けていないRepository IDを返します。
+    /// これらはMoyai経由の要求を`auth_project_mismatch`で拒否し、直接接続だけで利用できます。
+    /// </summary>
+    public static string[] FindUnmappedRepositories(GithubieOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.ProviderAuthentication is not { } authentication)
         {
-            errors.Add(new ConfigurationError(
-                ConfigurationErrorCode.InvalidProviderAuthentication,
-                $"{path}.projects",
-                $"projects must map each registered repository ID to a Project UUID in Moyai integration mode; unmapped: {string.Join(", ", unmapped)}."));
+            return [];
         }
 
-        return errors;
+        return options.Repositories.Keys
+            .Where(repository => !authentication.Projects.Keys.Any(
+                key => string.Equals(key, repository, StringComparison.OrdinalIgnoreCase)))
+            .Order(StringComparer.Ordinal)
+            .ToArray();
     }
 
     private static bool TryGetFullPath(string path, out string fullPath)
