@@ -14,6 +14,9 @@ public sealed class GitHubRemoteUrlValidatorTests
     [InlineData("https://github.com/other-org/example-repo.git", "example-org", "example-repo", false)]
     [InlineData("https://gitlab.com/example-org/example-repo.git", "example-org", "example-repo", false)]
     [InlineData("https://github.com/example-org/other-repo.git", "example-org", "example-repo", false)]
+    [InlineData("https://GITHUB.COM/example-org/example-repo.git", "example-org", "example-repo", true)]
+    [InlineData("https://github.com/Example-Org/example-repo.git", "example-org", "example-repo", false)]
+    [InlineData("https://github.com/example-org/Example-Repo.git", "example-org", "example-repo", false)]
     public void IsExpectedRemote_MatchesOnlyConfiguredOwnerAndRepo(string remoteUrl, string owner, string repo, bool expected)
     {
         GitHubRemoteUrlValidator.IsExpectedRemote(remoteUrl, owner, repo).Should().Be(expected);

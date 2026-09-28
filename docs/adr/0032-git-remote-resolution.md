@@ -16,7 +16,7 @@ Before each operation that contacts the remote (`github_repository_status`, `git
 
 A named remote (1 or 2) is verified: a missing or invalid name returns `provider_remote_not_found`, a URL for another repository returns `provider_remote_mismatch`, and an SSH URL returns `provider_remote_not_found` with `error.provider.code` `remote_https_required` (ADR 0021). Automatic resolution returns `provider_remote_not_found` or `provider_remote_ambiguous` (with the matching names in `error.diagnostic`). Githubie never falls back to `origin` or to automatic resolution after a named remote fails.
 
-URL comparison reuses `GitHubRemoteUrlValidator`: `.git` and a trailing `/` are ignored, URLs with credentials, query, or fragment never match, and owner and repository names are compared case-insensitively because GitHub treats them so. SSH remotes are excluded from candidates because Githubie supplies credentials only through its HTTPS AskPass.
+URL comparison reuses `GitHubRemoteUrlValidator`: `.git` and a trailing `/` are ignored, URLs with credentials, query, or fragment never match, the host is compared case-insensitively, and the owner and repository path preserves case as required by the Provider Contract. SSH remotes are excluded from candidates because Githubie supplies credentials only through its HTTPS AskPass.
 
 The tool argument reaches the Git gateway through an `AsyncLocal` scope (`GitRemoteSelection`), so the gateway interface is unchanged. `github_repository_diff` and `github_repository_commit` accept `remote` for Moyai compatibility but do not contact a remote. `github_provider_capabilities` reports `remote_resolution: { version: 1, mode: "repository_url" }`.
 
