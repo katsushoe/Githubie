@@ -20,8 +20,8 @@ public static partial class GitHubRemoteUrlValidator
             return false;
         }
 
-        return string.Equals(parsed.Value.Owner, owner, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(parsed.Value.Repo, repo, StringComparison.OrdinalIgnoreCase);
+        return string.Equals(parsed.Value.Owner, owner, StringComparison.Ordinal)
+            && string.Equals(parsed.Value.Repo, repo, StringComparison.Ordinal);
     }
 
     public static (string Owner, string Repo)? TryParse(string remoteUrl)
@@ -43,12 +43,12 @@ public static partial class GitHubRemoteUrlValidator
         return SshPattern().IsMatch(remoteUrl) || SshUriPattern().IsMatch(remoteUrl);
     }
 
-    [GeneratedRegex(@"^https://github\.com/(?<owner>[A-Za-z0-9._-]+)/(?<repo>[A-Za-z0-9._-]+?)(\.git)?/?$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^https://github\.com/(?<owner>[A-Za-z0-9._-]+)/(?<repo>[A-Za-z0-9._-]+?)(\.git)?/?$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex HttpsPattern();
 
-    [GeneratedRegex(@"^git@github\.com:(?<owner>[A-Za-z0-9._-]+)/(?<repo>[A-Za-z0-9._-]+?)(\.git)?$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^git@github\.com:(?<owner>[A-Za-z0-9._-]+)/(?<repo>[A-Za-z0-9._-]+?)(\.git)?$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SshPattern();
 
-    [GeneratedRegex(@"^ssh://git@github\.com/(?<owner>[A-Za-z0-9._-]+)/(?<repo>[A-Za-z0-9._-]+?)(\.git)?/?$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"^ssh://git@github\.com/(?<owner>[A-Za-z0-9._-]+)/(?<repo>[A-Za-z0-9._-]+?)(\.git)?/?$", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
     private static partial Regex SshUriPattern();
 }

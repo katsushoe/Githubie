@@ -1,5 +1,5 @@
 param(
-    [string]$DisplayVersion = '1.8.9.8',
+    [string]$DisplayVersion = '1.8.9.9',
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$NoRestore
 )
@@ -56,6 +56,9 @@ foreach ($project in @(
     Copy-Item -Path (Join-Path $projectOutput '*') -Destination $binDirectory -Recurse -Force
 }
 Remove-Item -LiteralPath $publishStagingDirectory -Recurse -Force
+
+# Debug symbols are not part of the portable ZIP package contract.
+Get-ChildItem -LiteralPath $binDirectory -Filter '*.pdb' -File -Recurse | Remove-Item -Force
 
 # Verify that the merged bin directory satisfies the assembly versions required by Githubie.Server.
 $serverDeps = Get-Content (Join-Path $binDirectory 'Githubie.Server.deps.json') -Raw | ConvertFrom-Json
