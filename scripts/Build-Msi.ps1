@@ -1,5 +1,5 @@
 param(
-    [string]$DisplayVersion = '1.8.9.8',
+    [string]$DisplayVersion = '1.8.9.9',
     [string]$ProductVersion = '1.8.9',
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$NoRestore
@@ -56,6 +56,9 @@ foreach ($project in $projects) {
     Copy-Item -Path (Join-Path $projectOutput '*') -Destination $publishDirectory -Recurse -Force
 }
 Remove-Item -LiteralPath $stagingDirectory -Recurse -Force
+
+# Debug symbols are not part of the MSI package contract.
+Get-ChildItem -LiteralPath $publishDirectory -Filter '*.pdb' -File -Recurse | Remove-Item -Force
 
 # Verify that the merged publish directory satisfies the assembly versions required by Githubie.Server.
 $serverDeps = Get-Content (Join-Path $publishDirectory 'Githubie.Server.deps.json') -Raw | ConvertFrom-Json
