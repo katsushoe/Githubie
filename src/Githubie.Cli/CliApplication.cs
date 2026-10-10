@@ -144,6 +144,7 @@ public static class CliApplication
               mcp call <tool> --file <arguments-json-path>
 
               github_branch_create arguments: repository, branch, source (required; no default)
+              github_branch_switch arguments: repository, branch (existing local branch; requires a clean working tree)
 
               doctor
 

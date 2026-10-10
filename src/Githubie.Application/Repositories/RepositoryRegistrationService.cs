@@ -16,8 +16,11 @@ public sealed partial class RepositoryRegistrationService(
     IRepositoryConfigurationStore configurationStore,
     IInteractiveTokenPrompt tokenPrompt,
     IApiTokenStore tokenStore,
-    IGitHubApiClient gitHubApiClient) : IRepositoryRegistrationService
+    IGitHubApiClient gitHubApiClient,
+    MoyaiProjectMapping? moyaiProjects = null) : IRepositoryRegistrationService
 {
+    private readonly MoyaiProjectMapping _moyaiProjects = moyaiProjects ?? new MoyaiProjectMapping(allowlist, null);
+
     private static readonly TimeSpan ApprovalTimeout = TimeSpan.FromMinutes(5);
     private const string DefaultRemote = "origin";
     private const string DefaultDevelopBranch = "develop";
@@ -41,6 +44,11 @@ public sealed partial class RepositoryRegistrationService(
         {
             if (allowlist.TryGet(repositoryId, out _))
                 return RepositoryRegistrationResult.Failure(RepositoryRegistrationError.DuplicateRepositoryId);
+            if (request.MoyaiProjectId is { } requestedProject
+                && _moyaiProjects.CheckAssignable(repositoryId, requestedProject) is { } mappingError)
+                return RepositoryRegistrationResult.Failure(mappingError == MoyaiProjectMappingError.InvalidProjectId
+                    ? RepositoryRegistrationError.InvalidMoyaiProjectId
+                    : RepositoryRegistrationError.DuplicateMoyaiProjectId);
 
             var remote = string.IsNullOrWhiteSpace(request.Remote) ? DefaultRemote : request.Remote;
             var develop = string.IsNullOrWhiteSpace(request.DevelopBranch) ? DefaultDevelopBranch : request.DevelopBranch;
@@ -94,13 +102,15 @@ public sealed partial class RepositoryRegistrationService(
             {
                 CommitAuthorName = authorName,
                 CommitAuthorEmail = authorEmail,
+                MoyaiProjectId = request.MoyaiProjectId,
             };
             var approval = await approvalPrompt.RequestApprovalAsync(
                 new ApprovalPromptRequest(
                     "Githubie repository registration",
                     $"Register '{repositoryId}' for {parsed.Value.Owner}/{parsed.Value.Repo}",
                     [$"Local root: {localRoot}", $"Remote: {remote}", $"Branches: {develop} -> {main}",
-                     $"Commit author: {authorName ?? "not configured"} <{authorEmail ?? "not configured"}>"]),
+                     $"Commit author: {authorName ?? "not configured"} <{authorEmail ?? "not configured"}>",
+                     $"Moyai Project: {request.MoyaiProjectId?.ToString() ?? "not mapped"}"]),
                 ApprovalTimeout,
                 cancellationToken);
             var approvalError = MapApprovalError(approval.Outcome);
@@ -129,7 +139,10 @@ public sealed partial class RepositoryRegistrationService(
                 cancellationToken);
             return RepositoryRegistrationResult.Success(new RepositoryRegistrationInfo(
                 true, repositoryId, parsed.Value.Owner, parsed.Value.Repo, localRoot, remote, develop, main,
-                tokenResult.Configured, tokenResult.Status));
+                tokenResult.Configured, tokenResult.Status)
+            {
+                MoyaiProjectId = request.MoyaiProjectId,
+            });
         }
         finally
         {

@@ -31,6 +31,8 @@ public enum RepositoryMutationError
     DuplicateRepositoryId,
     TokenNotFound,
     CredentialMigrationFailed,
+    InvalidMoyaiProjectId,
+    DuplicateMoyaiProjectId,
 }
 
 public sealed record RepositoryMutationResult(RepositoryMutationInfo? Value, RepositoryMutationError? Error)
@@ -45,6 +47,9 @@ public interface IRepositoryManagementService
     Task<RepositoryMutationResult> UpdateAsync(
         string repositoryId, RepositoryUpdateRequest request, CancellationToken cancellationToken);
     Task<RepositoryMutationResult> UnregisterAsync(string repositoryId, CancellationToken cancellationToken);
+    /// <summary>登録済みRepositoryへMoyai Project UUIDを対話承認後に対応付け、実行中サービスへ即時反映します。</summary>
+    Task<RepositoryMutationResult> SetMoyaiProjectAsync(
+        string repositoryId, Guid moyaiProjectId, CancellationToken cancellationToken);
     Task<RepositoryMutationResult> RenameAsync(
         string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken);
 }
@@ -54,8 +59,11 @@ public sealed class RepositoryManagementService(
     RepositoryAllowlist allowlist,
     IInteractiveApprovalPrompt approvalPrompt,
     IRepositoryConfigurationStore configurationStore,
-    IApiTokenStore tokenStore) : IRepositoryManagementService
+    IApiTokenStore tokenStore,
+    MoyaiProjectMapping? moyaiProjects = null) : IRepositoryManagementService
 {
+    private readonly MoyaiProjectMapping _moyaiProjects = moyaiProjects ?? new MoyaiProjectMapping(allowlist, null);
+
     private static readonly TimeSpan ApprovalTimeout = TimeSpan.FromMinutes(5);
     private readonly SemaphoreSlim _mutationLock = new(1, 1);
 
@@ -104,6 +112,47 @@ public sealed class RepositoryManagementService(
                 CommitAuthorName = request.CommitAuthorName ?? existing.CommitAuthorName,
                 CommitAuthorEmail = request.CommitAuthorEmail ?? existing.CommitAuthorEmail,
             };
+            try { await configurationStore.SaveRepositoryAsync(repositoryId, updated, cancellationToken); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed); }
+            if (!allowlist.TryUpdate(repositoryId, updated))
+                return RepositoryMutationResult.Failure(RepositoryMutationError.RepositoryNotRegistered);
+            return RepositoryMutationResult.Success(new RepositoryMutationInfo(true, repositoryId));
+        }
+        finally { _mutationLock.Release(); }
+    }
+
+    public async Task<RepositoryMutationResult> SetMoyaiProjectAsync(
+        string repositoryId, Guid moyaiProjectId, CancellationToken cancellationToken)
+    {
+        if (!RepositoryId.TryNormalize(repositoryId, out repositoryId))
+            return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidRepositoryId);
+        if (moyaiProjectId == Guid.Empty)
+            return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidMoyaiProjectId);
+
+        await _mutationLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!allowlist.TryGet(repositoryId, out var existing))
+                return RepositoryMutationResult.Failure(RepositoryMutationError.RepositoryNotRegistered);
+            if (_moyaiProjects.CheckAssignable(repositoryId, moyaiProjectId) is not null)
+                return RepositoryMutationResult.Failure(RepositoryMutationError.DuplicateMoyaiProjectId);
+            if (existing.MoyaiProjectId == moyaiProjectId)
+                return RepositoryMutationResult.Success(new RepositoryMutationInfo(true, repositoryId));
+
+            var approval = await approvalPrompt.RequestApprovalAsync(
+                new ApprovalPromptRequest(
+                    "Githubie Moyai project mapping",
+                    $"Map '{repositoryId}' ({existing.GitHubOwner}/{existing.GitHubRepo}) to a Moyai project",
+                    [$"Moyai Project: {moyaiProjectId}",
+                     $"Previous: {existing.MoyaiProjectId?.ToString() ?? "not mapped"}",
+                     "Moyai requests for this repository are accepted after approval without a service restart."]),
+                ApprovalTimeout,
+                cancellationToken);
+            var approvalError = MapApprovalError(approval.Outcome);
+            if (approvalError is not null) return RepositoryMutationResult.Failure(approvalError.Value);
+
+            var updated = existing with { MoyaiProjectId = moyaiProjectId };
             try { await configurationStore.SaveRepositoryAsync(repositoryId, updated, cancellationToken); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             { return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed); }

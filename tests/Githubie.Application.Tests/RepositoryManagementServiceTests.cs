@@ -146,6 +146,96 @@ public sealed class RepositoryManagementServiceTests
         _allowlist.TryGet(RepositoryId, out _).Should().BeTrue();
     }
 
+    [Fact]
+    public async Task SetMoyaiProjectAsync_Approved_PersistsAndAppliesWithoutRestart()
+    {
+        var project = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var mapping = new MoyaiProjectMapping(_allowlist, null);
+        var service = new RepositoryManagementService(_allowlist, _approval, _store, _tokens, mapping);
+
+        var result = await service.SetMoyaiProjectAsync("SAMPLE", project, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        await _store.Received(1).SaveRepositoryAsync(
+            RepositoryId, Arg.Is<RepositoryOptions>(x => x.MoyaiProjectId == project), Arg.Any<CancellationToken>());
+        mapping.Find(RepositoryId).Should().Be(project);
+    }
+
+    [Fact]
+    public async Task SetMoyaiProjectAsync_UnregisteredRepository_IsRejected()
+    {
+        var service = CreateService();
+
+        var result = await service.SetMoyaiProjectAsync("missing", Guid.Parse("11111111-1111-1111-1111-111111111111"), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryMutationError.RepositoryNotRegistered);
+        await _approval.DidNotReceive().RequestApprovalAsync(
+            Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("bad id")]
+    [InlineData("-sample")]
+    public async Task SetMoyaiProjectAsync_InvalidRepositoryId_IsRejected(string repositoryId)
+    {
+        var service = CreateService();
+
+        var result = await service.SetMoyaiProjectAsync(repositoryId, Guid.Parse("11111111-1111-1111-1111-111111111111"), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryMutationError.InvalidRepositoryId);
+    }
+
+    [Fact]
+    public async Task SetMoyaiProjectAsync_EmptyUuid_IsRejected()
+    {
+        var service = CreateService();
+
+        var result = await service.SetMoyaiProjectAsync(RepositoryId, Guid.Empty, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryMutationError.InvalidMoyaiProjectId);
+    }
+
+    [Fact]
+    public async Task SetMoyaiProjectAsync_UuidUsedByAnotherRepository_IsRejectedBeforeApproval()
+    {
+        var project = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        _allowlist.TryAdd("other", CreateOptions() with { MoyaiProjectId = project });
+        var service = CreateService();
+
+        var result = await service.SetMoyaiProjectAsync(RepositoryId, project, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryMutationError.DuplicateMoyaiProjectId);
+        await _approval.DidNotReceive().RequestApprovalAsync(
+            Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SetMoyaiProjectAsync_DifferentFromAdministratorMapping_IsRejected()
+    {
+        var mapping = new MoyaiProjectMapping(_allowlist, new Dictionary<string, Guid> { [RepositoryId] = Guid.Parse("22222222-2222-2222-2222-222222222222") });
+        var service = new RepositoryManagementService(_allowlist, _approval, _store, _tokens, mapping);
+
+        var result = await service.SetMoyaiProjectAsync(RepositoryId, Guid.Parse("11111111-1111-1111-1111-111111111111"), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryMutationError.DuplicateMoyaiProjectId);
+        mapping.Find(RepositoryId).Should().Be(Guid.Parse("22222222-2222-2222-2222-222222222222"));
+    }
+
+    [Fact]
+    public async Task SetMoyaiProjectAsync_ApprovalDenied_DoesNotPersist()
+    {
+        _approval.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Denied());
+        var service = CreateService();
+
+        var result = await service.SetMoyaiProjectAsync(RepositoryId, Guid.Parse("11111111-1111-1111-1111-111111111111"), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryMutationError.ApprovalDenied);
+        await _store.DidNotReceiveWithAnyArgs().SaveRepositoryAsync(default!, default!, TestContext.Current.CancellationToken);
+        _allowlist.TryGet(RepositoryId, out var unchanged).Should().BeTrue();
+        unchanged.MoyaiProjectId.Should().BeNull();
+    }
+
     private RepositoryManagementService CreateService() => new(_allowlist, _approval, _store, _tokens);
 
     private static RepositoryOptions CreateOptions() => new(

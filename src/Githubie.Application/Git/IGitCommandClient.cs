@@ -8,6 +8,10 @@ public interface IGitCommandClient
 {
     Task<GitCommandResult> GetCurrentBranchAsync(string repositoryRoot, CancellationToken cancellationToken);
 
+    Task<GitCommandResult> CheckBranchNameAsync(string repositoryRoot, string branch, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> SwitchBranchAsync(string repositoryRoot, string branch, CancellationToken cancellationToken);
+
     Task<GitCommandResult> GetHeadAsync(string repositoryRoot, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetRemoteHeadAsync(string repositoryRoot, string remote, string branch, CancellationToken cancellationToken);

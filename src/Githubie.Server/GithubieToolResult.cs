@@ -168,6 +168,9 @@ public static class GithubieToolResultMapper
         RepositoryMutationError.DuplicateRepositoryId => new("duplicate_repository_id", "The new Repository ID is already registered."),
         RepositoryMutationError.TokenNotFound => new("token_not_found", "The source Repository has no stored token."),
         RepositoryMutationError.CredentialMigrationFailed => new("credential_migration_failed", "The encrypted token could not be migrated."),
+        RepositoryMutationError.InvalidMoyaiProjectId => new("invalid_moyai_project_id", "Moyai Project UUID must not be empty."),
+        RepositoryMutationError.DuplicateMoyaiProjectId => new("duplicate_moyai_project_id", "The Moyai Project UUID is used by another repository or differs from the administrator mapping.", false,
+            "Check the UUID with Moyai list_projects; administrator mappings in provider_authentication.projects take precedence."),
         _ => new("internal", "Repository mutation failed."),
     };
 
@@ -187,6 +190,9 @@ public static class GithubieToolResultMapper
         RepositoryRegistrationError.ApprovalTimedOut => new("approval_timed_out", "Repository registration approval timed out."),
         RepositoryRegistrationError.ApprovalUnavailable => new("approval_unavailable", "The approval prompt could not be displayed."),
         RepositoryRegistrationError.PersistenceFailed => new("persistence_failed", "Repository configuration could not be saved."),
+        RepositoryRegistrationError.InvalidMoyaiProjectId => new("invalid_moyai_project_id", "Moyai Project UUID must not be empty."),
+        RepositoryRegistrationError.DuplicateMoyaiProjectId => new("duplicate_moyai_project_id", "The Moyai Project UUID is used by another repository or differs from the administrator mapping.", false,
+            "Check the UUID with Moyai list_projects; administrator mappings in provider_authentication.projects take precedence."),
         RepositoryRegistrationError.InvalidGitHubName => new("invalid_github_name", "GitHub owner or repository name is invalid."),
         RepositoryRegistrationError.InvalidVisibility => new("invalid_visibility", "Visibility must be private or public."),
         RepositoryRegistrationError.RemoteAlreadyConfigured => new(
@@ -255,6 +261,7 @@ public static class GithubieToolResultMapper
         GitGatewayError.AuthorIdentityMissing => new("author_identity_missing", "Commit author name and email are not configured.", false,
             "Set commit_author_name and commit_author_email with github_repository_update, or set repository-local user.name and user.email."),
         GitGatewayError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed for this operation."),
+        GitGatewayError.BranchNotFound => new("branch_not_found", "The requested local branch does not exist."),
         GitGatewayError.ProtectedBranch => new("protected_branch", "Direct push to a protected branch is not allowed."),
         GitGatewayError.InvalidRef => new("invalid_ref", "The supplied Git ref is invalid."),
         GitGatewayError.DuplicateRef => new("duplicate_ref", "A history rewrite ref was specified more than once."),
