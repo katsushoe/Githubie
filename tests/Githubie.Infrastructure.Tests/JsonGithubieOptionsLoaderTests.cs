@@ -123,6 +123,12 @@ public sealed class JsonGithubieOptionsLoaderTests
         result.IsSuccess.Should().BeTrue();
         JsonGithubieOptionsLoader.ValidateMoyaiIntegration(result.Options!).Should().BeEmpty();
         JsonGithubieOptionsLoader.FindUnmappedRepositories(result.Options!).Should().Equal("example");
+        var registered = result.Options! with
+        {
+            Repositories = result.Options.Repositories.ToDictionary(
+                pair => pair.Key, pair => pair.Value with { MoyaiProjectId = Guid.NewGuid() }),
+        };
+        JsonGithubieOptionsLoader.FindUnmappedRepositories(registered).Should().BeEmpty();
     }
 
     [Fact]

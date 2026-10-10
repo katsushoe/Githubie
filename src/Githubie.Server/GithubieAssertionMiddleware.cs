@@ -84,9 +84,13 @@ public sealed class GithubieAssertionMiddleware(RequestDelegate next, ILogger<Gi
             throw new ProviderAuthenticationException("auth_project_mismatch");
         }
 
+        // 管理者設定の対応を優先し、なければ対話承認で登録したRepositoryの対応を使う（登録直後から再起動なしで有効）。
         var mapping = authentication.Projects.FirstOrDefault(
             pair => string.Equals(pair.Key, call.Repository, StringComparison.OrdinalIgnoreCase));
-        if (mapping.Key is null || mapping.Value == Guid.Empty)
+        var projectId = mapping.Key is not null && mapping.Value != Guid.Empty
+            ? mapping.Value
+            : repository.MoyaiProjectId ?? Guid.Empty;
+        if (projectId == Guid.Empty)
         {
             throw new ProviderAuthenticationException("auth_project_mismatch");
         }
@@ -102,7 +106,7 @@ public sealed class GithubieAssertionMiddleware(RequestDelegate next, ILogger<Gi
         var repositoryId = $"github.com/{repository.GitHubOwner}/{repository.GitHubRepo}";
         return AssertionContext.ForRepository(
             GithubieAssertionPolicy.ProviderId,
-            mapping.Value,
+            projectId,
             repositoryId,
             call.Tool,
             scopes,

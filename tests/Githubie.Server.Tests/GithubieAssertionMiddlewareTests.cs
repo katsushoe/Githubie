@@ -81,6 +81,30 @@ public sealed class GithubieAssertionMiddlewareTests
         dispatched.Should().Be(1);
     }
 
+    [Theory]
+    [InlineData(true, 1)]
+    [InlineData(false, 0)]
+    public async Task InvokeAsync_RegisteredMoyaiProjectMapping_IsUsedWithoutAdministratorMapping(bool registered, int expectedDispatch)
+    {
+        using var fixture = new AssertionFixture();
+        var dispatched = 0;
+        var middleware = CreateMiddleware(() => dispatched++);
+        var options = fixture.Options with
+        {
+            ProviderAuthentication = fixture.Options.ProviderAuthentication! with
+            {
+                Projects = new Dictionary<string, Guid> { ["other"] = Guid.NewGuid() },
+            },
+        };
+        fixture.Repositories.TryGet("example", out var repository).Should().BeTrue();
+        if (registered) fixture.Repositories.TryUpdate("example", repository with { MoyaiProjectId = ProjectId });
+        var context = fixture.CreateRequest(fixture.CreateAssertion());
+
+        await middleware.InvokeAsync(context, options, fixture.Repositories, fixture.Validator, fixture.Validator, fixture.ExecutionContext);
+
+        dispatched.Should().Be(expectedDispatch);
+    }
+
     [Fact]
     public async Task InvokeAsync_CapabilityRemovedDuringWait_RejectsWithoutReservingReplayAgain()
     {

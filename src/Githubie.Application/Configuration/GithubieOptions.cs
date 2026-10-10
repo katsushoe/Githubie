@@ -63,6 +63,9 @@ public sealed record RepositoryOptions(
 
     public string? CommitAuthorEmail { get; init; }
 
+    /// <summary>対話承認で登録したMoyai Project UUIDです。管理者設定`provider_authentication.projects`の対応が優先します。</summary>
+    public Guid? MoyaiProjectId { get; init; }
+
     public IReadOnlyDictionary<string, WorkflowPolicyOptions> Workflows { get; init; }
         = new Dictionary<string, WorkflowPolicyOptions>(StringComparer.Ordinal);
 }

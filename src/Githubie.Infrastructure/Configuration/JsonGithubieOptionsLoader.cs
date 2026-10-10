@@ -241,7 +241,9 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
             return [];
         }
 
-        return options.Repositories.Keys
+        return options.Repositories
+            .Where(pair => pair.Value.MoyaiProjectId is null || pair.Value.MoyaiProjectId == Guid.Empty)
+            .Select(pair => pair.Key)
             .Where(repository => !authentication.Projects.Keys.Any(
                 key => string.Equals(key, repository, StringComparison.OrdinalIgnoreCase)))
             .Order(StringComparer.Ordinal)

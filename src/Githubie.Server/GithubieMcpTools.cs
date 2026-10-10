@@ -41,11 +41,12 @@ public sealed class GithubieMcpTools(
         [Description("主要Branch名。省略時はmain")] string? main_branch,
         [Description("Commit作成者名。メールアドレスと同時指定")] string? commit_author_name = null,
         [Description("Commit作成者メールアドレス。名前と同時指定")] string? commit_author_email = null,
+        [Description("Moyai連携で使うMoyai Project UUID（Moyaiのlist_projectsのid）。指定すると承認後すぐにMoyai経由の要求を受け付ける")] Guid? moyai_project_id = null,
         CancellationToken cancellationToken = default)
     {
         var result = await registrationService.RegisterAsync(
             new RepositoryRegistrationRequest(repository, local_root, remote, develop_branch, main_branch,
-                commit_author_name, commit_author_email),
+                commit_author_name, commit_author_email, moyai_project_id),
             cancellationToken);
         return GithubieToolResultMapper.Map("repository_register", repository, result);
     }
@@ -80,6 +81,17 @@ public sealed class GithubieMcpTools(
     {
         var result = await managementService.UnregisterAsync(repository, cancellationToken);
         return GithubieToolResultMapper.Map("repository_unregister", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_moyai_project_set", Destructive = true, UseStructuredContent = true)]
+    [Description("登録済みRepositoryへMoyai Project UUIDを対話承認後に対応付けます。サービス再起動なしでMoyai経由の要求に反映します。")]
+    public async Task<GithubieToolResult<RepositoryMutationInfo>> SetMoyaiProjectAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Moyai Project UUID（Moyaiのlist_projectsのid）")] Guid moyai_project_id,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await managementService.SetMoyaiProjectAsync(repository, moyai_project_id, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_moyai_project_set", repository, result);
     }
 
     [McpServerTool(Name = "github_repository_update", Destructive = true, UseStructuredContent = true)]
@@ -240,6 +252,17 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("pull", repository, result);
     }
 
+    [McpServerTool(Name = "github_branch_switch", Destructive = true, UseStructuredContent = true)]
+    [Description("ローカルRepositoryを既存のローカルBranchへ切り替えます。未コミット変更がある場合は拒否し、RemoteからのfetchやBranch作成は行いません。")]
+    public async Task<GithubieToolResult<GitBranchSwitchInfo>> SwitchBranchAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("切替先として既にローカルに存在するBranch名")] string branch,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await gitGateway.SwitchBranchAsync(repository, branch, cancellationToken);
+        return GithubieToolResultMapper.Map("branch_switch", repository, result);
+    }
+
     [McpServerTool(Name = "github_push", Destructive = true, UseStructuredContent = true)]
     [Description("ローカルCommitをGitHubへPushします。mainなどProtected Branchへの直接Pushは拒否します。")]
     public async Task<GithubieToolResult<Unit>> PushAsync(
@@ -295,7 +318,7 @@ public sealed class GithubieMcpTools(
             return GithubieToolResultMapper.Map(
                 "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
-            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true)
+            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true, true)
             {
                 Authentication = new(
                     GithubieIntegrationMode.IntegrationMode(options),

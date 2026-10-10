@@ -22,6 +22,12 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
             : await ExecuteLocalAsync(repositoryRoot, ["symbolic-ref", "--short", "HEAD"], cancellationToken);
     }
 
+    public Task<GitCommandResult> CheckBranchNameAsync(string repositoryRoot, string branch, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["check-ref-format", $"refs/heads/{branch}"], cancellationToken);
+
+    public Task<GitCommandResult> SwitchBranchAsync(string repositoryRoot, string branch, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["switch", "--", branch], cancellationToken);
+
     public async Task<GitCommandResult> GetHeadAsync(string repositoryRoot, CancellationToken cancellationToken)
     {
         var result = await ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--verify", "--quiet", "HEAD"], cancellationToken);

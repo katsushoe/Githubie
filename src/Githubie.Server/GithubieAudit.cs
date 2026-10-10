@@ -61,6 +61,9 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
     public async Task<GitGatewayResult<Unit>> PullAsync(string repository, string branch, CancellationToken cancellationToken) =>
         await RunAsync("github_pull", repository, branch, () => inner.PullAsync(repository, branch, cancellationToken));
 
+    public async Task<GitGatewayResult<GitBranchSwitchInfo>> SwitchBranchAsync(string repository, string branch, CancellationToken cancellationToken) =>
+        await RunAsync("github_branch_switch", repository, branch, () => inner.SwitchBranchAsync(repository, branch, cancellationToken));
+
     public async Task<GitGatewayResult<Unit>> PushAsync(string repository, CancellationToken cancellationToken) =>
         await RunAsync("github_push", repository, null, () => inner.PushAsync(repository, cancellationToken));
 
@@ -152,6 +155,11 @@ public sealed class AuditedRepositoryManagementService(
         string repositoryId, CancellationToken cancellationToken) =>
         RunAsync("github_repository_unregister", repositoryId,
             () => inner.UnregisterAsync(repositoryId, cancellationToken));
+
+    public Task<RepositoryMutationResult> SetMoyaiProjectAsync(
+        string repositoryId, Guid moyaiProjectId, CancellationToken cancellationToken) =>
+        RunAsync("github_repository_moyai_project_set", repositoryId,
+            () => inner.SetMoyaiProjectAsync(repositoryId, moyaiProjectId, cancellationToken), moyaiProjectId.ToString());
 
     public Task<RepositoryMutationResult> RenameAsync(
         string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken) =>

@@ -138,6 +138,71 @@ public sealed class RepositoryRegistrationServiceTests
     }
 
     [Fact]
+    public async Task RegisterAsync_MoyaiProject_StoresMappingAndShowsItForApproval()
+    {
+        var project = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var service = CreateService();
+
+        var result = await service.RegisterAsync(
+            new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null, MoyaiProjectId: project),
+            TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.MoyaiProjectId.Should().Be(project);
+        _allowlist.TryGet("sample", out var options).Should().BeTrue();
+        options.MoyaiProjectId.Should().Be(project);
+        await _store.Received(1).SaveRepositoryAsync(
+            "sample", Arg.Is<RepositoryOptions>(x => x.MoyaiProjectId == project), Arg.Any<CancellationToken>());
+        await _approval.Received(1).RequestApprovalAsync(
+            Arg.Is<ApprovalPromptRequest>(x => x.Details.Any(detail => detail.Contains(project.ToString()))),
+            Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegisterAsync_MoyaiProjectUsedByAnotherRepository_RejectsBeforeApproval()
+    {
+        var project = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        _allowlist.TryAdd("other", CreateOptions() with { MoyaiProjectId = project });
+        var service = CreateService();
+
+        var result = await service.RegisterAsync(
+            new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null, MoyaiProjectId: project),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.DuplicateMoyaiProjectId);
+        _allowlist.TryGet("sample", out _).Should().BeFalse();
+        await _approval.DidNotReceive().RequestApprovalAsync(
+            Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RegisterAsync_MoyaiProjectUsedByAdministratorMapping_IsRejected()
+    {
+        var project = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var service = new RepositoryRegistrationService(
+            _allowlist, new LocalPathValidator(_environment), _git, _approval, _store, _tokenPrompt, _tokenStore, _gitHub,
+            new MoyaiProjectMapping(_allowlist, new Dictionary<string, Guid> { ["configured"] = project }));
+
+        var result = await service.RegisterAsync(
+            new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null, MoyaiProjectId: project),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.DuplicateMoyaiProjectId);
+    }
+
+    [Fact]
+    public async Task RegisterAsync_EmptyMoyaiProject_IsRejected()
+    {
+        var service = CreateService();
+
+        var result = await service.RegisterAsync(
+            new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null, MoyaiProjectId: Guid.Empty),
+            TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.InvalidMoyaiProjectId);
+    }
+
+    [Fact]
     public async Task RegisterAsync_DuplicateId_RejectsBeforeApproval()
     {
         _allowlist.TryAdd("sample", CreateOptions());

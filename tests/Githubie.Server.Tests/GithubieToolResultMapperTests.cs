@@ -9,7 +9,7 @@ namespace Githubie.Server.Tests;
 /// <summary>
 /// GitGatewayError / GitHubError の全列挙値が、意図した固定コードへマッピングされることを
 /// 網羅的に固定するテストです。実データ検証で発見したマッピング漏れ(branch_not_found /
-/// tag_not_found)の再発防止として、新しいエラーコードを追加した際は本テストの期待値も
+/// tag_not_found / branch_not_found)の再発防止として、新しいエラーコードを追加した際は本テストの期待値も
 /// 更新してください。
 /// </summary>
 public sealed class GithubieToolResultMapperTests
@@ -36,6 +36,7 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.NothingToCommit] = "nothing_to_commit",
         [GitGatewayError.AuthorIdentityMissing] = "author_identity_missing",
         [GitGatewayError.BranchNotAllowed] = "branch_not_allowed",
+        [GitGatewayError.BranchNotFound] = "branch_not_found",
         [GitGatewayError.ProtectedBranch] = "protected_branch",
         [GitGatewayError.NothingToPush] = "nothing_to_push",
         [GitGatewayError.NonFastForward] = "non_fast_forward",

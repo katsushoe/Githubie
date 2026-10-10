@@ -7,6 +7,8 @@ public interface IGitGateway
 {
     Task<GitGatewayResult<GitRepositoryStatus>> GetStatusAsync(string repository, CancellationToken cancellationToken);
 
+    Task<GitGatewayResult<GitBranchSwitchInfo>> SwitchBranchAsync(string repository, string branch, CancellationToken cancellationToken);
+
     Task<GitGatewayResult<GitRepositoryDiff>> GetDiffAsync(string repository, CancellationToken cancellationToken);
 
     Task<GitGatewayResult<GitRepositoryCommit>> CommitAsync(string repository, string message, CancellationToken cancellationToken);

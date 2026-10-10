@@ -23,6 +23,9 @@ public sealed record GitRepositoryDiff(string Diff);
 /// <summary>作成したLocal Commitです。</summary>
 public sealed record GitRepositoryCommit(string CommitSha);
 
+/// <summary>Branch切替の前後に確認した名前です。</summary>
+public sealed record GitBranchSwitchInfo(string PreviousBranch, string CurrentBranch);
+
 public sealed record GitHistoryRewriteRef(string Ref, string NewLocalSha, string ExpectedRemoteSha);
 
 public sealed record GitHistoryRewriteRefResult(string Ref, string OldSha, string NewSha, bool Success, string? RejectionReason);
@@ -85,6 +88,7 @@ public enum GitGatewayError
     NothingToCommit,
     AuthorIdentityMissing,
     BranchNotAllowed,
+    BranchNotFound,
     ProtectedBranch,
 
     NothingToPush,

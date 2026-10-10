@@ -63,7 +63,8 @@ public sealed record RepositoryRegistrationRequest(
     string? DevelopBranch,
     string? MainBranch,
     string? CommitAuthorName = null,
-    string? CommitAuthorEmail = null);
+    string? CommitAuthorEmail = null,
+    Guid? MoyaiProjectId = null);
 
 /// <summary>Repository登録結果です。</summary>
 public sealed record RepositoryRegistrationInfo(
@@ -76,7 +77,11 @@ public sealed record RepositoryRegistrationInfo(
     string DevelopBranch,
     string MainBranch,
     bool TokenConfigured,
-    string TokenStatus);
+    string TokenStatus)
+{
+    /// <summary>対応付けたMoyai Project UUIDです。</summary>
+    public Guid? MoyaiProjectId { get; init; }
+}
 
 /// <summary>Repository登録の固定エラーです。</summary>
 public enum RepositoryRegistrationError
@@ -95,6 +100,10 @@ public enum RepositoryRegistrationError
     ApprovalTimedOut,
     ApprovalUnavailable,
     PersistenceFailed,
+    /// <summary>Moyai Project UUIDが空。</summary>
+    InvalidMoyaiProjectId,
+    /// <summary>Moyai Project UUIDがほかのRepositoryで使用中、または管理者設定と異なる。</summary>
+    DuplicateMoyaiProjectId,
     /// <summary>GitHubのowner名またはRepository名が不正。</summary>
     InvalidGitHubName,
     /// <summary>公開範囲がprivate/public以外。</summary>

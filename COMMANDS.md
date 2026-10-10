@@ -72,7 +72,7 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_workflow_run_list` | `repository`, optional filters, `limit` | Up to 100 workflow runs without logs |
 | `github_branch_list` | `repository` | Remote branches visible to the stored token |
 | `github_branch_get` | `repository`, `branch` | The named remote branch and HEAD SHA; fails if absent |
-| `github_provider_capabilities` | `repository` | Repository Contract operations supported by this Githubie instance |
+| `github_provider_capabilities` | `repository` | Repository Contract operations supported by this Githubie instance, including `branch_switch` |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull requests matching the optional filters |
 | `github_pr_get` | `repository`, `pull_request_number` | Pull-request metadata for an existing number |
 | `github_issue_list` | `repository`, `state?` | Issues matching the optional state filter; excludes pull requests |
@@ -89,7 +89,8 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 
 | Tool | Parameters | State and constraints |
 | --- | --- | --- |
-| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | Registers after desktop approval, storing an explicit commit author or valid repository-local Git identity; then optionally stores a token in a separate foreground dialog |
+| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?`, `moyai_project_id?` | Registers after desktop approval, storing an explicit commit author or valid repository-local Git identity; then optionally stores a token in a separate foreground dialog. `moyai_project_id` (the Moyai `list_projects` id) maps the repository to its Moyai project, shown in the approval and effective immediately without editing `githubie.json` or restarting the service |
+| `github_repository_moyai_project_set` | `repository`, `moyai_project_id` | After desktop approval, maps a registered repository to a Moyai Project UUID and applies it to the running service. Rejects an empty UUID (`invalid_moyai_project_id`), a UUID used by another repository or differing from the administrator mapping in `provider_authentication.projects` (`duplicate_moyai_project_id`), and an unregistered repository. The change is audited |
 | `github_repository_create` | `repository`, `owner`, `name`, `visibility?`, `description?`, `local_root?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | After desktop approval, creates a GitHub repository (`private` by default) under the token user or the `owner` organization with no initial commit. Uses the stored token for `repository` or asks for one in the token dialog. With `local_root`, sets an unconfigured `origin` to the new repository and registers it without a second prompt. Returns `repository_already_exists`, `permission_denied`, `authentication_failed`, `approval_denied`, `remote_already_configured`, or `token_unavailable` with GitHub's reason in `error.diagnostic`. Push the local history separately with `github_push` |
 | `github_repository_update` | `repository`, branch policy fields, `commit_author_name?`, `commit_author_email?` | Updates branch policy and optional commit author after desktop approval; GitHub identity and paths remain unchanged |
 | `github_repository_unregister` | `repository` | Removes the entry from Githubie configuration and the live allowlist without deleting GitHub or local data |
@@ -98,6 +99,7 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_workflow_dispatch` | `repository`, `workflow`, `ref`, `inputs` | Dispatches only configured workflows and correlates exactly one new run |
 | `github_fetch` | `repository` | Updates remote-tracking refs |
 | `github_pull` | `repository`, `branch` | Fast-forwards an allowed branch; rejects divergent history |
+| `github_branch_switch` | `repository`, `branch` | Switches the local checkout to an existing local branch. Rejects a dirty working tree; does not fetch or create branches. |
 | `github_push` | `repository` | Pushes the current allowed branch, creating it on the remote when absent and requiring fast-forward updates when present; rejects protected branches, dirty trees when configured, and no-op pushes |
 | `github_branch_create` | `repository`, `branch`, `source` (required) | Creates an allowed branch from an explicit branch name or full 40-character commit SHA; no implicit source; conflicts when it already exists |
 | `github_branch_delete` | `repository`, `branch` | Deletes an allowed non-protected branch |

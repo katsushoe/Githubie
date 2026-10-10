@@ -124,7 +124,9 @@ public static class GithubieCompositionRoot
         services.AddSingleton(options);
         services.AddSingleton<IGithubieOptionsLoader, JsonGithubieOptionsLoader>();
         services.AddSingleton<IApiTokenStore>(new DpapiFileTokenStore(layout.SecretsDirectory));
-        services.AddSingleton(new RepositoryAllowlist(options.Repositories));
+        var repositoryAllowlist = new RepositoryAllowlist(options.Repositories);
+        services.AddSingleton(repositoryAllowlist);
+        services.AddSingleton(new MoyaiProjectMapping(repositoryAllowlist, options.ProviderAuthentication?.Projects));
         services.AddSingleton<IRepositoryEnvironment, RepositoryEnvironment>();
         services.AddSingleton<LocalPathValidator>();
         services.AddSingleton<GithubieAssertionExecutionContext>();

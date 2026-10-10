@@ -105,7 +105,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_workflow_run_list` | `repository`、任意filter、`limit` | Workflow runを最大100件取得。log本文は返さない |
 | `github_branch_list` | `repository` | Remote Branch一覧を取得 |
 | `github_branch_get` | `repository`, `branch` | 指定Branchのhead commit sha等を取得 |
-| `github_provider_capabilities` | `repository` | Githubieが対応するRepository Contract操作を返す |
+| `github_provider_capabilities` | `repository` | Githubieが対応するRepository Contract操作（`branch_switch`を含む）を返す |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull Request一覧を取得 |
 | `github_pr_get` | `repository`, `pull_request_number` | Pull Request詳細を取得 |
 | `github_issue_list` | `repository`, `state?` | Issue一覧を取得。Pull Requestは除外する |
@@ -122,7 +122,8 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 
 | Tool | パラメータ | 説明 |
 | --- | --- | --- |
-| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | 対話Desktop承認後にCommit作成者を含めて登録し、別画面でTokenを任意保存する |
+| `github_repository_register` | `repository`, `local_root`, `remote?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?`, `moyai_project_id?` | 対話Desktop承認後にCommit作成者を含めて登録し、別画面でTokenを任意保存する。`moyai_project_id`（Moyaiの`list_projects`のid）を指定すると、承認画面に表示したうえでMoyai Projectへ対応付け、`githubie.json`の編集やService再起動なしで直ちに有効にする |
+| `github_repository_moyai_project_set` | `repository`, `moyai_project_id` | 登録済みRepositoryを対話Desktop承認後にMoyai Project UUIDへ対応付け、実行中Serviceへ即時反映する。空のUUID（`invalid_moyai_project_id`）、ほかのRepositoryで使用中、または`provider_authentication.projects`の管理者設定と異なるUUID（`duplicate_moyai_project_id`）、未登録Repositoryは拒否する。変更は監査ログへ記録する |
 | `github_repository_create` | `repository`, `owner`, `name`, `visibility?`, `description?`, `local_root?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | 対話Desktop承認後、GitHub上にRepositoryを新規作成する（既定は`private`、初期Commitなし）。Tokenの利用者と`owner`が一致すれば個人、異なればOrganization配下に作成する。`repository`の保存済みTokenを使い、なければToken画面で受け取る。`local_root`を指定すると、未設定の`origin`へ作成先を設定し、承認とToken入力を繰り返さずに登録する。失敗時は`repository_already_exists`、`permission_denied`、`authentication_failed`、`approval_denied`、`remote_already_configured`、`token_unavailable`を返し、GitHubの拒否理由を`error.diagnostic`に入れる。ローカル履歴のpushは`github_push`で別に行う |
 | `github_repository_update` | `repository`、Branch Policy項目、`commit_author_name?`、`commit_author_email?` | 対話Desktop承認後にBranch PolicyとCommit作成者を更新する。GitHub識別情報とPathは変更しない |
 | `github_repository_unregister` | `repository` | Githubie設定と実行中Allowlistから登録解除。GitHub／Localのデータは削除しない |
@@ -130,6 +131,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_repository_description_update` | `repository`, `description` | Descriptionだけを更新。空文字列で削除、最大350文字 |
 | `github_workflow_dispatch` | `repository`, `workflow`, `ref`, `inputs` | 許可済みworkflowだけを起動し、新規runを一意に関連付ける |
 | `github_push` | `repository` | develop等へのGit push。許可BranchがRemoteに未作成なら初回pushで作成し、既存BranchはFast-forward時だけ更新。Protected Branchへの直接Pushは`protected_branch`で拒否 |
+| `github_branch_switch` | `repository`, `branch` | 既存のLocal Branchへ切替。未コミット変更がある場合は拒否し、fetchやBranch作成は行わない |
 | `github_branch_create` | `repository`, `branch`, `source`（必須） | 明示された作成元Branch名または完全な40桁コミットSHAから作成。省略時はエラー、暗黙補完なし。既存時は競合エラー |
 | `github_branch_delete` | `repository`, `branch` | 許可された非保護Branchを削除 |
 | `github_pr_create` | `repository`, `title`, `description?`, `draft` | develop→mainのPRを作成（Source/Destinationは設定固定） |

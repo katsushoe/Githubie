@@ -76,6 +76,54 @@ public sealed class GitGateway(
         return GitGatewayResult<GitRepositoryStatus>.Success(snapshot);
     }
 
+    public async Task<GitGatewayResult<GitBranchSwitchInfo>> SwitchBranchAsync(
+        string repository, string branch, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(branch))
+            return GitGatewayResult<GitBranchSwitchInfo>.Failure(GitGatewayError.InvalidRef);
+
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null)
+            return GitGatewayResult<GitBranchSwitchInfo>.Failure(resolved.Error.Value);
+
+        var root = resolved.Options!.LocalRoot;
+        var current = await _commandClient.GetCurrentBranchAsync(root, cancellationToken);
+        if (!current.IsSuccess) return CreateCommandFailure<GitBranchSwitchInfo>(current);
+        if (string.Equals(current.StandardOutput, branch, StringComparison.Ordinal))
+            return GitGatewayResult<GitBranchSwitchInfo>.Success(new(current.StandardOutput, current.StandardOutput));
+
+        var status = await _commandClient.GetStatusAsync(root, cancellationToken);
+        if (!status.IsSuccess) return CreateCommandFailure<GitBranchSwitchInfo>(status);
+        if (status.StandardOutput.Length > 0)
+            return GitGatewayResult<GitBranchSwitchInfo>.Failure(GitGatewayError.WorkingTreeDirty);
+
+        var validName = await _commandClient.CheckBranchNameAsync(root, branch, cancellationToken);
+        if (!validName.IsSuccess)
+        {
+            if (validName.Failure == GitCommandFailure.Failed && validName.ExitCode == 1)
+                return GitGatewayResult<GitBranchSwitchInfo>.Failure(GitGatewayError.InvalidRef);
+            return CreateCommandFailure<GitBranchSwitchInfo>(validName);
+        }
+
+        var localRef = await _commandClient.GetLocalRefAsync(root, $"refs/heads/{branch}", cancellationToken);
+        if (!localRef.IsSuccess)
+        {
+            if (localRef.Failure == GitCommandFailure.Failed)
+                return GitGatewayResult<GitBranchSwitchInfo>.Failure(GitGatewayError.BranchNotFound);
+            return CreateCommandFailure<GitBranchSwitchInfo>(localRef);
+        }
+
+        var switched = await _commandClient.SwitchBranchAsync(root, branch, cancellationToken);
+        if (!switched.IsSuccess) return CreateCommandFailure<GitBranchSwitchInfo>(switched);
+
+        var actual = await _commandClient.GetCurrentBranchAsync(root, cancellationToken);
+        if (!actual.IsSuccess) return CreateCommandFailure<GitBranchSwitchInfo>(actual);
+        if (!string.Equals(actual.StandardOutput, branch, StringComparison.Ordinal))
+            return GitGatewayResult<GitBranchSwitchInfo>.Failure(GitGatewayError.GitFailed);
+
+        return GitGatewayResult<GitBranchSwitchInfo>.Success(new(current.StandardOutput, actual.StandardOutput));
+    }
+
     public async Task<GitGatewayResult<GitRepositoryDiff>> GetDiffAsync(string repository, CancellationToken cancellationToken)
     {
         var resolved = Resolve(repository);
