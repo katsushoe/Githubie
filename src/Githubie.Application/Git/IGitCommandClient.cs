@@ -28,6 +28,8 @@ public interface IGitCommandClient
 
     Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken);
 
+    Task<GitCommandResult> CommitSelectedAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedHead, string patch, CancellationToken cancellationToken);
+
     Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken);
 
     /// <summary>

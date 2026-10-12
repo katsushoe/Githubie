@@ -165,6 +165,21 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("repository_commit", repository, result);
     }
 
+    [McpServerTool(Name = "github_repository_commit_selected", Destructive = true, UseStructuredContent = true)]
+    [Description("指定HEAD上でunified diff patchの変更だけをlocal commitします。既存staged変更がある場合は拒否します。")]
+    public async Task<GithubieToolResult<GitRepositoryCommit>> CommitSelectedRepositoryAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("Commit message")] string message,
+        [Description("差分作成時点のHEAD。unborn branchでは空文字列。")] string expected_head,
+        [Description("Commit対象のunified diff patch")] string patch,
+        [Description("使用するGitリモート名（Moyaiの`gitRemoteName`）。")] string? remote = null,
+        CancellationToken cancellationToken = default)
+    {
+        using var remoteScope = GitRemoteSelection.Begin(remote);
+        var result = await gitGateway.CommitSelectedAsync(repository, message, expected_head, patch, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_commit_selected", repository, result);
+    }
+
     [McpServerTool(Name = "github_repository_description_get", ReadOnly = true, UseStructuredContent = true)]
     [Description("登録済みリポジトリのDescriptionを取得します。")]
     public async Task<GithubieToolResult<GitHubRepositoryInfo>> GetRepositoryDescriptionAsync(
@@ -318,7 +333,7 @@ public sealed class GithubieMcpTools(
             return GithubieToolResultMapper.Map(
                 "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
-            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true, true)
+            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true, true, true)
             {
                 Authentication = new(
                     GithubieIntegrationMode.IntegrationMode(options),

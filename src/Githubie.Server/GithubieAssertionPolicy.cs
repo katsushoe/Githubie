@@ -14,6 +14,7 @@ public static class GithubieAssertionPolicy
             ["github_repository_status"] = ["repository.read"],
             ["github_repository_diff"] = ["repository.read"],
             ["github_repository_commit"] = ["repository.commit"],
+            ["github_repository_commit_selected"] = ["repository.commit"],
             ["github_repository_description_get"] = ["repository.read"],
             ["github_repository_description_update"] = ["provider.githubie.repository.description.write"],
             ["github_workflow_dispatch"] = ["provider.githubie.workflow.dispatch"],

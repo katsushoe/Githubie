@@ -86,6 +86,9 @@ public enum GitGatewayError
 
     WorkingTreeDirty,
     NothingToCommit,
+    InvalidSelectedCommitPatch,
+    StagedChangesPresent,
+    ExpectedHeadMismatch,
     AuthorIdentityMissing,
     BranchNotAllowed,
     BranchNotFound,
