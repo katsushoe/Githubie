@@ -208,6 +208,61 @@ public sealed class GitGateway(
             : CreateCommandFailure<GitRepositoryCommit>(head);
     }
 
+    public async Task<GitGatewayResult<GitRepositoryCommit>> CommitSelectedAsync(
+        string repository, string message, string expectedHead, string patch, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(message) || message.Length > 4096 || expectedHead is null ||
+            string.IsNullOrWhiteSpace(patch) || patch.Length > 4 * 1024 * 1024 ||
+            (expectedHead.Length != 0 && (expectedHead.Length is < 40 or > 64 || !expectedHead.All(Uri.IsHexDigit))))
+            return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.InvalidSelectedCommitPatch);
+
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<GitRepositoryCommit>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        var branch = await _commandClient.GetCurrentBranchAsync(options.LocalRoot, cancellationToken);
+        if (!branch.IsSuccess) return CreateCommandFailure<GitRepositoryCommit>(branch);
+        if (options.ProtectedBranches.Contains(branch.StandardOutput, StringComparer.Ordinal))
+            return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.ProtectedBranch);
+        if (!options.DirectPushBranches.Contains(branch.StandardOutput, StringComparer.Ordinal))
+            return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.BranchNotAllowed);
+
+        var head = await _commandClient.GetHeadAsync(options.LocalRoot, cancellationToken);
+        if (!head.IsSuccess) return CreateCommandFailure<GitRepositoryCommit>(head);
+        if (!string.Equals(head.StandardOutput.Trim(), expectedHead, StringComparison.OrdinalIgnoreCase))
+            return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.ExpectedHeadMismatch);
+
+        var status = await _commandClient.GetStatusAsync(options.LocalRoot, cancellationToken);
+        if (!status.IsSuccess) return CreateCommandFailure<GitRepositoryCommit>(status);
+        if (status.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Any(line => line.Length >= 2 && line[0] != ' ' && line[0] != '?'))
+            return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.StagedChangesPresent);
+
+        var authorName = options.CommitAuthorName;
+        var authorEmail = options.CommitAuthorEmail;
+        if (!CommitAuthorIdentity.IsValid(authorName, authorEmail))
+        {
+            var localName = await _commandClient.GetLocalConfigAsync(options.LocalRoot, "user.name", cancellationToken);
+            var localEmail = await _commandClient.GetLocalConfigAsync(options.LocalRoot, "user.email", cancellationToken);
+            authorName = localName.IsSuccess ? localName.StandardOutput.Trim() : null;
+            authorEmail = localEmail.IsSuccess ? localEmail.StandardOutput.Trim() : null;
+            if (!CommitAuthorIdentity.IsValid(authorName, authorEmail))
+                return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.AuthorIdentityMissing);
+        }
+
+        var commit = await _commandClient.CommitSelectedAsync(
+            options.LocalRoot, message, authorName!, authorEmail!, expectedHead, patch, cancellationToken);
+        if (!commit.IsSuccess)
+            return GitGatewayResult<GitRepositoryCommit>.Failure(
+                commit.StandardError.Contains("HEAD changed", StringComparison.Ordinal) ? GitGatewayError.ExpectedHeadMismatch
+                    : commit.StandardError.Contains("patch", StringComparison.OrdinalIgnoreCase) ? GitGatewayError.InvalidSelectedCommitPatch
+                    : GitGatewayError.GitFailed, commit.StandardError, commit.ExitCode);
+
+        var newHead = await _commandClient.GetHeadAsync(options.LocalRoot, cancellationToken);
+        return newHead.IsSuccess
+            ? GitGatewayResult<GitRepositoryCommit>.Success(new(newHead.StandardOutput))
+            : CreateCommandFailure<GitRepositoryCommit>(newHead);
+    }
+
     public async Task<GitGatewayResult<Unit>> FetchAsync(string repository, CancellationToken cancellationToken)
     {
         var resolved = Resolve(repository);

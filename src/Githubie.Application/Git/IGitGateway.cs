@@ -13,6 +13,9 @@ public interface IGitGateway
 
     Task<GitGatewayResult<GitRepositoryCommit>> CommitAsync(string repository, string message, CancellationToken cancellationToken);
 
+    Task<GitGatewayResult<GitRepositoryCommit>> CommitSelectedAsync(
+        string repository, string message, string expectedHead, string patch, CancellationToken cancellationToken);
+
     Task<GitGatewayResult<Unit>> FetchAsync(string repository, CancellationToken cancellationToken);
 
     Task<GitGatewayResult<Unit>> PullAsync(string repository, string branch, CancellationToken cancellationToken);

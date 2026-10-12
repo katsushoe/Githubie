@@ -28,6 +28,13 @@ public sealed class GithubieMcpToolsTests
             .Select(item => item.GetString()).Should().Contain("source");
     }
 
+    [Fact]
+    public void SelectedCommitToolUsesRepositoryCommitScope()
+    {
+        GithubieAssertionPolicy.TryGetScopes("github_repository_commit_selected", out string[] scopes).Should().BeTrue();
+        scopes.Should().Equal("repository.commit");
+    }
+
     [Theory]
     [InlineData("release/base")]
     [InlineData("1111111111111111111111111111111111111111")]
@@ -95,6 +102,7 @@ public sealed class GithubieMcpToolsTests
         var result = await tools.GetProviderCapabilitiesAsync("sample", TestContext.Current.CancellationToken);
 
         result.Data!.RemoteResolution.Should().Be(new GitHubRemoteResolution(1, "repository_url"));
+        result.Data.RepositoryCommitSelected.Should().BeTrue();
         System.Text.Json.JsonSerializer.Serialize(result.Data, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower })
             .Should().Contain("\"remote_resolution\":{\"version\":1,\"mode\":\"repository_url\"}");
     }
@@ -245,6 +253,7 @@ public sealed class GithubieMcpToolsTests
         "github_repository_status",
         "github_repository_diff",
         "github_repository_commit",
+        "github_repository_commit_selected",
         "github_repository_description_get",
         "github_repository_description_update",
         "github_workflow_dispatch",

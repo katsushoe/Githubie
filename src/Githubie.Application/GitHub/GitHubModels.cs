@@ -39,7 +39,8 @@ public sealed record GitHubProviderCapabilities(
     bool RepositoryDiff,
     bool RepositoryCommit,
     bool RepositoryCreate,
-    bool BranchSwitch = false)
+    bool BranchSwitch = false,
+    bool RepositoryCommitSelected = false)
 {
     /// <summary>Moyai Consumer Contractの`integration_mode`と`direct_connection`です。</summary>
     public GitHubProviderAuthentication? Authentication { get; init; }

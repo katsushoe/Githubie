@@ -8,6 +8,42 @@ namespace Githubie.Infrastructure.Tests;
 public sealed class GitCommandClientIntegrationTests
 {
     [Fact]
+    public async Task CommitSelectedAsync_CommitsPatchAndPreservesUnselectedWorkingTreeEdit()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        string file = Path.Combine(repository.Root, "notes.txt");
+        await File.WriteAllTextAsync(file, "first\nsecond\n", cancellationToken);
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "add", "--", "notes.txt");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "base");
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        string expectedHead = (await client.GetHeadAsync(repository.Root, cancellationToken)).StandardOutput.Trim();
+        await File.WriteAllTextAsync(file, "selected\nother\n", cancellationToken);
+        string patch = "diff --git a/notes.txt b/notes.txt\n--- a/notes.txt\n+++ b/notes.txt\n@@ -1,2 +1,2 @@\n-first\n+selected\n second\n";
+
+        var commit = await client.CommitSelectedAsync(repository.Root, "selected hunk", "Test", "test@example.com", expectedHead, patch, cancellationToken);
+
+        commit.IsSuccess.Should().BeTrue(commit.StandardError);
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "show", "HEAD:notes.txt")).Should().Be("selected\nsecond");
+        (await File.ReadAllTextAsync(file, cancellationToken)).Should().Be("selected\nother\n");
+        (await client.GetStatusAsync(repository.Root, cancellationToken)).StandardOutput.Should().Contain("notes.txt");
+    }
+
+    [Fact]
+    public async Task CommitSelectedAsync_UnbornBranchUsesEmptyExpectedHead()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        string patch = "diff --git a/initial.txt b/initial.txt\nnew file mode 100644\n--- /dev/null\n+++ b/initial.txt\n@@ -0,0 +1 @@\n+initial\n";
+
+        var commit = await client.CommitSelectedAsync(repository.Root, "initial selected commit", "Test", "test@example.com", string.Empty, patch, cancellationToken);
+
+        commit.IsSuccess.Should().BeTrue(commit.StandardError);
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "show", "HEAD:initial.txt")).Should().Be("initial");
+    }
+
+    [Fact]
     public async Task CommitAsync_NoRepositoryIdentity_UsesExplicitAuthor()
     {
         using var repository = await TemporaryGitRepository.CreateEmptyAsync();

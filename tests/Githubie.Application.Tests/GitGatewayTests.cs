@@ -54,6 +54,60 @@ public sealed class GitGatewayTests
         RequireCleanWorkingTree: requireCleanWorkingTree);
 
     [Fact]
+    public async Task CommitSelectedAsync_ExpectedHeadMismatchRejectsBeforeReadingStatusOrCommitting()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+
+        var result = await _gateway.CommitSelectedAsync(RepositoryId, "message", OldSha, "patch", CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.ExpectedHeadMismatch);
+        await _commandClient.DidNotReceive().GetStatusAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _commandClient.DidNotReceive().CommitSelectedAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CommitSelectedAsync_StagedChangesRejectBeforeSelectedCommit()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("M  file.txt"));
+
+        var result = await _gateway.CommitSelectedAsync(RepositoryId, "message", NewSha, "patch", CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.StagedChangesPresent);
+        await _commandClient.DidNotReceive().CommitSelectedAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CommitSelectedAsync_UnapplicablePatchReturnsTypedError()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(" M file.txt"));
+        _commandClient.GetLocalConfigAsync(LocalRoot, "user.name", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("Test"));
+        _commandClient.GetLocalConfigAsync(LocalRoot, "user.email", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("test@example.com"));
+        _commandClient.CommitSelectedAsync(LocalRoot, "message", "Test", "test@example.com", NewSha, "patch", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "error: patch does not apply"));
+
+        var result = await _gateway.CommitSelectedAsync(RepositoryId, "message", NewSha, "patch", CancellationToken.None);
+
+        result.Error.Should().Be(GitGatewayError.InvalidSelectedCommitPatch);
+    }
+
+    [Fact]
     public async Task CommitAsync_StoredAuthor_CommitsWithoutServiceGlobalConfiguration()
     {
         var allowlist = new RepositoryAllowlist(new Dictionary<string, RepositoryOptions>

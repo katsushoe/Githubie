@@ -55,6 +55,11 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
         string repository, string message, CancellationToken cancellationToken) =>
         await RunAsync("github_repository_commit", repository, null, () => inner.CommitAsync(repository, message, cancellationToken));
 
+    public async Task<GitGatewayResult<GitRepositoryCommit>> CommitSelectedAsync(
+        string repository, string message, string expectedHead, string patch, CancellationToken cancellationToken) =>
+        await RunAsync("github_repository_commit_selected", repository, null,
+            () => inner.CommitSelectedAsync(repository, message, expectedHead, patch, cancellationToken));
+
     public async Task<GitGatewayResult<Unit>> FetchAsync(string repository, CancellationToken cancellationToken) =>
         await RunAsync("github_fetch", repository, null, () => inner.FetchAsync(repository, cancellationToken));
 
