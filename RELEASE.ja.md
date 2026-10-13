@@ -19,7 +19,9 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.9.9`です。
+現在のDisplay Versionは`1.8.10.0`です。
+
+Version `1.8.10.0`では、パス指定に対応したstash作成・一覧・適用・削除をMCPと汎用CLI呼び出しへ追加しました（ADR 0034）。作成はuntracked fileを含み、Repository相対pathsの省略時は全変更を対象にします。適用はindexを復元し、適用・削除には完全なstash object IDを指定します。既存のAllowlist、Assertion Scope、監査経路を使用します。
 
 Version `1.8.9.9`では、Moyai Repository Provider Contractに合わせてGitリモートURLのowner/repoパスの大文字小文字を維持し、ホスト名は区別せず照合します（ADR 0032）。修正はdevelop `a9d1486`にcommit済みで、自動テスト513件が全件成功しました。2026-10-01に管理者セッションから`C:\Githubie`へ導入し（`--moyai --direct-unrestricted`を維持）、main `10ded57`（PR #42）からMoyai経由でGitHub Release `v1.8.9.9`として公開し、MSI、ZIP、各SHA-256ファイルを添付しました。MSIのSHA-256は`8314EA587698B1E575FC6173ABE648F65FE5ABA62F61AA7BC300735EF5E0CE09`です。
 

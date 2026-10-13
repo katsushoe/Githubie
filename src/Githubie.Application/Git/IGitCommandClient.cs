@@ -27,8 +27,15 @@ public interface IGitCommandClient
     Task<GitCommandResult> GetLocalConfigAsync(string repositoryRoot, string key, CancellationToken cancellationToken);
 
     Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken);
-
     Task<GitCommandResult> CommitSelectedAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedHead, string patch, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> PushStashAsync(string repositoryRoot, string message, IReadOnlyList<string> paths, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> ListStashesAsync(string repositoryRoot, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> ApplyStashAsync(string repositoryRoot, string stashId, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> DropStashAsync(string repositoryRoot, string selector, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken);
 

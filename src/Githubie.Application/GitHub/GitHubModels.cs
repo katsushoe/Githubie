@@ -40,6 +40,10 @@ public sealed record GitHubProviderCapabilities(
     bool RepositoryCommit,
     bool RepositoryCreate,
     bool BranchSwitch = false,
+    bool RepositoryStashPush = false,
+    bool RepositoryStashList = false,
+    bool RepositoryStashApply = false,
+    bool RepositoryStashDrop = false,
     bool RepositoryCommitSelected = false)
 {
     /// <summary>Moyai Consumer Contractの`integration_mode`と`direct_connection`です。</summary>

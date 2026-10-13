@@ -12,9 +12,19 @@ public interface IGitGateway
     Task<GitGatewayResult<GitRepositoryDiff>> GetDiffAsync(string repository, CancellationToken cancellationToken);
 
     Task<GitGatewayResult<GitRepositoryCommit>> CommitAsync(string repository, string message, CancellationToken cancellationToken);
+    Task<GitGatewayResult<GitRepositoryCommit>> CommitSelectedAsync(string repository, string message, string expectedHead, string patch, CancellationToken cancellationToken);
 
-    Task<GitGatewayResult<GitRepositoryCommit>> CommitSelectedAsync(
-        string repository, string message, string expectedHead, string patch, CancellationToken cancellationToken);
+    Task<GitGatewayResult<GitStashEntry>> PushStashAsync(
+        string repository, string message, IReadOnlyList<string>? paths, CancellationToken cancellationToken);
+
+    Task<GitGatewayResult<IReadOnlyList<GitStashEntry>>> ListStashesAsync(
+        string repository, CancellationToken cancellationToken);
+
+    Task<GitGatewayResult<GitStashEntry>> ApplyStashAsync(
+        string repository, string stashId, CancellationToken cancellationToken);
+
+    Task<GitGatewayResult<GitStashEntry>> DropStashAsync(
+        string repository, string stashId, CancellationToken cancellationToken);
 
     Task<GitGatewayResult<Unit>> FetchAsync(string repository, CancellationToken cancellationToken);
 

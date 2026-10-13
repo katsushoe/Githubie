@@ -23,6 +23,9 @@ public sealed record GitRepositoryDiff(string Diff);
 /// <summary>作成したLocal Commitです。</summary>
 public sealed record GitRepositoryCommit(string CommitSha);
 
+/// <summary>Repository stashの一覧要素です。</summary>
+public sealed record GitStashEntry(string Id, string Subject);
+
 /// <summary>Branch切替の前後に確認した名前です。</summary>
 public sealed record GitBranchSwitchInfo(string PreviousBranch, string CurrentBranch);
 
@@ -89,6 +92,10 @@ public enum GitGatewayError
     InvalidSelectedCommitPatch,
     StagedChangesPresent,
     ExpectedHeadMismatch,
+    InvalidStashPath,
+    InvalidStashReference,
+    InvalidStashMessage,
+    NothingToStash,
     AuthorIdentityMissing,
     BranchNotAllowed,
     BranchNotFound,

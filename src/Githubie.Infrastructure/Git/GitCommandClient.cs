@@ -67,8 +67,7 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
         ExecuteLocalAsync(repositoryRoot,
             ["-c", $"user.name={authorName}", "-c", $"user.email={authorEmail}", "commit", "-m", message, "--"], cancellationToken);
 
-    public async Task<GitCommandResult> CommitSelectedAsync(
-        string repositoryRoot, string message, string authorName, string authorEmail, string expectedHead, string patch, CancellationToken cancellationToken)
+    public async Task<GitCommandResult> CommitSelectedAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedHead, string patch, CancellationToken cancellationToken)
     {
         string index = Path.Combine(Path.GetTempPath(), $"githubie-selected-commit-{Guid.NewGuid():N}.index");
         string patchFile = Path.Combine(Path.GetTempPath(), $"githubie-selected-commit-{Guid.NewGuid():N}.patch");
@@ -112,6 +111,30 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
             if (File.Exists(lockPath)) File.Delete(lockPath);
         }
     }
+
+    public Task<GitCommandResult> PushStashAsync(
+        string repositoryRoot, string message, IReadOnlyList<string> paths, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(paths);
+        List<string> arguments = ["stash", "push", "--include-untracked", "--message", message];
+        if (paths.Count > 0)
+        {
+            arguments.Add("--");
+            arguments.AddRange(paths.Select(path => $":(literal){path}"));
+        }
+        return ExecuteLocalAsync(repositoryRoot, arguments, cancellationToken);
+    }
+
+    public Task<GitCommandResult> ListStashesAsync(string repositoryRoot, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["stash", "list", "--format=%H%x1f%gs"], cancellationToken);
+
+    public Task<GitCommandResult> ApplyStashAsync(
+        string repositoryRoot, string stashId, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["stash", "apply", "--index", stashId], cancellationToken);
+
+    public Task<GitCommandResult> DropStashAsync(
+        string repositoryRoot, string selector, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["stash", "drop", selector], cancellationToken);
 
     public Task<GitCommandResult> GetRemoteUrlAsync(string repositoryRoot, string remote, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["remote", "get-url", "--", remote], cancellationToken);

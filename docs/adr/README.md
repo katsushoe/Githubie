@@ -29,5 +29,6 @@
 | [0031](0031-approved-github-repository-creation.md) | Approved GitHub repository creation with optional local linking and registration |
 | [0032](0032-git-remote-resolution.md) | Git remote resolution by repository URL (Moyai Repository Provider Contract) |
 | [0033](0033-approved-moyai-project-mapping.md) | Approved Moyai project mapping applied without a service restart |
+| [0034](0034-path-selective-stash.md) | Path-selective local Git stash |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.
