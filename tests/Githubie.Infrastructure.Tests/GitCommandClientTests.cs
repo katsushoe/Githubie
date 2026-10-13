@@ -31,6 +31,19 @@ public sealed class GitCommandClientTests
     private const string AskPassPath = "C:\\install\\bin\\Githubie.AskPass.exe";
 
     [Fact]
+    public async Task PushStashAsync_UsesLiteralPathspecsAndDoesNotStageOtherPaths()
+    {
+        var executor = new RecordingProcessExecutor();
+        var client = new GitCommandClient(executor, AskPassPath);
+
+        await client.PushStashAsync(RepositoryRoot, "before split", ["src/a.cs", "docs/read me.md"], CancellationToken.None);
+
+        executor.CapturedArguments.Should().Equal(
+            "-c", "safe.directory=C:/repo", "stash", "push", "--include-untracked", "--message", "before split", "--",
+            ":(literal)src/a.cs", ":(literal)docs/read me.md");
+    }
+
+    [Fact]
     public async Task CommitAsync_UsesExplicitAuthorIdentity()
     {
         var executor = new RecordingProcessExecutor();

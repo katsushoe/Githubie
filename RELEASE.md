@@ -4,7 +4,9 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.9.9`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.10.0`.
+
+Version `1.8.10.0` adds path-selective stash push, list, apply, and drop through MCP and the generic CLI caller (ADR 0034). Push includes untracked files and accepts repository-relative paths; omitted paths select all changes. Apply restores the index, and apply/drop require a full stash object ID. The operations use the existing repository allowlist, assertion scopes, and audit path.
 
 Version `1.8.9.9` corrects Git remote URL comparison to preserve the case of the owner/repository path as required by the Moyai Repository Provider Contract, while matching the host case-insensitively (ADR 0032). The change is committed on `develop` as `a9d1486`; all 513 automated tests passed. On 2026-10-01 it was installed at `C:\Githubie` from an administrator session (keeping `--moyai --direct-unrestricted`) and published as GitHub Release `v1.8.9.9` from main `10ded57` (PR #42) through Moyai, with the MSI, the ZIP, and their SHA-256 files. The MSI SHA-256 is `8314EA587698B1E575FC6173ABE648F65FE5ABA62F61AA7BC300735EF5E0CE09`.
 

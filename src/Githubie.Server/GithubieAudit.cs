@@ -60,6 +60,26 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
         await RunAsync("github_repository_commit_selected", repository, null,
             () => inner.CommitSelectedAsync(repository, message, expectedHead, patch, cancellationToken));
 
+    public async Task<GitGatewayResult<GitStashEntry>> PushStashAsync(
+        string repository, string message, IReadOnlyList<string>? paths, CancellationToken cancellationToken) =>
+        await RunAsync("github_repository_stash_push", repository, null,
+            () => inner.PushStashAsync(repository, message, paths, cancellationToken));
+
+    public async Task<GitGatewayResult<IReadOnlyList<GitStashEntry>>> ListStashesAsync(
+        string repository, CancellationToken cancellationToken) =>
+        await RunAsync("github_repository_stash_list", repository, null,
+            () => inner.ListStashesAsync(repository, cancellationToken));
+
+    public async Task<GitGatewayResult<GitStashEntry>> ApplyStashAsync(
+        string repository, string stashId, CancellationToken cancellationToken) =>
+        await RunAsync("github_repository_stash_apply", repository, null,
+            () => inner.ApplyStashAsync(repository, stashId, cancellationToken));
+
+    public async Task<GitGatewayResult<GitStashEntry>> DropStashAsync(
+        string repository, string stashId, CancellationToken cancellationToken) =>
+        await RunAsync("github_repository_stash_drop", repository, null,
+            () => inner.DropStashAsync(repository, stashId, cancellationToken));
+
     public async Task<GitGatewayResult<Unit>> FetchAsync(string repository, CancellationToken cancellationToken) =>
         await RunAsync("github_fetch", repository, null, () => inner.FetchAsync(repository, cancellationToken));
 

@@ -180,6 +180,43 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("repository_commit_selected", repository, result);
     }
 
+    [McpServerTool(Name = "github_repository_stash_push", Destructive = true, UseStructuredContent = true)]
+    [Description("指定したRepository相対pathだけの変更を、untracked fileも含めてstashします。paths省略時は全変更が対象です。")]
+    public async Task<GithubieToolResult<GitStashEntry>> PushStashAsync(
+        string repository, string message, IReadOnlyList<string>? paths = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await gitGateway.PushStashAsync(repository, message, paths, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_stash_push", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_stash_list", ReadOnly = true, UseStructuredContent = true)]
+    [Description("登録Repositoryのstash一覧を返します。")]
+    public async Task<GithubieToolResult<IReadOnlyList<GitStashEntry>>> ListStashesAsync(
+        string repository, CancellationToken cancellationToken = default)
+    {
+        var result = await gitGateway.ListStashesAsync(repository, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_stash_list", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_stash_apply", Destructive = true, UseStructuredContent = true)]
+    [Description("IDが一致する登録Repositoryのstashをindexとともに適用します。")]
+    public async Task<GithubieToolResult<GitStashEntry>> ApplyStashAsync(
+        string repository, string stash_id, CancellationToken cancellationToken = default)
+    {
+        var result = await gitGateway.ApplyStashAsync(repository, stash_id, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_stash_apply", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_stash_drop", Destructive = true, UseStructuredContent = true)]
+    [Description("IDが一致する登録Repositoryのstashを削除します。")]
+    public async Task<GithubieToolResult<GitStashEntry>> DropStashAsync(
+        string repository, string stash_id, CancellationToken cancellationToken = default)
+    {
+        var result = await gitGateway.DropStashAsync(repository, stash_id, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_stash_drop", repository, result);
+    }
+
     [McpServerTool(Name = "github_repository_description_get", ReadOnly = true, UseStructuredContent = true)]
     [Description("登録済みリポジトリのDescriptionを取得します。")]
     public async Task<GithubieToolResult<GitHubRepositoryInfo>> GetRepositoryDescriptionAsync(
@@ -333,7 +370,8 @@ public sealed class GithubieMcpTools(
             return GithubieToolResultMapper.Map(
                 "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
-            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true, true, true)
+            "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true,
+                true, true, true, true, true, true)
             {
                 Authentication = new(
                     GithubieIntegrationMode.IntegrationMode(options),

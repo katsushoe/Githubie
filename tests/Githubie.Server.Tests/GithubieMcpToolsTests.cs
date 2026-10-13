@@ -28,6 +28,24 @@ public sealed class GithubieMcpToolsTests
             .Select(item => item.GetString()).Should().Contain("source");
     }
 
+    [Theory]
+    [InlineData("github_repository_stash_list", "repository.read")]
+    [InlineData("github_repository_stash_push", "repository.stash.write")]
+    [InlineData("github_repository_stash_apply", "repository.stash.write")]
+    [InlineData("github_repository_stash_drop", "repository.stash.write")]
+    public void StashToolsUseLeastPrivilegeAssertionScopes(string tool, string expectedScope)
+    {
+        GithubieAssertionPolicy.TryGetScopes(tool, out string[] scopes).Should().BeTrue();
+        scopes.Should().Equal(expectedScope);
+    }
+
+    [Fact]
+    public void BranchSwitchToolUsesRepositoryBranchWriteScope()
+    {
+        GithubieAssertionPolicy.TryGetScopes("github_branch_switch", out string[] scopes).Should().BeTrue();
+        scopes.Should().Equal("repository.branch.write");
+    }
+
     [Fact]
     public void SelectedCommitToolUsesRepositoryCommitScope()
     {
@@ -102,9 +120,11 @@ public sealed class GithubieMcpToolsTests
         var result = await tools.GetProviderCapabilitiesAsync("sample", TestContext.Current.CancellationToken);
 
         result.Data!.RemoteResolution.Should().Be(new GitHubRemoteResolution(1, "repository_url"));
+        result.Data.BranchSwitch.Should().BeTrue();
         result.Data.RepositoryCommitSelected.Should().BeTrue();
         System.Text.Json.JsonSerializer.Serialize(result.Data, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower })
-            .Should().Contain("\"remote_resolution\":{\"version\":1,\"mode\":\"repository_url\"}");
+            .Should().Contain("\"remote_resolution\":{\"version\":1,\"mode\":\"repository_url\"}")
+            .And.Contain("\"branch_switch\":true");
     }
 
     [Fact]
@@ -254,6 +274,10 @@ public sealed class GithubieMcpToolsTests
         "github_repository_diff",
         "github_repository_commit",
         "github_repository_commit_selected",
+        "github_repository_stash_push",
+        "github_repository_stash_list",
+        "github_repository_stash_apply",
+        "github_repository_stash_drop",
         "github_repository_description_get",
         "github_repository_description_update",
         "github_workflow_dispatch",
@@ -309,6 +333,7 @@ public sealed class GithubieMcpToolsTests
         "list_projects",
         "github_repository_status",
         "github_repository_diff",
+        "github_repository_stash_list",
         "github_repository_description_get",
         "github_workflow_run_get",
         "github_workflow_run_list",

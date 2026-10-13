@@ -15,7 +15,7 @@ githubie.exe mcp status
 githubie.exe mcp tools
 ```
 
-`mcp tools`で15個のTool定義（[COMMANDS.md](COMMANDS.md)参照）が返れば正常。
+`mcp tools`で57個のTool定義（[COMMANDS.md](COMMANDS.md)参照）が返れば正常。
 
 ## Claude Code
 

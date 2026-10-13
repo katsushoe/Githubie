@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Githubie.Application.Repositories;
 using Githubie.Application.Interactive;
 
@@ -14,6 +15,8 @@ public sealed class GitGateway(
     IInteractiveApprovalPrompt approvalPrompt,
     IProviderExecutionGuard? executionGuard = null) : IGitGateway
 {
+    private static readonly ConcurrentDictionary<string, SemaphoreSlim> StashLocks = new(StringComparer.OrdinalIgnoreCase);
+    private const int MaximumStashPathCount = 128;
     private readonly RepositoryAllowlist _allowlist = allowlist;
     private readonly LocalPathValidator _localPathValidator = localPathValidator;
     private readonly IGitCommandClient _commandClient = commandClient;
@@ -211,11 +214,9 @@ public sealed class GitGateway(
     public async Task<GitGatewayResult<GitRepositoryCommit>> CommitSelectedAsync(
         string repository, string message, string expectedHead, string patch, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(message) || message.Length > 4096 || expectedHead is null ||
-            string.IsNullOrWhiteSpace(patch) || patch.Length > 4 * 1024 * 1024 ||
-            (expectedHead.Length != 0 && (expectedHead.Length is < 40 or > 64 || !expectedHead.All(Uri.IsHexDigit))))
+        if (string.IsNullOrWhiteSpace(message) || message.Length > 4096 || expectedHead is null || string.IsNullOrWhiteSpace(patch) || patch.Length > 4 * 1024 * 1024
+            || (expectedHead.Length != 0 && (expectedHead.Length is < 40 or > 64 || !expectedHead.All(Uri.IsHexDigit))))
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.InvalidSelectedCommitPatch);
-
         var resolved = Resolve(repository);
         if (resolved.Error is not null) return GitGatewayResult<GitRepositoryCommit>.Failure(resolved.Error.Value);
         var options = resolved.Options!;
@@ -225,18 +226,15 @@ public sealed class GitGateway(
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.ProtectedBranch);
         if (!options.DirectPushBranches.Contains(branch.StandardOutput, StringComparer.Ordinal))
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.BranchNotAllowed);
-
         var head = await _commandClient.GetHeadAsync(options.LocalRoot, cancellationToken);
         if (!head.IsSuccess) return CreateCommandFailure<GitRepositoryCommit>(head);
         if (!string.Equals(head.StandardOutput.Trim(), expectedHead, StringComparison.OrdinalIgnoreCase))
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.ExpectedHeadMismatch);
-
         var status = await _commandClient.GetStatusAsync(options.LocalRoot, cancellationToken);
         if (!status.IsSuccess) return CreateCommandFailure<GitRepositoryCommit>(status);
         if (status.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Any(line => line.Length >= 2 && line[0] != ' ' && line[0] != '?'))
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.StagedChangesPresent);
-
         var authorName = options.CommitAuthorName;
         var authorEmail = options.CommitAuthorEmail;
         if (!CommitAuthorIdentity.IsValid(authorName, authorEmail))
@@ -248,19 +246,141 @@ public sealed class GitGateway(
             if (!CommitAuthorIdentity.IsValid(authorName, authorEmail))
                 return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.AuthorIdentityMissing);
         }
-
-        var commit = await _commandClient.CommitSelectedAsync(
-            options.LocalRoot, message, authorName!, authorEmail!, expectedHead, patch, cancellationToken);
+        var commit = await _commandClient.CommitSelectedAsync(options.LocalRoot, message, authorName!, authorEmail!, expectedHead, patch, cancellationToken);
         if (!commit.IsSuccess)
             return GitGatewayResult<GitRepositoryCommit>.Failure(
                 commit.StandardError.Contains("HEAD changed", StringComparison.Ordinal) ? GitGatewayError.ExpectedHeadMismatch
                     : commit.StandardError.Contains("patch", StringComparison.OrdinalIgnoreCase) ? GitGatewayError.InvalidSelectedCommitPatch
                     : GitGatewayError.GitFailed, commit.StandardError, commit.ExitCode);
-
         var newHead = await _commandClient.GetHeadAsync(options.LocalRoot, cancellationToken);
         return newHead.IsSuccess
             ? GitGatewayResult<GitRepositoryCommit>.Success(new(newHead.StandardOutput))
             : CreateCommandFailure<GitRepositoryCommit>(newHead);
+    }
+
+    public async Task<GitGatewayResult<GitStashEntry>> PushStashAsync(
+        string repository, string message, IReadOnlyList<string>? paths, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(message) || message.Length > 256 || message.Contains('\n') || message.Contains('\r'))
+            return GitGatewayResult<GitStashEntry>.Failure(GitGatewayError.InvalidStashMessage);
+        if (!TryValidateStashPaths(paths, out string[] safePaths))
+            return GitGatewayResult<GitStashEntry>.Failure(GitGatewayError.InvalidStashPath);
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<GitStashEntry>.Failure(resolved.Error.Value);
+        var root = resolved.Options!.LocalRoot;
+        return await WithStashLockAsync(root, async () =>
+        {
+            var before = await ReadStashesAsync(root, cancellationToken);
+            if (!before.IsSuccess) return GitGatewayResult<GitStashEntry>.Failure(MapCommandFailure(before.Failure!.Value));
+            var pushed = await _commandClient.PushStashAsync(root, message, safePaths, cancellationToken);
+            if (!pushed.IsSuccess) return CreateCommandFailure<GitStashEntry>(pushed);
+            var after = await ReadStashesAsync(root, cancellationToken);
+            if (!after.IsSuccess) return GitGatewayResult<GitStashEntry>.Failure(MapCommandFailure(after.Failure!.Value));
+            var created = after.Entries.FirstOrDefault(item => before.Entries.All(previous => previous.Id != item.Id));
+            return created is null
+                ? GitGatewayResult<GitStashEntry>.Failure(GitGatewayError.NothingToStash)
+                : GitGatewayResult<GitStashEntry>.Success(created);
+        }, cancellationToken);
+    }
+
+    public async Task<GitGatewayResult<IReadOnlyList<GitStashEntry>>> ListStashesAsync(
+        string repository, CancellationToken cancellationToken)
+    {
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<IReadOnlyList<GitStashEntry>>.Failure(resolved.Error.Value);
+        return await WithStashLockAsync(resolved.Options!.LocalRoot, async () =>
+        {
+            var stashes = await ReadStashesAsync(resolved.Options.LocalRoot, cancellationToken);
+            return stashes.IsSuccess
+                ? GitGatewayResult<IReadOnlyList<GitStashEntry>>.Success(stashes.Entries)
+                : GitGatewayResult<IReadOnlyList<GitStashEntry>>.Failure(MapCommandFailure(stashes.Failure!.Value));
+        }, cancellationToken);
+    }
+
+    public async Task<GitGatewayResult<GitStashEntry>> ApplyStashAsync(
+        string repository, string stashId, CancellationToken cancellationToken)
+    {
+        if (!IsStashId(stashId)) return GitGatewayResult<GitStashEntry>.Failure(GitGatewayError.InvalidStashReference);
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<GitStashEntry>.Failure(resolved.Error.Value);
+        var root = resolved.Options!.LocalRoot;
+        return await WithStashLockAsync(root, async () =>
+        {
+            var stashes = await ReadStashesAsync(root, cancellationToken);
+            if (!stashes.IsSuccess) return GitGatewayResult<GitStashEntry>.Failure(MapCommandFailure(stashes.Failure!.Value));
+            var stash = stashes.Entries.FirstOrDefault(item => string.Equals(item.Id, stashId, StringComparison.OrdinalIgnoreCase));
+            if (stash is null) return GitGatewayResult<GitStashEntry>.Failure(GitGatewayError.InvalidStashReference);
+            var applied = await _commandClient.ApplyStashAsync(root, stash.Id, cancellationToken);
+            return applied.IsSuccess
+                ? GitGatewayResult<GitStashEntry>.Success(stash)
+                : CreateCommandFailure<GitStashEntry>(applied);
+        }, cancellationToken);
+    }
+
+    public async Task<GitGatewayResult<GitStashEntry>> DropStashAsync(
+        string repository, string stashId, CancellationToken cancellationToken)
+    {
+        if (!IsStashId(stashId)) return GitGatewayResult<GitStashEntry>.Failure(GitGatewayError.InvalidStashReference);
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<GitStashEntry>.Failure(resolved.Error.Value);
+        var root = resolved.Options!.LocalRoot;
+        return await WithStashLockAsync(root, async () =>
+        {
+            var stashes = await ReadStashesAsync(root, cancellationToken);
+            if (!stashes.IsSuccess) return GitGatewayResult<GitStashEntry>.Failure(MapCommandFailure(stashes.Failure!.Value));
+            var index = -1;
+            for (var i = 0; i < stashes.Entries.Count; i++)
+                if (string.Equals(stashes.Entries[i].Id, stashId, StringComparison.OrdinalIgnoreCase)) { index = i; break; }
+            if (index < 0) return GitGatewayResult<GitStashEntry>.Failure(GitGatewayError.InvalidStashReference);
+            var dropped = await _commandClient.DropStashAsync(root, $"stash@{{{index}}}", cancellationToken);
+            return dropped.IsSuccess
+                ? GitGatewayResult<GitStashEntry>.Success(stashes.Entries[index])
+                : CreateCommandFailure<GitStashEntry>(dropped);
+        }, cancellationToken);
+    }
+
+    private async Task<(bool IsSuccess, IReadOnlyList<GitStashEntry> Entries, GitCommandFailure? Failure)> ReadStashesAsync(
+        string root, CancellationToken cancellationToken)
+    {
+        var result = await _commandClient.ListStashesAsync(root, cancellationToken);
+        if (!result.IsSuccess) return (false, [], result.Failure);
+        var entries = new List<GitStashEntry>();
+        foreach (var line in result.StandardOutput.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var fields = line.Split('\u001f', 2);
+            if (fields.Length == 2 && IsStashId(fields[0])) entries.Add(new(fields[0], fields[1]));
+        }
+        return (true, entries, null);
+    }
+
+    private static bool IsStashId(string? value) => value is { Length: 40 } && value.All(Uri.IsHexDigit);
+
+    private static async Task<T> WithStashLockAsync<T>(string repositoryRoot, Func<Task<T>> operation, CancellationToken cancellationToken)
+    {
+        SemaphoreSlim gate = StashLocks.GetOrAdd(Path.GetFullPath(repositoryRoot), static _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try { return await operation(); }
+        finally { gate.Release(); }
+    }
+
+    private static bool TryValidateStashPaths(IReadOnlyList<string>? paths, out string[] safePaths)
+    {
+        safePaths = [];
+        if (paths is null) return true;
+        if (paths.Count > MaximumStashPathCount) return false;
+        var normalized = new List<string>();
+        foreach (var path in paths)
+        {
+            if (string.IsNullOrWhiteSpace(path) || path.Any(char.IsControl)) return false;
+            var item = path.Replace('\\', '/');
+            var segments = item.Split('/');
+            if (item.StartsWith("/", StringComparison.Ordinal) || item.Contains(':') ||
+                segments.Any(segment => segment is "" or "." or ".." || string.Equals(segment, ".git", StringComparison.OrdinalIgnoreCase)))
+                return false;
+            normalized.Add(item);
+        }
+        safePaths = normalized.Distinct(StringComparer.Ordinal).ToArray();
+        return true;
     }
 
     public async Task<GitGatewayResult<Unit>> FetchAsync(string repository, CancellationToken cancellationToken)

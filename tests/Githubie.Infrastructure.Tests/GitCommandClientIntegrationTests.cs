@@ -8,6 +8,25 @@ namespace Githubie.Infrastructure.Tests;
 public sealed class GitCommandClientIntegrationTests
 {
     [Fact]
+    public async Task SwitchBranchAsync_ExistingLocalBranch_ChangesCurrentBranch()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        await File.WriteAllTextAsync(Path.Combine(repository.Root, "file.txt"), "base", cancellationToken);
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "add", "--", "file.txt");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "base");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "branch", "feature/test");
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+
+        var switched = await client.SwitchBranchAsync(repository.Root, "feature/test", cancellationToken);
+        var current = await client.GetCurrentBranchAsync(repository.Root, cancellationToken);
+
+        switched.IsSuccess.Should().BeTrue(switched.StandardError);
+        current.IsSuccess.Should().BeTrue(current.StandardError);
+        current.StandardOutput.Should().Be("feature/test");
+    }
+
+    [Fact]
     public async Task CommitSelectedAsync_CommitsPatchAndPreservesUnselectedWorkingTreeEdit()
     {
         using var repository = await TemporaryGitRepository.CreateEmptyAsync();
@@ -41,6 +60,39 @@ public sealed class GitCommandClientIntegrationTests
 
         commit.IsSuccess.Should().BeTrue(commit.StandardError);
         (await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "show", "HEAD:initial.txt")).Should().Be("initial");
+    }
+
+    [Fact]
+    public async Task SelectiveStash_PreservesUnselectedTrackedAndUntrackedChanges()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        await File.WriteAllTextAsync(Path.Combine(repository.Root, "a.txt"), "base a", cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(repository.Root, "b.txt"), "base b", cancellationToken);
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "add", "--", "a.txt", "b.txt");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "base");
+        await File.WriteAllTextAsync(Path.Combine(repository.Root, "a.txt"), "changed a", cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(repository.Root, "b.txt"), "changed b", cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(repository.Root, "c.txt"), "new c", cancellationToken);
+        await File.WriteAllTextAsync(Path.Combine(repository.Root, "d.txt"), "new d", cancellationToken);
+
+        var pushed = await client.PushStashAsync(repository.Root, "selected files", ["a.txt", "c.txt"], cancellationToken);
+
+        pushed.IsSuccess.Should().BeTrue(pushed.StandardError);
+        (await File.ReadAllTextAsync(Path.Combine(repository.Root, "a.txt"), cancellationToken)).Should().Be("base a");
+        File.Exists(Path.Combine(repository.Root, "c.txt")).Should().BeFalse();
+        (await File.ReadAllTextAsync(Path.Combine(repository.Root, "b.txt"), cancellationToken)).Should().Be("changed b");
+        File.Exists(Path.Combine(repository.Root, "d.txt")).Should().BeTrue();
+        var listed = await client.ListStashesAsync(repository.Root, cancellationToken);
+        listed.IsSuccess.Should().BeTrue(listed.StandardError);
+        var stashId = listed.StandardOutput.Split('\u001f', 2)[0];
+        stashId.Should().HaveLength(40);
+        var applied = await client.ApplyStashAsync(repository.Root, stashId, cancellationToken);
+        applied.IsSuccess.Should().BeTrue(applied.StandardError);
+        (await File.ReadAllTextAsync(Path.Combine(repository.Root, "a.txt"), cancellationToken)).Should().Be("changed a");
+        (await File.ReadAllTextAsync(Path.Combine(repository.Root, "c.txt"), cancellationToken)).Should().Be("new c");
+        (await File.ReadAllTextAsync(Path.Combine(repository.Root, "b.txt"), cancellationToken)).Should().Be("changed b");
     }
 
     [Fact]
