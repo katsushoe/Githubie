@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Reflection;
 using Githubie.Application.Configuration;
 using Githubie.Application.Git;
@@ -116,6 +116,39 @@ public sealed class GithubieMcpTools(
         var result = await managementService.UpdateAsync(repository, request, cancellationToken);
         return GithubieToolResultMapper.Map("repository_update", repository, result);
     }
+
+    [McpServerTool(Name = "github_repository_settings_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("登録済みRepositoryの許可済み設定8項目を読み取ります。Git、GitHub、ファイルにはアクセスせず、秘密値や識別情報は返しません。作者nullは登録作者が未設定です。")]
+    public GithubieToolResult<RepositorySettings> GetRepositorySettings(string repository)
+    {
+        if (managementService.TryGetSettings(repository, out var settings))
+            return GithubieToolResult<RepositorySettings>.Success("repository_settings_get", repository, settings);
+        return GithubieToolResult<RepositorySettings>.Failure("repository_settings_get", repository,
+            new("repository_not_registered", "Repository is invalid or not registered."));
+    }
+
+    [McpServerTool(Name = "github_repository_settings_update", Destructive = true, UseStructuredContent = true)]
+    [Description("登録済みRepositoryの指定設定だけを人の承認後に更新します。省略は保持、nullは拒否、空配列は明示指定、falseは明示値です。作者名とメールは必ず組で指定します。")]
+    public async Task<GithubieToolResult<RepositoryMutationInfo>> UpdateRepositorySettingsAsync(
+        string repository,
+        [Description("変更する設定項目だけを指定します。未知項目とnullは拒否し、空配列とfalseは明示値として扱います。作者名とメールは組で指定します.")] RepositorySettingsInput changes,
+        CancellationToken cancellationToken = default)
+    {
+        var parsed = changes?.ToChanges();
+        if (parsed is null)
+            return SettingsError(repository, "repository_settings_invalid", "Changes must contain supported non-null values; author name and email must be supplied together.");
+        var result = await managementService.UpdateSettingsAsync(repository, parsed, cancellationToken);
+        if (result.Error == RepositoryMutationError.InvalidPolicy || result.Error == RepositoryMutationError.InvalidAuthorIdentity)
+            return SettingsError(repository, "repository_settings_invalid", "The requested settings are invalid.");
+        if (result.Error == RepositoryMutationError.ApprovalDenied)
+            return SettingsError(repository, "repository_settings_approval_cancelled", "Repository settings approval was denied or cancelled.");
+        if (result.Error == RepositoryMutationError.PersistenceFailed)
+            return SettingsError(repository, "repository_settings_write_failed", "Repository settings could not be saved.");
+        return GithubieToolResultMapper.Map("repository_settings_update", repository, result);
+    }
+
+    private static GithubieToolResult<RepositoryMutationInfo> SettingsError(string repository, string code, string message) =>
+        GithubieToolResult<RepositoryMutationInfo>.Failure("repository_settings_update", repository, new(code, message));
 
     [McpServerTool(Name = "github_repository_rename", Destructive = true, UseStructuredContent = true)]
     [Description("Repository設定と暗号化Tokenを旧IDから新IDへ一括移行します。")]
@@ -371,7 +404,7 @@ public sealed class GithubieMcpTools(
                 "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
         return GithubieToolResult<GitHubProviderCapabilities>.Success(
             "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true,
-                true, true, true, true, true, true)
+                true, true, true, true, true, true, true, true)
             {
                 Authentication = new(
                     GithubieIntegrationMode.IntegrationMode(options),

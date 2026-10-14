@@ -2,6 +2,12 @@
 
 [English](COMMANDS.md) | [日本語](COMMANDS.ja.md)
 
+## Repository設定MCP Tool
+
+`github_repository_settings_get`は登録済みの`direct_push_branches`、`protected_branches`、`pull_branches`、`tag_pattern`、`tag_target_branch`、`require_clean_working_tree`、`commit_author_name`、`commit_author_email`だけを返す。作者のnullは登録作者なしを示し、ローカルGit設定から解決しない。`repository.read`を要求し、GitやGitHubへアクセスしない。
+
+`github_repository_settings_update`は`{ "repository": "id", "changes": { ... } }`を受け取り、`repository.settings.write`と人の対話承認を要求する。省略項目は保持し、明示的なnull、未知項目、型不正、空のchanges objectは拒否する。空配列はBranch Policyの空配列への置換、falseは明示値として扱う。作者名とメールは必ず同時に指定する。従来の`github_repository_update`は元の全Policy引数を維持する。
+
 `githubie.exe`（管理CLI）と、MCP Serverが公開するTool一覧を記載する。
 
 ## グローバルオプション
@@ -100,6 +106,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `list_projects` | — | 実行中Allowlistに登録済みのRepository ID一覧を取得。Repository選択時と`github_push`直前に呼び出す |
 | `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得。初回Commit前はlocal headを空、ahead/behindを0として返す |
 | `github_repository_diff` | `repository` | 登録Repositoryのworking tree差分を取得 |
+| `github_repository_settings_get` | `repository` | 登録済みの非秘密設定allowlistだけを返す。実行中のメモリ登録値を使い、Git/GitHubアクセスを行わない |
 | `github_repository_commit` | `repository`, `message` | 登録済みまたはRepositoryローカルの作成者で許可Branchへlocal commitを作成する。作成者がなければStage前に`author_identity_missing`を返す |
 | `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | 指定patchだけをlocal commitする。staged変更とHEAD不一致を拒否し、未選択差分は作業ツリーに残す |
 | `github_repository_description_get` | `repository` | Repository Descriptionを取得 |
@@ -128,6 +135,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_repository_moyai_project_set` | `repository`, `moyai_project_id` | 登録済みRepositoryを対話Desktop承認後にMoyai Project UUIDへ対応付け、実行中Serviceへ即時反映する。空のUUID（`invalid_moyai_project_id`）、ほかのRepositoryで使用中、または`provider_authentication.projects`の管理者設定と異なるUUID（`duplicate_moyai_project_id`）、未登録Repositoryは拒否する。変更は監査ログへ記録する |
 | `github_repository_create` | `repository`, `owner`, `name`, `visibility?`, `description?`, `local_root?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | 対話Desktop承認後、GitHub上にRepositoryを新規作成する（既定は`private`、初期Commitなし）。Tokenの利用者と`owner`が一致すれば個人、異なればOrganization配下に作成する。`repository`の保存済みTokenを使い、なければToken画面で受け取る。`local_root`を指定すると、未設定の`origin`へ作成先を設定し、承認とToken入力を繰り返さずに登録する。失敗時は`repository_already_exists`、`permission_denied`、`authentication_failed`、`approval_denied`、`remote_already_configured`、`token_unavailable`を返し、GitHubの拒否理由を`error.diagnostic`に入れる。ローカル履歴のpushは`github_push`で別に行う |
 | `github_repository_update` | `repository`、Branch Policy項目、`commit_author_name?`、`commit_author_email?` | 対話Desktop承認後にBranch PolicyとCommit作成者を更新する。GitHub識別情報とPathは変更しない |
+| `github_repository_settings_update` | `repository`、`changes` | 指定されたallowlist項目だけをDesktop承認後に更新する。成功時は`data.settings`、実際に変わった`data.changed_fields`、`data.approved: true`を返し、検証・承認・保存失敗で部分更新しない |
 | `github_repository_unregister` | `repository` | Githubie設定と実行中Allowlistから登録解除。GitHub／Localのデータは削除しない |
 | `github_repository_rename` | `old_repository`、`new_repository` | 設定と暗号化Tokenを一括移行し、失敗時は旧IDを維持する |
 | `github_repository_description_update` | `repository`, `description` | Descriptionだけを更新。空文字列で削除、最大350文字 |

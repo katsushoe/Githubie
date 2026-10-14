@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
@@ -171,6 +171,14 @@ public sealed class AuditedRepositoryManagementService(
     IRepositoryManagementService inner,
     IGithubieAuditLogger audit) : IRepositoryManagementService
 {
+    public bool TryGetSettings(string repositoryId, out RepositorySettings settings) =>
+        inner.TryGetSettings(repositoryId, out settings);
+
+    public Task<RepositoryMutationResult> UpdateSettingsAsync(
+        string repositoryId, RepositorySettingsChanges changes, CancellationToken cancellationToken) =>
+        RunAsync("github_repository_settings_update", repositoryId,
+            () => inner.UpdateSettingsAsync(repositoryId, changes, cancellationToken));
+
     public Task<RepositoryMutationResult> UpdateAsync(
         string repositoryId, RepositoryUpdateRequest request, CancellationToken cancellationToken) =>
         RunAsync("github_repository_update", repositoryId,

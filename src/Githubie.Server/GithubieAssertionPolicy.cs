@@ -21,6 +21,8 @@ public static class GithubieAssertionPolicy
             ["github_repository_stash_drop"] = ["repository.stash.write"],
             ["github_repository_description_get"] = ["repository.read"],
             ["github_repository_description_update"] = ["provider.githubie.repository.description.write"],
+            ["github_repository_settings_get"] = ["repository.read"],
+            ["github_repository_settings_update"] = ["repository.settings.write"],
             ["github_workflow_dispatch"] = ["provider.githubie.workflow.dispatch"],
             ["github_workflow_run_get"] = ["repository.read"],
             ["github_workflow_run_list"] = ["repository.read"],

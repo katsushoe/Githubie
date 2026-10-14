@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Githubie.Application.Configuration;
 using Githubie.Application.Credentials;
 using Githubie.Application.Interactive;
@@ -40,6 +40,103 @@ public sealed class RepositoryManagementServiceTests
         _allowlist.TryGet(RepositoryId, out var updated).Should().BeTrue();
         updated.CommitAuthorName.Should().Be("Writer");
         updated.CommitAuthorEmail.Should().Be("writer@example.com");
+    }
+
+    [Fact]
+    public Task SettingsRead_ReturnsAllowlistedFieldsAndAuthorNull()
+    {
+        var service = CreateService();
+        service.TryGetSettings(RepositoryId, out var settings).Should().BeTrue();
+        settings.CommitAuthorName.Should().BeNull();
+        settings.CommitAuthorEmail.Should().BeNull();
+        settings.DirectPushBranches.Should().Equal("develop");
+        return Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task SettingsRead_UnknownRepositoryAndUpdate_ReturnSpecificNotRegisteredResult()
+    {
+        var service = CreateService();
+        service.TryGetSettings("missing", out _).Should().BeFalse();
+        var result = await service.UpdateSettingsAsync("missing",
+            new RepositorySettingsChanges(RequireCleanWorkingTree: false, HasRequireCleanWorkingTree: true), TestContext.Current.CancellationToken);
+        result.Error.Should().Be(RepositoryMutationError.RepositoryNotRegistered);
+        await _store.DidNotReceive().SaveRepositoryAsync(Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SettingsUpdate_AuthorOnly_PreservesAllOtherRegisteredValues()
+    {
+        _allowlist.TryGet(RepositoryId, out var original).Should().BeTrue();
+        var mapped = original with
+        {
+            MoyaiProjectId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            Workflows = new Dictionary<string, WorkflowPolicyOptions>
+            {
+                ["release.yml"] = new(["main"], new Dictionary<string, WorkflowInputPolicyOptions>()),
+            },
+        };
+        _allowlist.TryUpdate(RepositoryId, mapped).Should().BeTrue();
+        var service = CreateService();
+        var result = await service.UpdateSettingsAsync(RepositoryId,
+            new RepositorySettingsChanges(CommitAuthorName: "Writer", HasCommitAuthorName: true,
+                CommitAuthorEmail: "writer@example.com", HasCommitAuthorEmail: true), TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        _allowlist.TryGet(RepositoryId, out var updated).Should().BeTrue();
+        updated.CommitAuthorName.Should().Be("Writer");
+        updated.DirectPushBranches.Should().Equal("develop");
+        updated.PullBranches.Should().Equal("develop", "main");
+        updated.ProtectedBranches.Should().Equal("main");
+        updated.TagPattern.Should().Be("^v[0-9]+\\.[0-9]+\\.[0-9]+.*$");
+        updated.RequireCleanWorkingTree.Should().BeTrue();
+        updated.GitHubOwner.Should().Be(mapped.GitHubOwner);
+        updated.GitHubRepo.Should().Be(mapped.GitHubRepo);
+        updated.LocalRoot.Should().Be(mapped.LocalRoot);
+        updated.Remote.Should().Be(mapped.Remote);
+        updated.MoyaiProjectId.Should().Be(mapped.MoyaiProjectId);
+        updated.Workflows.Should().BeEquivalentTo(mapped.Workflows);
+    }
+
+    [Fact]
+    public async Task SettingsUpdate_ExplicitFalseAndEmptyArray_ArePreserved()
+    {
+        var service = CreateService();
+        var result = await service.UpdateSettingsAsync(RepositoryId,
+            new RepositorySettingsChanges(DirectPushBranches: [], HasDirectPushBranches: true,
+                RequireCleanWorkingTree: false, HasRequireCleanWorkingTree: true), TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        _allowlist.TryGet(RepositoryId, out var updated).Should().BeTrue();
+        updated.DirectPushBranches.Should().BeEmpty();
+        updated.RequireCleanWorkingTree.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SettingsUpdate_InvalidAuthorPair_DoesNotMutate()
+    {
+        var service = CreateService();
+        var result = await service.UpdateSettingsAsync(RepositoryId,
+            new RepositorySettingsChanges(CommitAuthorName: "Writer", HasCommitAuthorName: true), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryMutationError.InvalidAuthorIdentity);
+        await _store.DidNotReceive().SaveRepositoryAsync(Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SettingsUpdate_Denied_DoesNotPersistOrChangeAllowlist()
+    {
+        _approval.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Denied());
+        var service = CreateService();
+        var result = await service.UpdateSettingsAsync(RepositoryId,
+            new RepositorySettingsChanges(CommitAuthorName: "Writer", HasCommitAuthorName: true,
+                CommitAuthorEmail: "writer@example.com", HasCommitAuthorEmail: true), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryMutationError.ApprovalDenied);
+        _allowlist.TryGet(RepositoryId, out var unchanged).Should().BeTrue();
+        unchanged.CommitAuthorName.Should().BeNull();
+        await _store.DidNotReceive().SaveRepositoryAsync(Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

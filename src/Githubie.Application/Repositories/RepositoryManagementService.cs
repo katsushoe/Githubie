@@ -1,4 +1,5 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
+using System.Text.Json.Serialization;
 using Githubie.Application.Configuration;
 using Githubie.Application.Interactive;
 using Githubie.Application.Credentials;
@@ -16,7 +17,42 @@ public sealed record RepositoryUpdateRequest(
     string? CommitAuthorName = null,
     string? CommitAuthorEmail = null);
 
-public sealed record RepositoryMutationInfo(bool Approved, string RepositoryId);
+public sealed record RepositoryMutationInfo(bool Approved, string RepositoryId)
+{
+    [JsonPropertyName("settings"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RepositorySettings? Settings { get; init; }
+
+    [JsonPropertyName("changed_fields"), JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? ChangedFields { get; init; }
+}
+
+public sealed record RepositorySettings(
+    [property: JsonPropertyName("direct_push_branches")] IReadOnlyList<string> DirectPushBranches,
+    [property: JsonPropertyName("protected_branches")] IReadOnlyList<string> ProtectedBranches,
+    [property: JsonPropertyName("pull_branches")] IReadOnlyList<string> PullBranches,
+    [property: JsonPropertyName("tag_pattern")] string TagPattern,
+    [property: JsonPropertyName("tag_target_branch")] string TagTargetBranch,
+    [property: JsonPropertyName("require_clean_working_tree")] bool RequireCleanWorkingTree,
+    [property: JsonPropertyName("commit_author_name"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? CommitAuthorName,
+    [property: JsonPropertyName("commit_author_email"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? CommitAuthorEmail);
+
+public sealed record RepositorySettingsChanges(
+    IReadOnlyList<string>? DirectPushBranches = null,
+    bool HasDirectPushBranches = false,
+    IReadOnlyList<string>? ProtectedBranches = null,
+    bool HasProtectedBranches = false,
+    IReadOnlyList<string>? PullBranches = null,
+    bool HasPullBranches = false,
+    string? TagPattern = null,
+    bool HasTagPattern = false,
+    string? TagTargetBranch = null,
+    bool HasTagTargetBranch = false,
+    bool? RequireCleanWorkingTree = null,
+    bool HasRequireCleanWorkingTree = false,
+    string? CommitAuthorName = null,
+    bool HasCommitAuthorName = false,
+    string? CommitAuthorEmail = null,
+    bool HasCommitAuthorEmail = false);
 
 public enum RepositoryMutationError
 {
@@ -44,6 +80,8 @@ public sealed record RepositoryMutationResult(RepositoryMutationInfo? Value, Rep
 
 public interface IRepositoryManagementService
 {
+    bool TryGetSettings(string repositoryId, out RepositorySettings settings);
+    Task<RepositoryMutationResult> UpdateSettingsAsync(string repositoryId, RepositorySettingsChanges changes, CancellationToken cancellationToken);
     Task<RepositoryMutationResult> UpdateAsync(
         string repositoryId, RepositoryUpdateRequest request, CancellationToken cancellationToken);
     Task<RepositoryMutationResult> UnregisterAsync(string repositoryId, CancellationToken cancellationToken);
@@ -66,6 +104,98 @@ public sealed class RepositoryManagementService(
 
     private static readonly TimeSpan ApprovalTimeout = TimeSpan.FromMinutes(5);
     private readonly SemaphoreSlim _mutationLock = new(1, 1);
+
+    public bool TryGetSettings(string repositoryId, out RepositorySettings settings)
+    {
+        if (RepositoryId.TryNormalize(repositoryId, out var normalized) && allowlist.TryGet(normalized, out var current))
+        {
+            settings = ToSettings(current);
+            return true;
+        }
+        settings = null!;
+        return false;
+    }
+
+    public async Task<RepositoryMutationResult> UpdateSettingsAsync(
+        string repositoryId, RepositorySettingsChanges changes, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(changes);
+        if (!RepositoryId.TryNormalize(repositoryId, out repositoryId))
+            return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidRepositoryId);
+        if (!Any(changes)) return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidPolicy);
+        if (changes.HasCommitAuthorName != changes.HasCommitAuthorEmail
+            || (changes.HasCommitAuthorName && !CommitAuthorIdentity.IsValid(changes.CommitAuthorName, changes.CommitAuthorEmail)))
+            return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidAuthorIdentity);
+
+        await _mutationLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!allowlist.TryGet(repositoryId, out var current))
+                return RepositoryMutationResult.Failure(RepositoryMutationError.RepositoryNotRegistered);
+            var updated = current with
+            {
+                DirectPushBranches = changes.HasDirectPushBranches ? changes.DirectPushBranches! : current.DirectPushBranches,
+                ProtectedBranches = changes.HasProtectedBranches ? changes.ProtectedBranches! : current.ProtectedBranches,
+                PullBranches = changes.HasPullBranches ? changes.PullBranches! : current.PullBranches,
+                TagPattern = changes.HasTagPattern ? changes.TagPattern! : current.TagPattern,
+                TagTargetBranch = changes.HasTagTargetBranch ? changes.TagTargetBranch! : current.TagTargetBranch,
+                RequireCleanWorkingTree = changes.HasRequireCleanWorkingTree ? changes.RequireCleanWorkingTree!.Value : current.RequireCleanWorkingTree,
+                CommitAuthorName = changes.HasCommitAuthorName ? changes.CommitAuthorName : current.CommitAuthorName,
+                CommitAuthorEmail = changes.HasCommitAuthorEmail ? changes.CommitAuthorEmail : current.CommitAuthorEmail,
+            };
+            if (!IsValidSettings(updated)) return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidPolicy);
+            var approval = await approvalPrompt.RequestApprovalAsync(new ApprovalPromptRequest(
+                "Githubie repository settings update", $"Update selected settings for '{repositoryId}'",
+                ["Fields: " + string.Join(", ", RequestedNames(changes))]), ApprovalTimeout, cancellationToken);
+            var approvalError = MapApprovalError(approval.Outcome);
+            if (approvalError is not null) return RepositoryMutationResult.Failure(approvalError.Value);
+            try { await configurationStore.SaveRepositoryAsync(repositoryId, updated, cancellationToken); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed); }
+            if (!allowlist.TryUpdate(repositoryId, updated))
+                return RepositoryMutationResult.Failure(RepositoryMutationError.RepositoryNotRegistered);
+            return RepositoryMutationResult.Success(new RepositoryMutationInfo(true, repositoryId)
+            {
+                Settings = ToSettings(updated),
+                ChangedFields = ChangedNames(current, updated).ToArray(),
+            });
+        }
+        finally { _mutationLock.Release(); }
+    }
+
+    private static bool Any(RepositorySettingsChanges c) => c.HasDirectPushBranches || c.HasProtectedBranches || c.HasPullBranches || c.HasTagPattern || c.HasTagTargetBranch || c.HasRequireCleanWorkingTree || c.HasCommitAuthorName || c.HasCommitAuthorEmail;
+    private static IEnumerable<string> RequestedNames(RepositorySettingsChanges c)
+    {
+        if (c.HasDirectPushBranches) yield return "direct_push_branches";
+        if (c.HasProtectedBranches) yield return "protected_branches";
+        if (c.HasPullBranches) yield return "pull_branches";
+        if (c.HasTagPattern) yield return "tag_pattern";
+        if (c.HasTagTargetBranch) yield return "tag_target_branch";
+        if (c.HasRequireCleanWorkingTree) yield return "require_clean_working_tree";
+        if (c.HasCommitAuthorName) yield return "commit_author_name";
+        if (c.HasCommitAuthorEmail) yield return "commit_author_email";
+    }
+    private static IEnumerable<string> ChangedNames(RepositoryOptions old, RepositoryOptions updated)
+    {
+        if (!old.DirectPushBranches.SequenceEqual(updated.DirectPushBranches)) yield return "direct_push_branches";
+        if (!old.ProtectedBranches.SequenceEqual(updated.ProtectedBranches)) yield return "protected_branches";
+        if (!old.PullBranches.SequenceEqual(updated.PullBranches)) yield return "pull_branches";
+        if (old.TagPattern != updated.TagPattern) yield return "tag_pattern";
+        if (old.TagTargetBranch != updated.TagTargetBranch) yield return "tag_target_branch";
+        if (old.RequireCleanWorkingTree != updated.RequireCleanWorkingTree) yield return "require_clean_working_tree";
+        if (old.CommitAuthorName != updated.CommitAuthorName) yield return "commit_author_name";
+        if (old.CommitAuthorEmail != updated.CommitAuthorEmail) yield return "commit_author_email";
+    }
+    private static RepositorySettings ToSettings(RepositoryOptions r) => new(r.DirectPushBranches, r.ProtectedBranches, r.PullBranches, r.TagPattern, r.TagTargetBranch, r.RequireCleanWorkingTree, r.CommitAuthorName, r.CommitAuthorEmail);
+    private static bool IsValidSettings(RepositoryOptions r)
+    {
+        if (!IsValidName(r.TagTargetBranch) || string.IsNullOrWhiteSpace(r.TagPattern)
+            || !r.DirectPushBranches.All(IsValidName) || !r.PullBranches.All(IsValidName) || !r.ProtectedBranches.All(IsValidName)
+            || !((r.CommitAuthorName is null && r.CommitAuthorEmail is null) || CommitAuthorIdentity.IsValid(r.CommitAuthorName, r.CommitAuthorEmail)))
+            return false;
+        try { _ = new Regex(r.TagPattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)); return true; }
+        catch (ArgumentException) { return false; }
+    }
 
     public async Task<RepositoryMutationResult> UpdateAsync(
         string repositoryId, RepositoryUpdateRequest request, CancellationToken cancellationToken)

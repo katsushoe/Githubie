@@ -4,6 +4,8 @@
 
 Githubie reads strict `snake_case` JSON. Unknown properties, comments, and trailing commas are rejected. See [githubie.example.json](githubie.example.json).
 
+The MCP repository settings tools operate on the registered values loaded from the configuration store. Their response is an explicit allowlist and does not expose credentials, local paths, GitHub identity, workflow inputs, or Moyai mappings.
+
 ## File Location
 
 The default path is `<install-root>\config\githubie.json`. Pass another path as the server's first argument or with the CLI `--config <path>` option.

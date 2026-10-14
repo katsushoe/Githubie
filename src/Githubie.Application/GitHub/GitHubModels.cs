@@ -1,4 +1,4 @@
-namespace Githubie.Application.GitHub;
+﻿namespace Githubie.Application.GitHub;
 
 public sealed record GitHubRepositoryInfo(string Owner, string Repo, string DefaultBranch, string? Description);
 
@@ -44,7 +44,9 @@ public sealed record GitHubProviderCapabilities(
     bool RepositoryStashList = false,
     bool RepositoryStashApply = false,
     bool RepositoryStashDrop = false,
-    bool RepositoryCommitSelected = false)
+    bool RepositoryCommitSelected = false,
+    bool RepositorySettingsRead = false,
+    bool RepositorySettingsUpdate = false)
 {
     /// <summary>Moyai Consumer Contractの`integration_mode`と`direct_connection`です。</summary>
     public GitHubProviderAuthentication? Authentication { get; init; }

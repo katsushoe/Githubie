@@ -2,6 +2,12 @@
 
 [English](COMMANDS.md) | [日本語](COMMANDS.ja.md)
 
+## Repository settings MCP tools
+
+`github_repository_settings_get` returns only the registered `direct_push_branches`, `protected_branches`, `pull_branches`, `tag_pattern`, `tag_target_branch`, `require_clean_working_tree`, `commit_author_name`, and `commit_author_email` values. A null author means no registered author; it does not resolve local Git identity. The read requires `repository.read` and does not access Git or GitHub.
+
+`github_repository_settings_update` takes `{ "repository": "id", "changes": { ... } }` and requires `repository.settings.write` plus interactive human approval. Omitted fields remain unchanged; explicit null, unknown fields, invalid types, and an empty changes object are rejected. Empty arrays explicitly replace a branch policy with an empty list, and false is preserved. Author name and email must be supplied together. The legacy `github_repository_update` remains available with its original full-policy arguments.
+
 ## CLI
 
 Use `githubie.exe --config <path>` to override the default configuration.
@@ -67,6 +73,7 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `list_projects` | None | Registered repository IDs from the live allowlist; call before selecting a repository and immediately before `github_push` |
 | `github_repository_status` | `repository` | Local/remote HEAD, ahead/behind, and working-tree state from Git; an unborn branch returns an empty local HEAD and zero divergence |
 | `github_repository_diff` | `repository` | Working-tree diff for the registered repository |
+| `github_repository_settings_get` | `repository` | Only the registered non-secret settings allowlist; reads the live in-memory registration and requires no Git or GitHub access |
 | `github_repository_commit` | `repository`, `message` | Create a local commit on a policy-allowed branch with the stored or repository-local author pair; return `author_identity_missing` before staging if neither is configured |
 | `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | Commit only the supplied patch; reject staged changes or a changed HEAD and preserve unselected working-tree edits |
 | `github_repository_description_get` | `repository` | Repository description from GitHub |
@@ -95,6 +102,7 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_repository_moyai_project_set` | `repository`, `moyai_project_id` | After desktop approval, maps a registered repository to a Moyai Project UUID and applies it to the running service. Rejects an empty UUID (`invalid_moyai_project_id`), a UUID used by another repository or differing from the administrator mapping in `provider_authentication.projects` (`duplicate_moyai_project_id`), and an unregistered repository. The change is audited |
 | `github_repository_create` | `repository`, `owner`, `name`, `visibility?`, `description?`, `local_root?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | After desktop approval, creates a GitHub repository (`private` by default) under the token user or the `owner` organization with no initial commit. Uses the stored token for `repository` or asks for one in the token dialog. With `local_root`, sets an unconfigured `origin` to the new repository and registers it without a second prompt. Returns `repository_already_exists`, `permission_denied`, `authentication_failed`, `approval_denied`, `remote_already_configured`, or `token_unavailable` with GitHub's reason in `error.diagnostic`. Push the local history separately with `github_push` |
 | `github_repository_update` | `repository`, branch policy fields, `commit_author_name?`, `commit_author_email?` | Updates branch policy and optional commit author after desktop approval; GitHub identity and paths remain unchanged |
+| `github_repository_settings_update` | `repository`, `changes` | Applies only supplied allowlisted settings after desktop approval. Success returns `data.settings`, actual `data.changed_fields`, and `data.approved: true`; validation/approval/write failures make no partial update |
 | `github_repository_unregister` | `repository` | Removes the entry from Githubie configuration and the live allowlist without deleting GitHub or local data |
 | `github_repository_rename` | `old_repository`, `new_repository` | Migrates configuration and encrypted token together; keeps the old ID usable if migration fails |
 | `github_repository_description_update` | `repository`, `description` | Patches only `description`; empty string removes it; maximum 350 characters |

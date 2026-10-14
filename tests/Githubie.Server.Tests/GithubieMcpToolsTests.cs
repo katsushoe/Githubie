@@ -1,4 +1,5 @@
-using System.Reflection;
+﻿using System.Reflection;
+using System.Text.Json;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
@@ -28,11 +29,85 @@ public sealed class GithubieMcpToolsTests
             .Select(item => item.GetString()).Should().Contain("source");
     }
 
+    [Fact]
+    public void RepositorySettingsUpdateSchemaRequiresRepositoryAndChanges()
+    {
+        var instance = CreateTools(Substitute.For<IGitHubRepositoryGateway>());
+        var tool = McpServerTool.Create(typeof(GithubieMcpTools).GetMethod(nameof(GithubieMcpTools.UpdateRepositorySettingsAsync))!, instance);
+        tool.ProtocolTool.InputSchema.GetProperty("required").EnumerateArray()
+            .Select(item => item.GetString()).Should().Contain(["repository", "changes"]);
+        var changesSchema = tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("changes");
+        changesSchema.GetProperty("type").GetString().Should().Be("object");
+        changesSchema.GetProperty("properties").EnumerateObject().Select(p => p.Name)
+            .Should().Contain(["commit_author_name", "commit_author_email", "require_clean_working_tree", "direct_push_branches"]);
+    }
+
+    [Fact]
+    public async Task RepositorySettingsUpdate_RejectsNullAndEmptyChangesBeforeCallingService()
+    {
+        var management = Substitute.For<IRepositoryManagementService>();
+        var tools = new GithubieMcpTools(Substitute.For<IGitGateway>(), Substitute.For<IGitHubRepositoryGateway>(),
+            Substitute.For<IRepositoryRegistrationService>(), management, new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+        var nullChanges = JsonSerializer.Deserialize<RepositorySettingsInput>("{\"commit_author_name\":null,\"commit_author_email\":\"writer@example.com\"}")!;
+        var emptyChanges = new RepositorySettingsInput();
+
+        (await tools.UpdateRepositorySettingsAsync("sample", nullChanges, TestContext.Current.CancellationToken)).Error!.Code.Should().Be("repository_settings_invalid");
+        (await tools.UpdateRepositorySettingsAsync("sample", emptyChanges, TestContext.Current.CancellationToken)).Error!.Code.Should().Be("repository_settings_invalid");
+        await management.DidNotReceive().UpdateSettingsAsync(Arg.Any<string>(), Arg.Any<RepositorySettingsChanges>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public void RepositorySettingsGet_ReturnsAllowlistedRegisteredValuesWithoutGitHubAccess()
+    {
+        var expected = new RepositorySettings(["develop"], ["main"], ["develop", "main"], "^v[0-9]+$", "main", true, null, null);
+        var management = Substitute.For<IRepositoryManagementService>();
+        management.TryGetSettings("sample", out Arg.Any<RepositorySettings>())
+            .Returns(callInfo => { callInfo[1] = expected; return true; });
+        var gitHub = Substitute.For<IGitHubRepositoryGateway>();
+        var git = Substitute.For<IGitGateway>();
+        var tools = new GithubieMcpTools(git, gitHub, Substitute.For<IRepositoryRegistrationService>(), management,
+            new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+
+        var result = tools.GetRepositorySettings("sample");
+
+        result.Ok.Should().BeTrue();
+        result.Data.Should().BeEquivalentTo(expected);
+        result.Data!.CommitAuthorName.Should().BeNull();
+        _ = gitHub.DidNotReceive().GetRepositoryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        _ = git.DidNotReceive().GetStatusAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RepositorySettingsUpdate_ReturnsApprovalAndActualChangedFields()
+    {
+        var settings = new RepositorySettings(["develop"], ["main"], ["develop"], "^v[0-9]+$", "main", true,
+            "Registered Writer", "writer@example.com");
+        var management = Substitute.For<IRepositoryManagementService>();
+        management.UpdateSettingsAsync("sample", Arg.Any<RepositorySettingsChanges>(), Arg.Any<CancellationToken>())
+            .Returns(RepositoryMutationResult.Success(new RepositoryMutationInfo(true, "sample")
+            {
+                Settings = settings,
+                ChangedFields = ["commit_author_name", "commit_author_email"],
+            }));
+        var tools = new GithubieMcpTools(Substitute.For<IGitGateway>(), Substitute.For<IGitHubRepositoryGateway>(),
+            Substitute.For<IRepositoryRegistrationService>(), management,
+            new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+        var changes = new RepositorySettingsInput { CommitAuthorName = "Registered Writer", CommitAuthorEmail = "writer@example.com" };
+
+        var result = await tools.UpdateRepositorySettingsAsync("sample", changes, TestContext.Current.CancellationToken);
+
+        result.Ok.Should().BeTrue();
+        result.Data!.Approved.Should().BeTrue();
+        result.Data.ChangedFields.Should().Equal("commit_author_name", "commit_author_email");
+        result.Data.Settings.Should().BeEquivalentTo(settings);
+    }
+
     [Theory]
     [InlineData("github_repository_stash_list", "repository.read")]
     [InlineData("github_repository_stash_push", "repository.stash.write")]
     [InlineData("github_repository_stash_apply", "repository.stash.write")]
     [InlineData("github_repository_stash_drop", "repository.stash.write")]
+    [InlineData("github_repository_settings_get", "repository.read")]
     public void StashToolsUseLeastPrivilegeAssertionScopes(string tool, string expectedScope)
     {
         GithubieAssertionPolicy.TryGetScopes(tool, out string[] scopes).Should().BeTrue();
@@ -51,6 +126,13 @@ public sealed class GithubieMcpToolsTests
     {
         GithubieAssertionPolicy.TryGetScopes("github_repository_commit_selected", out string[] scopes).Should().BeTrue();
         scopes.Should().Equal("repository.commit");
+    }
+
+    [Fact]
+    public void RepositorySettingsUpdateUsesDedicatedSettingsScope()
+    {
+        GithubieAssertionPolicy.TryGetScopes("github_repository_settings_update", out string[] scopes).Should().BeTrue();
+        scopes.Should().Equal("repository.settings.write");
     }
 
     [Theory]
@@ -288,6 +370,8 @@ public sealed class GithubieMcpToolsTests
         "github_repository_unregister",
         "github_repository_moyai_project_set",
             "github_repository_update",
+        "github_repository_settings_get",
+        "github_repository_settings_update",
             "github_repository_rename",
         "github_fetch",
         "github_pull",
@@ -332,6 +416,7 @@ public sealed class GithubieMcpToolsTests
     [
         "list_projects",
         "github_repository_status",
+        "github_repository_settings_get",
         "github_repository_diff",
         "github_repository_stash_list",
         "github_repository_description_get",
