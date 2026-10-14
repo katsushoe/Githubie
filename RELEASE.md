@@ -4,7 +4,9 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The current display version is `1.8.10.0`.
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The candidate display version is `1.8.10.1` (not yet published or installed).
+
+The `1.8.10.1` candidate adds repository registration settings read and partial update. It includes an eight-field allowlist, preservation of omitted fields, replacement semantics for arrays, explicit `false`, paired author name/email validation, interactive approval, Project/Repository scopes, auditing, and capabilities. Source build and related verification are complete. Publication and installation are pending.
 
 Version `1.8.10.0` adds path-selective stash push, list, apply, and drop through MCP and the generic CLI caller (ADR 0034). Push includes untracked files and accepts repository-relative paths; omitted paths select all changes. Apply restores the index, and apply/drop require a full stash object ID. The operations use the existing repository allowlist, assertion scopes, and audit path.
 

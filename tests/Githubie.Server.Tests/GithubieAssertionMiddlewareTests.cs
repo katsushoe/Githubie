@@ -47,6 +47,24 @@ public sealed class GithubieAssertionMiddlewareTests
         context.Response.StatusCode.Should().Be(expectedStatus);
     }
 
+    [Theory]
+    [InlineData("github_repository_settings_get", "repository.read", StatusCodes.Status200OK)]
+    [InlineData("github_repository_settings_update", "repository.settings.write", StatusCodes.Status200OK)]
+    [InlineData("github_repository_settings_update", "repository.read", StatusCodes.Status403Forbidden)]
+    [InlineData("github_repository_settings_update", "repository.commit", StatusCodes.Status403Forbidden)]
+    public async Task InvokeAsync_RepositorySettingsToolsRequireTheirDedicatedScopes(string tool, string scope, int expectedStatus)
+    {
+        using var fixture = new AssertionFixture();
+        var dispatched = 0;
+        var context = fixture.CreateRequest(fixture.CreateAssertion(scope: scope), tool: tool);
+
+        await CreateMiddleware(() => dispatched++).InvokeAsync(context, fixture.Options, fixture.Repositories,
+            fixture.Validator, fixture.Validator, fixture.ExecutionContext);
+
+        context.Response.StatusCode.Should().Be(expectedStatus);
+        dispatched.Should().Be(expectedStatus == StatusCodes.Status200OK ? 1 : 0);
+    }
+
     [Fact]
     public async Task InvokeAsync_ExpiresDuringWait_RejectsWithoutReservingReplayAgain()
     {

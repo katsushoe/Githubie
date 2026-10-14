@@ -1,6 +1,12 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using FluentAssertions;
+using Githubie.Application.Configuration;
+using Githubie.Application.Credentials;
+using Githubie.Application.Interactive;
+using Githubie.Application.Git;
+using Githubie.Application.Repositories;
 using Githubie.Infrastructure.Git;
+using Githubie.Infrastructure.Repositories;
 using Xunit;
 
 namespace Githubie.Infrastructure.Tests;
@@ -44,6 +50,48 @@ public sealed class GitCommandClientIntegrationTests
 
         commit.IsSuccess.Should().BeTrue(commit.StandardError);
         (await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "show", "HEAD:notes.txt")).Should().Be("selected\nsecond");
+        (await File.ReadAllTextAsync(file, cancellationToken)).Should().Be("selected\nother\n");
+        (await client.GetStatusAsync(repository.Root, cancellationToken)).StandardOutput.Should().Contain("notes.txt");
+    }
+
+    [Fact]
+    public async Task RepositorySettingsAuthorUpdate_AllowsRegularAndSelectedCommitWithRegisteredIdentity()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        var file = Path.Combine(repository.Root, "notes.txt");
+        await File.WriteAllTextAsync(file, "first\nsecond\n", cancellationToken);
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "add", "--", "notes.txt");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "-c", "user.name=Bootstrap", "-c", "user.email=bootstrap@example.invalid", "commit", "-m", "bootstrap");
+
+        var allowlist = new RepositoryAllowlist(new Dictionary<string, RepositoryOptions>
+        {
+            ["isolated"] = new("owner", "repo", repository.Root, "origin", "develop", "main",
+                ["develop"], ["develop"], [], "main", "^v[0-9]+$", "merge", true),
+        });
+        var management = new RepositoryManagementService(allowlist, new ApprovePrompt(), new NoopConfigurationStore(), new NoopTokenStore());
+        var update = await management.UpdateSettingsAsync("isolated",
+            new RepositorySettingsChanges(CommitAuthorName: "Registered Writer", HasCommitAuthorName: true,
+                CommitAuthorEmail: "writer@example.com", HasCommitAuthorEmail: true), cancellationToken);
+        update.IsSuccess.Should().BeTrue();
+
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        var gateway = new GitGateway(allowlist, new LocalPathValidator(new RepositoryEnvironment()), client, new ApprovePrompt());
+        await File.AppendAllTextAsync(file, "regular\n", cancellationToken);
+        var regular = await gateway.CommitAsync("isolated", "registered author regular commit", cancellationToken);
+        regular.IsSuccess.Should().BeTrue(regular.Diagnostic);
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "log", "-1", "--format=%an <%ae>"))
+            .Should().Be("Registered Writer <writer@example.com>");
+
+        var expectedHead = (await client.GetHeadAsync(repository.Root, cancellationToken)).StandardOutput.Trim();
+        await File.WriteAllTextAsync(file, "selected\nother\n", cancellationToken);
+        const string patch = "diff --git a/notes.txt b/notes.txt\n--- a/notes.txt\n+++ b/notes.txt\n@@ -1,2 +1,2 @@\n-first\n+selected\n second\n";
+        var selected = await gateway.CommitSelectedAsync("isolated", "registered author selected commit", expectedHead, patch, cancellationToken);
+        selected.IsSuccess.Should().BeTrue(selected.Diagnostic);
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "log", "-1", "--format=%an <%ae>"))
+            .Should().Be("Registered Writer <writer@example.com>");
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "show", "HEAD:notes.txt"))
+            .Should().Be("selected\nsecond\nregular");
         (await File.ReadAllTextAsync(file, cancellationToken)).Should().Be("selected\nother\n");
         (await client.GetStatusAsync(repository.Root, cancellationToken)).StandardOutput.Should().Contain("notes.txt");
     }
@@ -347,5 +395,27 @@ public sealed class GitCommandClientIntegrationTests
                 throw new InvalidOperationException($"git failed: {standardError}");
             return (standardOutput.Trim(), standardError.Trim());
         }
+    }
+
+    private sealed class ApprovePrompt : IInteractiveApprovalPrompt
+    {
+        public Task<ApprovalPromptOutcome> RequestApprovalAsync(ApprovalPromptRequest request, TimeSpan timeout, CancellationToken cancellationToken) =>
+            Task.FromResult(ApprovalPromptOutcome.Approved());
+    }
+
+    private sealed class NoopConfigurationStore : IRepositoryConfigurationStore
+    {
+        public Task<RepositoryOptions?> GetRepositoryAsync(string repositoryId, CancellationToken cancellationToken) => Task.FromResult<RepositoryOptions?>(null);
+        public Task SaveRepositoryAsync(string repositoryId, RepositoryOptions options, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task DeleteRepositoryAsync(string repositoryId, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task RenameRepositoryAsync(string oldRepositoryId, string newRepositoryId, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    private sealed class NoopTokenStore : IApiTokenStore
+    {
+        public ApiTokenStoreResult Save(string repositoryId, ReadOnlySpan<char> token) => ApiTokenStoreResult.Success();
+        public ApiTokenStoreReadResult Read(string repositoryId) => ApiTokenStoreReadResult.Failure(ApiTokenStoreError.TokenNotFound);
+        public ApiTokenStoreResult Delete(string repositoryId) => ApiTokenStoreResult.Success();
+        public ApiTokenStoreResult Rename(string oldRepositoryId, string newRepositoryId) => ApiTokenStoreResult.Success();
     }
 }

@@ -19,7 +19,9 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-現在のDisplay Versionは`1.8.10.0`です。
+候補版のDisplay Versionは`1.8.10.1`です（未公開・未導入）。
+
+Version `1.8.10.1`候補では、Repository登録設定の読取と部分更新を追加します。8項目のallowlist、省略項目保持、空配列置換、false明示、作者名/emailの組検証、対話承認、Project/Repository scope、監査、capabilitiesを含みます。ソースビルドと関連検証は完了しています。公開・実機導入は未実施です。
 
 Version `1.8.10.0`では、パス指定に対応したstash作成・一覧・適用・削除をMCPと汎用CLI呼び出しへ追加しました（ADR 0034）。作成はuntracked fileを含み、Repository相対pathsの省略時は全変更を対象にします。適用はindexを復元し、適用・削除には完全なstash object IDを指定します。既存のAllowlist、Assertion Scope、監査経路を使用します。
 

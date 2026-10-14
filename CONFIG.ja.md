@@ -6,6 +6,8 @@
 
 サンプルは[githubie.example.json](githubie.example.json)を参照する。
 
+MCPのRepository設定Toolは設定ストアに登録済みの値を扱う。応答は明示した項目のみで、資格情報、ローカルPath、GitHub識別情報、workflow入力、Moyai対応付けを返さない。
+
 ## ファイル配置
 
 既定では`<install-root>\config\githubie.json`を読み込む。`githubie.exe` / `Githubie.Server.exe`のいずれも第1引数、または`githubie.exe`は`--config <path>`で明示指定できる。
