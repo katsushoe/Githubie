@@ -39,7 +39,7 @@ public sealed class GithubieMcpToolsTests
         var changesSchema = tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("changes");
         changesSchema.GetProperty("type").GetString().Should().Be("object");
         changesSchema.GetProperty("properties").EnumerateObject().Select(p => p.Name)
-            .Should().Contain(["commit_author_name", "commit_author_email", "require_clean_working_tree", "direct_push_branches"]);
+            .Should().Contain(["commit_author_name", "commit_author_email", "require_clean_working_tree", "direct_push_branches", "local_commit_branches"]);
     }
 
     [Fact]
@@ -92,7 +92,7 @@ public sealed class GithubieMcpToolsTests
         var tools = new GithubieMcpTools(Substitute.For<IGitGateway>(), Substitute.For<IGitHubRepositoryGateway>(),
             Substitute.For<IRepositoryRegistrationService>(), management,
             new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
-        var changes = new RepositorySettingsInput { CommitAuthorName = "Registered Writer", CommitAuthorEmail = "writer@example.com" };
+        var changes = new RepositorySettingsInput { CommitAuthorName = "Registered Writer", CommitAuthorEmail = "writer@example.com", LocalCommitBranches = ["codex/docs-main-v1010"] };
 
         var result = await tools.UpdateRepositorySettingsAsync("sample", changes, TestContext.Current.CancellationToken);
 

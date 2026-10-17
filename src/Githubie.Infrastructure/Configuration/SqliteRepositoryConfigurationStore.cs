@@ -246,9 +246,14 @@ public sealed class SqliteRepositoryConfigurationStore(string databasePath, int 
         return repositories;
     }
 
-    private static RepositoryOptions Deserialize(string json) =>
-        JsonSerializer.Deserialize<RepositoryOptions>(json, SerializerOptions)
-        ?? throw new JsonException("Repository options were empty.");
+    private static RepositoryOptions Deserialize(string json)
+    {
+        var options = JsonSerializer.Deserialize<RepositoryOptions>(json, SerializerOptions)
+            ?? throw new JsonException("Repository options were empty.");
+        return options.LocalCommitBranches is null
+            ? options with { LocalCommitBranches = options.DirectPushBranches }
+            : options;
+    }
 
     private static async Task<bool> HasMetadataAsync(
         SqliteConnection connection,

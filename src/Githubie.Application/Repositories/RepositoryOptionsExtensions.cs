@@ -19,5 +19,8 @@ public static class RepositoryOptionsExtensions
         ProtectedBranches: new HashSet<string>(options.ProtectedBranches, StringComparer.Ordinal),
         TagTargetBranch: options.TagTargetBranch,
         TagPattern: options.TagPattern,
-        RequireCleanWorkingTree: options.RequireCleanWorkingTree);
+        RequireCleanWorkingTree: options.RequireCleanWorkingTree)
+    {
+        LocalCommitBranches = new HashSet<string>(options.LocalCommitBranches ?? [], StringComparer.Ordinal),
+    };
 }

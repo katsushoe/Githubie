@@ -50,6 +50,37 @@ public sealed class JsonGithubieOptionsLoaderTests
         result.Options!.McpPort.Should().Be(45460);
         result.Options.Repositories.Should().ContainKey("example");
         result.Options.Repositories["example"].GitHubOwner.Should().Be("example-org");
+        result.Options.Repositories["example"].LocalCommitBranches.Should().Equal("develop");
+    }
+
+    [Fact]
+    public async Task LoadAsync_UsesExplicitLocalCommitBranchesWithoutChangingDirectPushBranches()
+    {
+        var json = ValidJson.Replace("\"direct_push_branches\": [\"develop\"],",
+            "\"direct_push_branches\": [\"develop\"],\n              \"local_commit_branches\": [\"codex/docs-main-v1010\"],");
+        var loader = new JsonGithubieOptionsLoader();
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        var repository = result.Options!.Repositories["example"];
+        repository.LocalCommitBranches.Should().Equal("codex/docs-main-v1010");
+        repository.DirectPushBranches.Should().Equal("develop");
+    }
+
+    [Fact]
+    public async Task LoadAsync_RejectsWildcardLocalCommitBranches()
+    {
+        var json = ValidJson.Replace("\"direct_push_branches\": [\"develop\"],",
+            "\"direct_push_branches\": [\"develop\"],\n              \"local_commit_branches\": [\"codex/*\"],");
+        var loader = new JsonGithubieOptionsLoader();
+        await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(json));
+
+        var result = await loader.LoadAsync(stream, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Errors.Should().Contain(error => error.Path.EndsWith("local_commit_branches", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -199,7 +230,10 @@ public sealed class JsonGithubieOptionsLoaderTests
                     TagTargetBranch: "main",
                     TagPattern: "^v[0-9]+\\.[0-9]+\\.[0-9]+.*$",
                     MergeMethod: "merge",
-                    RequireCleanWorkingTree: true),
+                    RequireCleanWorkingTree: true)
+                {
+                    LocalCommitBranches = ["develop"],
+                },
             })
         {
             ProviderAuthentication = new(

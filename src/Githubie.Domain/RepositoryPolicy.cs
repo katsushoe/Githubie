@@ -17,6 +17,9 @@ public sealed record RepositoryPolicy(
     string TagPattern,
     bool RequireCleanWorkingTree)
 {
+    /// <summary>Local commitを許可するBranch。直接Push権限およびPR経路から独立します。</summary>
+    public IReadOnlySet<string> LocalCommitBranches { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+
     /// <summary>
     /// 現在の状態で直接Pushできるか検証します。
     /// </summary>

@@ -4,9 +4,9 @@
 
 ## Repository設定MCP Tool
 
-`github_repository_settings_get`は登録済みの`direct_push_branches`、`protected_branches`、`pull_branches`、`tag_pattern`、`tag_target_branch`、`require_clean_working_tree`、`commit_author_name`、`commit_author_email`だけを返す。作者のnullは登録作者なしを示し、ローカルGit設定から解決しない。`repository.read`を要求し、GitやGitHubへアクセスしない。
+`github_repository_settings_get`は登録済みの`direct_push_branches`、`local_commit_branches`、`protected_branches`、`pull_branches`、`tag_pattern`、`tag_target_branch`、`require_clean_working_tree`、`commit_author_name`、`commit_author_email`を返す。作者のnullは登録作者なしを示し、ローカルGit設定から解決しない。`repository.read`を要求し、GitやGitHubへアクセスしない。
 
-`github_repository_settings_update`は`{ "repository": "id", "changes": { ... } }`を受け取り、`repository.settings.write`と人の対話承認を要求する。省略項目は保持し、明示的なnull、未知項目、型不正、空のchanges objectは拒否する。空配列はBranch Policyの空配列への置換、falseは明示値として扱う。作者名とメールは必ず同時に指定する。従来の`github_repository_update`は元の全Policy引数を維持する。
+`github_repository_settings_update`は`{ "repository": "id", "changes": { ... } }`を受け取り、`repository.settings.write`と人の対話承認を要求する。省略項目は保持し、明示的なnull、未知項目、型不正、空のchanges objectは拒否する。空配列はBranch Policyの空配列への置換、falseは明示値として扱う。`local_commit_branches`は直接Push許可とは独立した完全一致リストで、wildcardを拒否する。作者名とメールは必ず同時に指定する。従来の`github_repository_update`は元の全Policy引数を維持し、`local_commit_branches`省略時は既存値を維持する。
 
 `githubie.exe`（管理CLI）と、MCP Serverが公開するTool一覧を記載する。
 
@@ -107,8 +107,8 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得。初回Commit前はlocal headを空、ahead/behindを0として返す |
 | `github_repository_diff` | `repository` | 登録Repositoryのworking tree差分を取得 |
 | `github_repository_settings_get` | `repository` | 登録済みの非秘密設定allowlistだけを返す。実行中のメモリ登録値を使い、Git/GitHubアクセスを行わない |
-| `github_repository_commit` | `repository`, `message` | 登録済みまたはRepositoryローカルの作成者で許可Branchへlocal commitを作成する。作成者がなければStage前に`author_identity_missing`を返す |
-| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | 指定patchだけをlocal commitする。staged変更とHEAD不一致を拒否し、未選択差分は作業ツリーに残す |
+| `github_repository_commit` | `repository`, `message` | `local_commit_branches`に完全一致で登録したbranchへlocal commitを作成する。protected branchは拒否する。作者には登録済みまたはRepositoryローカルの組を使い、なければStage前に`author_identity_missing`を返す |
+| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | `local_commit_branches`に完全一致で登録したbranchへ指定patchだけをlocal commitする。protected branch、staged変更、HEAD不一致を拒否し、未選択差分は作業ツリーに残す。直接pushには引き続き`direct_push_branches`が必要 |
 | `github_repository_description_get` | `repository` | Repository Descriptionを取得 |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run状態を取得。log本文は返さない |
 | `github_workflow_run_list` | `repository`、任意filter、`limit` | Workflow runを最大100件取得。log本文は返さない |

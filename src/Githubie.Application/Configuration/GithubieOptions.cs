@@ -68,6 +68,9 @@ public sealed record RepositoryOptions(
 
     public IReadOnlyDictionary<string, WorkflowPolicyOptions> Workflows { get; init; }
         = new Dictionary<string, WorkflowPolicyOptions>(StringComparer.Ordinal);
+
+    /// <summary>Local commitだけを許可するBranch。直接Push権限とは独立し、既定では空です。</summary>
+    public IReadOnlyList<string>? LocalCommitBranches { get; init; }
 }
 
 public sealed record WorkflowPolicyOptions(

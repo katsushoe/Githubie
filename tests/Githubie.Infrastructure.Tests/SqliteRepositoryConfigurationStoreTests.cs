@@ -48,6 +48,7 @@ public sealed class SqliteRepositoryConfigurationStoreTests
             options.Should().NotBeNull();
             options!.GitHubOwner.Should().Be("example-owner");
             options.GitHubRepo.Should().Be("example-repo");
+            options.LocalCommitBranches.Should().Equal("develop");
         }
         finally
         {

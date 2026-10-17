@@ -95,7 +95,7 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_repository_update", Destructive = true, UseStructuredContent = true)]
-    [Description("登録済みRepositoryのBranch PolicyとCommit作成者を対話承認後に更新します。GitHub識別情報とLocal Rootは変更しません。")]
+    [Description("登録済みRepositoryのBranch Policy、local commit許可、Commit作成者を対話承認後に更新します。GitHub識別情報とLocal Rootは変更しません。")]
     public async Task<GithubieToolResult<RepositoryMutationInfo>> UpdateRepositoryAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("直接Pushを許可するBranch")] IReadOnlyList<string> direct_push_branches,
@@ -107,18 +107,22 @@ public sealed class GithubieMcpTools(
         [Description("起動を許可するworkflow別Policy。省略時は既存設定を維持")] IReadOnlyDictionary<string, Application.Configuration.WorkflowPolicyOptions>? workflows = null,
         [Description("Commit作成者名。メールアドレスと同時指定、省略時は既存設定を維持")] string? commit_author_name = null,
         [Description("Commit作成者メールアドレス。名前と同時指定、省略時は既存設定を維持")] string? commit_author_email = null,
+        [Description("Local commitだけを許可するBranch。直接Push権限とは独立し、省略時は既存設定を維持")] IReadOnlyList<string>? local_commit_branches = null,
         CancellationToken cancellationToken = default)
     {
         var request = new RepositoryUpdateRequest(
             direct_push_branches, pull_branches, protected_branches,
             tag_target_branch, tag_pattern, require_clean_working_tree, workflows,
-            commit_author_name, commit_author_email);
+            commit_author_name, commit_author_email)
+        {
+            LocalCommitBranches = local_commit_branches,
+        };
         var result = await managementService.UpdateAsync(repository, request, cancellationToken);
         return GithubieToolResultMapper.Map("repository_update", repository, result);
     }
 
     [McpServerTool(Name = "github_repository_settings_get", ReadOnly = true, UseStructuredContent = true)]
-    [Description("登録済みRepositoryの許可済み設定8項目を読み取ります。Git、GitHub、ファイルにはアクセスせず、秘密値や識別情報は返しません。作者nullは登録作者が未設定です。")]
+    [Description("登録済みRepositoryの許可済み設定9項目を読み取ります。Git、GitHub、ファイルにはアクセスせず、秘密値や識別情報は返しません。作者nullは登録作者が未設定です。")]
     public GithubieToolResult<RepositorySettings> GetRepositorySettings(string repository)
     {
         if (managementService.TryGetSettings(repository, out var settings))
@@ -128,10 +132,10 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_repository_settings_update", Destructive = true, UseStructuredContent = true)]
-    [Description("登録済みRepositoryの指定設定だけを人の承認後に更新します。省略は保持、nullは拒否、空配列は明示指定、falseは明示値です。作者名とメールは必ず組で指定します。")]
+    [Description("登録済みRepositoryの指定設定だけを人の承認後に更新します。省略は保持、nullは拒否、空配列は明示指定、falseは明示値です。local_commit_branchesはdirect_push_branchesとは独立した完全一致リストです。作者名とメールは必ず組で指定します。")]
     public async Task<GithubieToolResult<RepositoryMutationInfo>> UpdateRepositorySettingsAsync(
         string repository,
-        [Description("変更する設定項目だけを指定します。未知項目とnullは拒否し、空配列とfalseは明示値として扱います。作者名とメールは組で指定します.")] RepositorySettingsInput changes,
+        [Description("変更する設定項目だけを指定します。未知項目とnullは拒否し、空配列とfalseは明示値として扱います。local_commit_branchesは完全一致で、wildcard不可です。作者名とメールは組で指定します.")] RepositorySettingsInput changes,
         CancellationToken cancellationToken = default)
     {
         var parsed = changes?.ToChanges();

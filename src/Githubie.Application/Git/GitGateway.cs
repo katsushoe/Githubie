@@ -165,7 +165,7 @@ public sealed class GitGateway(
         {
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.ProtectedBranch);
         }
-        if (!options.DirectPushBranches.Contains(branch.StandardOutput, StringComparer.Ordinal))
+        if (!options.ToPolicy(repository).LocalCommitBranches.Contains(branch.StandardOutput))
         {
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.BranchNotAllowed);
         }
@@ -224,7 +224,7 @@ public sealed class GitGateway(
         if (!branch.IsSuccess) return CreateCommandFailure<GitRepositoryCommit>(branch);
         if (options.ProtectedBranches.Contains(branch.StandardOutput, StringComparer.Ordinal))
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.ProtectedBranch);
-        if (!options.DirectPushBranches.Contains(branch.StandardOutput, StringComparer.Ordinal))
+        if (!options.ToPolicy(repository).LocalCommitBranches.Contains(branch.StandardOutput))
             return GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.BranchNotAllowed);
         var head = await _commandClient.GetHeadAsync(options.LocalRoot, cancellationToken);
         if (!head.IsSuccess) return CreateCommandFailure<GitRepositoryCommit>(head);

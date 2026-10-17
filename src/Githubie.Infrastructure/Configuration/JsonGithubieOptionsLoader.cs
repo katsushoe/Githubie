@@ -47,7 +47,9 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
         foreach (var (repositoryId, repository) in options.Repositories)
         {
             if (!RepositoryId.TryNormalizeLegacy(repositoryId, out var normalizedId)
-                || !normalizedRepositories.TryAdd(normalizedId, repository))
+                || !normalizedRepositories.TryAdd(normalizedId, repository.LocalCommitBranches is null
+                    ? repository with { LocalCommitBranches = repository.DirectPushBranches?.ToArray() ?? [] }
+                    : repository))
             {
                 return ConfigurationLoadResult.Failure(new ConfigurationError(
                     ConfigurationErrorCode.InvalidRepositoryId,
@@ -131,6 +133,12 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
             if (string.IsNullOrWhiteSpace(repository.DevelopBranch) || string.IsNullOrWhiteSpace(repository.MainBranch))
             {
                 errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidBranchName, path, "develop_branch and main_branch must not be empty."));
+            }
+
+            if (repository.LocalCommitBranches is null || repository.LocalCommitBranches.Any(branch => !IsValidLocalCommitBranch(branch)))
+            {
+                errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidBranchName, $"{path}.local_commit_branches",
+                    "local_commit_branches must contain exact branch names without wildcard characters."));
             }
 
             if (!IsValidRegex(repository.TagPattern))
@@ -276,4 +284,8 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
             return false;
         }
     }
+
+    private static bool IsValidLocalCommitBranch(string branch) =>
+        !string.IsNullOrWhiteSpace(branch) && branch[0] != '-'
+        && branch.IndexOfAny([' ', '\t', '\r', '\n', '*', '?', '[', ']']) < 0;
 }

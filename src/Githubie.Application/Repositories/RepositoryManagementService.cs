@@ -15,7 +15,11 @@ public sealed record RepositoryUpdateRequest(
     bool RequireCleanWorkingTree,
     IReadOnlyDictionary<string, WorkflowPolicyOptions>? Workflows = null,
     string? CommitAuthorName = null,
-    string? CommitAuthorEmail = null);
+    string? CommitAuthorEmail = null)
+{
+    /// <summary>Local commitだけを許可するBranch。nullの場合は既存設定を維持します。</summary>
+    public IReadOnlyList<string>? LocalCommitBranches { get; init; }
+}
 
 public sealed record RepositoryMutationInfo(bool Approved, string RepositoryId)
 {
@@ -34,7 +38,11 @@ public sealed record RepositorySettings(
     [property: JsonPropertyName("tag_target_branch")] string TagTargetBranch,
     [property: JsonPropertyName("require_clean_working_tree")] bool RequireCleanWorkingTree,
     [property: JsonPropertyName("commit_author_name"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? CommitAuthorName,
-    [property: JsonPropertyName("commit_author_email"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? CommitAuthorEmail);
+    [property: JsonPropertyName("commit_author_email"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? CommitAuthorEmail)
+{
+    [JsonPropertyName("local_commit_branches")]
+    public IReadOnlyList<string> LocalCommitBranches { get; init; } = [];
+}
 
 public sealed record RepositorySettingsChanges(
     IReadOnlyList<string>? DirectPushBranches = null,
@@ -52,7 +60,9 @@ public sealed record RepositorySettingsChanges(
     string? CommitAuthorName = null,
     bool HasCommitAuthorName = false,
     string? CommitAuthorEmail = null,
-    bool HasCommitAuthorEmail = false);
+    bool HasCommitAuthorEmail = false,
+    IReadOnlyList<string>? LocalCommitBranches = null,
+    bool HasLocalCommitBranches = false);
 
 public enum RepositoryMutationError
 {
@@ -142,6 +152,7 @@ public sealed class RepositoryManagementService(
                 RequireCleanWorkingTree = changes.HasRequireCleanWorkingTree ? changes.RequireCleanWorkingTree!.Value : current.RequireCleanWorkingTree,
                 CommitAuthorName = changes.HasCommitAuthorName ? changes.CommitAuthorName : current.CommitAuthorName,
                 CommitAuthorEmail = changes.HasCommitAuthorEmail ? changes.CommitAuthorEmail : current.CommitAuthorEmail,
+                LocalCommitBranches = changes.HasLocalCommitBranches ? changes.LocalCommitBranches! : current.LocalCommitBranches ?? current.DirectPushBranches,
             };
             if (!IsValidSettings(updated)) return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidPolicy);
             var approval = await approvalPrompt.RequestApprovalAsync(new ApprovalPromptRequest(
@@ -163,7 +174,7 @@ public sealed class RepositoryManagementService(
         finally { _mutationLock.Release(); }
     }
 
-    private static bool Any(RepositorySettingsChanges c) => c.HasDirectPushBranches || c.HasProtectedBranches || c.HasPullBranches || c.HasTagPattern || c.HasTagTargetBranch || c.HasRequireCleanWorkingTree || c.HasCommitAuthorName || c.HasCommitAuthorEmail;
+    private static bool Any(RepositorySettingsChanges c) => c.HasDirectPushBranches || c.HasProtectedBranches || c.HasPullBranches || c.HasTagPattern || c.HasTagTargetBranch || c.HasRequireCleanWorkingTree || c.HasCommitAuthorName || c.HasCommitAuthorEmail || c.HasLocalCommitBranches;
     private static IEnumerable<string> RequestedNames(RepositorySettingsChanges c)
     {
         if (c.HasDirectPushBranches) yield return "direct_push_branches";
@@ -174,6 +185,7 @@ public sealed class RepositoryManagementService(
         if (c.HasRequireCleanWorkingTree) yield return "require_clean_working_tree";
         if (c.HasCommitAuthorName) yield return "commit_author_name";
         if (c.HasCommitAuthorEmail) yield return "commit_author_email";
+        if (c.HasLocalCommitBranches) yield return "local_commit_branches";
     }
     private static IEnumerable<string> ChangedNames(RepositoryOptions old, RepositoryOptions updated)
     {
@@ -185,12 +197,16 @@ public sealed class RepositoryManagementService(
         if (old.RequireCleanWorkingTree != updated.RequireCleanWorkingTree) yield return "require_clean_working_tree";
         if (old.CommitAuthorName != updated.CommitAuthorName) yield return "commit_author_name";
         if (old.CommitAuthorEmail != updated.CommitAuthorEmail) yield return "commit_author_email";
+        if (!(old.LocalCommitBranches ?? old.DirectPushBranches).SequenceEqual(updated.LocalCommitBranches ?? updated.DirectPushBranches)) yield return "local_commit_branches";
     }
-    private static RepositorySettings ToSettings(RepositoryOptions r) => new(r.DirectPushBranches, r.ProtectedBranches, r.PullBranches, r.TagPattern, r.TagTargetBranch, r.RequireCleanWorkingTree, r.CommitAuthorName, r.CommitAuthorEmail);
+    private static RepositorySettings ToSettings(RepositoryOptions r) => new(r.DirectPushBranches, r.ProtectedBranches, r.PullBranches, r.TagPattern, r.TagTargetBranch, r.RequireCleanWorkingTree, r.CommitAuthorName, r.CommitAuthorEmail)
+    {
+        LocalCommitBranches = r.LocalCommitBranches ?? r.DirectPushBranches,
+    };
     private static bool IsValidSettings(RepositoryOptions r)
     {
         if (!IsValidName(r.TagTargetBranch) || string.IsNullOrWhiteSpace(r.TagPattern)
-            || !r.DirectPushBranches.All(IsValidName) || !r.PullBranches.All(IsValidName) || !r.ProtectedBranches.All(IsValidName)
+            || !r.DirectPushBranches.All(IsValidName) || !(r.LocalCommitBranches ?? r.DirectPushBranches).All(IsValidLocalCommitBranch) || !r.PullBranches.All(IsValidName) || !r.ProtectedBranches.All(IsValidName)
             || !((r.CommitAuthorName is null && r.CommitAuthorEmail is null) || CommitAuthorIdentity.IsValid(r.CommitAuthorName, r.CommitAuthorEmail)))
             return false;
         try { _ = new Regex(r.TagPattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)); return true; }
@@ -222,6 +238,7 @@ public sealed class RepositoryManagementService(
                     [$"Direct push: {string.Join(", ", request.DirectPushBranches)}",
                      $"Pull: {string.Join(", ", request.PullBranches)}",
                      $"Protected: {string.Join(", ", request.ProtectedBranches)}",
+                     $"Local commit: {string.Join(", ", request.LocalCommitBranches ?? existing.LocalCommitBranches ?? existing.DirectPushBranches)}",
                      $"Tag target: {request.TagTargetBranch}",
                      $"Commit author: {request.CommitAuthorName ?? existing.CommitAuthorName ?? "repository local configuration"} <{request.CommitAuthorEmail ?? existing.CommitAuthorEmail ?? "repository local configuration"}>",
                      $"Workflows: {string.Join(", ", request.Workflows?.Keys ?? existing.Workflows.Keys)}"]),
@@ -233,6 +250,7 @@ public sealed class RepositoryManagementService(
             var updated = existing with
             {
                 DirectPushBranches = request.DirectPushBranches,
+                LocalCommitBranches = request.LocalCommitBranches ?? existing.LocalCommitBranches ?? existing.DirectPushBranches,
                 PullBranches = request.PullBranches,
                 ProtectedBranches = request.ProtectedBranches,
                 TagTargetBranch = request.TagTargetBranch,
@@ -357,6 +375,7 @@ public sealed class RepositoryManagementService(
             return false;
         if (!IsValidName(request.TagTargetBranch)) return false;
         if (request.DirectPushBranches.Any(x => !IsValidName(x))
+            || request.LocalCommitBranches?.Any(x => !IsValidLocalCommitBranch(x)) == true
             || request.PullBranches.Any(x => !IsValidName(x))
             || request.ProtectedBranches.Any(x => !IsValidName(x))) return false;
         try { _ = new Regex(request.TagPattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)); }
@@ -377,6 +396,9 @@ public sealed class RepositoryManagementService(
     private static bool IsValidName(string value) =>
         !string.IsNullOrWhiteSpace(value) && value[0] != '-'
         && value.IndexOfAny([' ', '\t', '\r', '\n']) < 0;
+
+    private static bool IsValidLocalCommitBranch(string value) => IsValidName(value)
+        && value.IndexOfAny(['*', '?', '[', ']']) < 0;
 
     private static RepositoryMutationError? MapApprovalError(ApprovalOutcome outcome) => outcome switch
     {

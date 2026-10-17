@@ -45,7 +45,8 @@ Upgrade時は旧規則`^[A-Za-z0-9._-]+$`のIDから`.`、`_`、`-`を除去し�
 | `remote` | 必須 | string | なし | Git操作で最初に使うRemote名。Sampleは`origin`。URLが登録Repositoryを指さなければ`provider_remote_mismatch`とする。空文字列ではURLによる自動解決を行う（ADR 0032）。Tool引数`remote`の指定が優先する |
 | `develop_branch` | 必須 | string | なし | 許可するPR経路のSource Branch |
 | `main_branch` | 必須 | string | なし | 許可するPR経路のDestination Branch |
-| `direct_push_branches` | 必須 | string[] | なし | `github_push`を許可するBranch一覧 |
+| `direct_push_branches` | 必須 | string[] | なし | `github_push`を許可するBranch一覧。ローカルcommit許可は付与しない |
+| `local_commit_branches` | 任意 | string[] | 既存設定は移行時に`direct_push_branches`を複製、新規登録は登録時のDevelop Branch | `github_repository_commit` / `github_repository_commit_selected`だけを許可する完全一致Branch一覧。直接Push・PR経路とは独立し、wildcard不可。空配列で全Branchのlocal commitを拒否 |
 | `pull_branches` | 必須 | string[] | なし | `github_pull`を許可するBranch一覧 |
 | `protected_branches` | 必須 | string[] | なし | Direct Pushを拒否するBranch一覧 |
 | `tag_target_branch` | 必須 | string | なし | Tag作成を許可するTarget Branch |

@@ -4,9 +4,9 @@
 
 ## Repository settings MCP tools
 
-`github_repository_settings_get` returns only the registered `direct_push_branches`, `protected_branches`, `pull_branches`, `tag_pattern`, `tag_target_branch`, `require_clean_working_tree`, `commit_author_name`, and `commit_author_email` values. A null author means no registered author; it does not resolve local Git identity. The read requires `repository.read` and does not access Git or GitHub.
+`github_repository_settings_get` returns only the registered `direct_push_branches`, `local_commit_branches`, `protected_branches`, `pull_branches`, `tag_pattern`, `tag_target_branch`, `require_clean_working_tree`, `commit_author_name`, and `commit_author_email` values. A null author means no registered author; it does not resolve local Git identity. The read requires `repository.read` and does not access Git or GitHub.
 
-`github_repository_settings_update` takes `{ "repository": "id", "changes": { ... } }` and requires `repository.settings.write` plus interactive human approval. Omitted fields remain unchanged; explicit null, unknown fields, invalid types, and an empty changes object are rejected. Empty arrays explicitly replace a branch policy with an empty list, and false is preserved. Author name and email must be supplied together. The legacy `github_repository_update` remains available with its original full-policy arguments.
+`github_repository_settings_update` takes `{ "repository": "id", "changes": { ... } }` and requires `repository.settings.write` plus interactive human approval. Omitted fields remain unchanged; explicit null, unknown fields, invalid types, and an empty changes object are rejected. Empty arrays explicitly replace a branch policy with an empty list, and false is preserved. `local_commit_branches` is an exact-match list independent of direct push permission; wildcards are rejected. Author name and email must be supplied together. The legacy `github_repository_update` retains its full-policy arguments and preserves `local_commit_branches` when omitted.
 
 ## CLI
 
@@ -74,8 +74,8 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_repository_status` | `repository` | Local/remote HEAD, ahead/behind, and working-tree state from Git; an unborn branch returns an empty local HEAD and zero divergence |
 | `github_repository_diff` | `repository` | Working-tree diff for the registered repository |
 | `github_repository_settings_get` | `repository` | Only the registered non-secret settings allowlist; reads the live in-memory registration and requires no Git or GitHub access |
-| `github_repository_commit` | `repository`, `message` | Create a local commit on a policy-allowed branch with the stored or repository-local author pair; return `author_identity_missing` before staging if neither is configured |
-| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | Commit only the supplied patch; reject staged changes or a changed HEAD and preserve unselected working-tree edits |
+| `github_repository_commit` | `repository`, `message` | Create a local commit only on an exact branch listed in `local_commit_branches`; protected branches remain denied. Use the stored or repository-local author pair; return `author_identity_missing` before staging if neither is configured |
+| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | Commit only the supplied patch on an exact branch listed in `local_commit_branches`; reject protected branches, staged changes, or a changed HEAD and preserve unselected working-tree edits. Direct push still requires `direct_push_branches` |
 | `github_repository_description_get` | `repository` | Repository description from GitHub |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run status and metadata without logs |
 | `github_workflow_run_list` | `repository`, optional filters, `limit` | Up to 100 workflow runs without logs |

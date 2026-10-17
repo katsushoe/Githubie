@@ -51,7 +51,7 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 | `atomic_not_supported` | Remoteがatomic pushに対応していない | 部分更新へ切り替えず処理を中止する仕様のため、Remote側の対応を確認する |
 
 `repo status`と`github_repository_status`は、最大20件の`working_tree_changes`としてPorcelain状態コード2文字とRepository相対Pathだけを返し、本文は返さない。対話ユーザーのGlobal Git除外だけで無視されるファイルはLocalSystemサービスでは検出される場合があるため、全実行Identityで除外する運用ファイルはRepositoryの`.gitignore`へ記載する。
-| `branch_not_allowed` | 現在のBranchが`direct_push_branches`/Pull対象Branchに含まれない | 許可Branchへ切り替えるか、設定を見直す |
+| `branch_not_allowed` | 操作に必要な許可リスト（commit=`local_commit_branches`、push=`direct_push_branches`、pull=`pull_branches`）に現在Branchが含まれない | 対象操作の設定へ完全一致Branch名を登録するか、許可済みBranchへ切り替える |
 | `protected_branch` | `protected_branches`に含まれるBranchへ直接Pushしようとした | PR経由（`github_pr_create` → `github_pr_merge`）で更新する。設定からの解除手段はMCP Toolに存在しない |
 | `nothing_to_push` | ローカルCommitがRemoteより先行していない | 変更を先にcommitする |
 | `non_fast_forward` | `github_pull`がFast-forwardできない | ローカルで手動rebase/mergeしてから再実行する（Version 1は自動merge/rebaseしない） |

@@ -15,6 +15,7 @@ public sealed class RepositorySettingsInput
     private bool? _requireCleanWorkingTree;
     private string? _commitAuthorName;
     private string? _commitAuthorEmail;
+    private IReadOnlyList<string>? _localCommitBranches;
 
     [JsonPropertyName("direct_push_branches")] public IReadOnlyList<string>? DirectPushBranches { get => _directPushBranches; init { _directPushBranches = value; HasDirectPushBranches = true; } }
     [JsonPropertyName("protected_branches")] public IReadOnlyList<string>? ProtectedBranches { get => _protectedBranches; init { _protectedBranches = value; HasProtectedBranches = true; } }
@@ -24,6 +25,7 @@ public sealed class RepositorySettingsInput
     [JsonPropertyName("require_clean_working_tree")] public bool? RequireCleanWorkingTree { get => _requireCleanWorkingTree; init { _requireCleanWorkingTree = value; HasRequireCleanWorkingTree = true; } }
     [JsonPropertyName("commit_author_name")] public string? CommitAuthorName { get => _commitAuthorName; init { _commitAuthorName = value; HasCommitAuthorName = true; } }
     [JsonPropertyName("commit_author_email")] public string? CommitAuthorEmail { get => _commitAuthorEmail; init { _commitAuthorEmail = value; HasCommitAuthorEmail = true; } }
+    [JsonPropertyName("local_commit_branches")] public IReadOnlyList<string>? LocalCommitBranches { get => _localCommitBranches; init { _localCommitBranches = value; HasLocalCommitBranches = true; } }
 
     [JsonIgnore] public bool HasDirectPushBranches { get; private init; }
     [JsonIgnore] public bool HasProtectedBranches { get; private init; }
@@ -33,11 +35,12 @@ public sealed class RepositorySettingsInput
     [JsonIgnore] public bool HasRequireCleanWorkingTree { get; private init; }
     [JsonIgnore] public bool HasCommitAuthorName { get; private init; }
     [JsonIgnore] public bool HasCommitAuthorEmail { get; private init; }
+    [JsonIgnore] public bool HasLocalCommitBranches { get; private init; }
 
     public RepositorySettingsChanges? ToChanges()
     {
         if ((!HasDirectPushBranches && !HasProtectedBranches && !HasPullBranches && !HasTagPattern
-                && !HasTagTargetBranch && !HasRequireCleanWorkingTree && !HasCommitAuthorName && !HasCommitAuthorEmail)
+                && !HasTagTargetBranch && !HasRequireCleanWorkingTree && !HasCommitAuthorName && !HasCommitAuthorEmail && !HasLocalCommitBranches)
             || (HasDirectPushBranches && DirectPushBranches is null)
             || (HasProtectedBranches && ProtectedBranches is null)
             || (HasPullBranches && PullBranches is null)
@@ -46,12 +49,13 @@ public sealed class RepositorySettingsInput
             || (HasRequireCleanWorkingTree && RequireCleanWorkingTree is null)
             || (HasCommitAuthorName && CommitAuthorName is null)
             || (HasCommitAuthorEmail && CommitAuthorEmail is null)
+            || (HasLocalCommitBranches && LocalCommitBranches is null)
             || HasCommitAuthorName != HasCommitAuthorEmail)
             return null;
 
         return new(DirectPushBranches, HasDirectPushBranches, ProtectedBranches, HasProtectedBranches,
             PullBranches, HasPullBranches, TagPattern, HasTagPattern, TagTargetBranch, HasTagTargetBranch,
             RequireCleanWorkingTree, HasRequireCleanWorkingTree, CommitAuthorName, HasCommitAuthorName,
-            CommitAuthorEmail, HasCommitAuthorEmail);
+            CommitAuthorEmail, HasCommitAuthorEmail, LocalCommitBranches, HasLocalCommitBranches);
     }
 }

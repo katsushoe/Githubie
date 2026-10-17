@@ -30,7 +30,7 @@
 | `atomic_not_supported` | The remote cannot apply all ref updates atomically. Githubie does not fall back to partial updates. |
 
 `repo status` and `github_repository_status` return up to 20 `working_tree_changes` entries containing only the two-character porcelain status and repository-relative path. No file content is returned. A file ignored only by an interactive user's global Git excludes may still appear when the LocalSystem service evaluates the repository; add operational exclusions to the repository `.gitignore` when all execution identities must share them.
-| `branch_not_allowed` / `protected_branch` | Use an allowed branch and the configured pull-request route. |
+| `branch_not_allowed` / `protected_branch` | For `branch_not_allowed`, add the exact branch to the relevant list (`local_commit_branches`, `direct_push_branches`, or `pull_branches`). For `protected_branch`, use an unprotected branch. |
 | `nothing_to_push` | Create a local commit before pushing. |
 | `non_fast_forward` | Resolve divergence manually; Githubie only performs fast-forward pulls. |
 

@@ -21,6 +21,7 @@
       "develop_branch": "develop",
       "main_branch": "main",
       "direct_push_branches": ["develop"],
+      "local_commit_branches": ["develop"],
       "pull_branches": ["develop", "main"],
       "protected_branches": ["main"],
       "tag_target_branch": "main",

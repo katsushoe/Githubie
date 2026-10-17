@@ -379,7 +379,10 @@ public sealed partial class RepositoryRegistrationService(
     private static RepositoryOptions CreateOptions(
         string owner, string repo, string localRoot, string remote, string develop, string main) => new(
         owner, repo, localRoot, remote, develop, main,
-        [develop], [develop, main], [main], main, DefaultTagPattern, "merge", true);
+        [develop], [develop, main], [main], main, DefaultTagPattern, "merge", true)
+    {
+        LocalCommitBranches = [develop],
+    };
 
     private static bool IsValidGitName(string value) =>
         !string.IsNullOrWhiteSpace(value) && value[0] != '-' &&

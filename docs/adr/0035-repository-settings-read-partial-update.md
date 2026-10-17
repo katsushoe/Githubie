@@ -10,9 +10,9 @@ Moyai needs to inspect the registered branch/tag policies and commit-author regi
 
 ## Decision
 
-Add a read-only `github_repository_settings_get` operation that returns an explicit eight-field allowlist from the in-memory registered configuration. It does not access Git, the configuration file, or GitHub. Author null values mean no author identity is registered; effective local Git identity is not included.
+Add a read-only `github_repository_settings_get` operation that returns an explicit nine-field allowlist from the in-memory registered configuration. It does not access Git, the configuration file, or GitHub. Author null values mean no author identity is registered; effective local Git identity is not included.
 
-Keep `github_repository_update` as the legacy full-policy operation. Add `github_repository_settings_update` with a `changes` object; omitted fields preserve their latest registered values, explicit null and unknown fields are rejected, empty arrays are explicit replacements, and false remains a value. Commit-author name and email are accepted only as a valid pair. The full resulting configuration is validated, human approval is requested, and the configuration store is written once before updating the in-memory allowlist.
+Keep `github_repository_update` as the legacy full-policy operation. Add `github_repository_settings_update` with a `changes` object; omitted fields preserve their latest registered values, explicit null and unknown fields are rejected, empty arrays are explicit replacements, and false remains a value. Commit-author name and email are accepted only as a valid pair. The new `local_commit_branches` field remains independent of direct-push settings and accepts exact branch names only. The full resulting configuration is validated, human approval is requested, and the configuration store is written once before updating the in-memory allowlist.
 
 Bind the new read and update tools to `repository.read` and `repository.settings.write` respectively. The update scope is reserved for Project-scoped settings management and must not be substituted with ordinary commit or push permissions. The update tool retains interactive approval.
 
