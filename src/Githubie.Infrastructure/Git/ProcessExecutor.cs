@@ -1,5 +1,6 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 using Githubie.Application.Git;
 
 namespace Githubie.Infrastructure.Git;
@@ -24,6 +25,8 @@ public sealed class ProcessExecutor : IProcessExecutor
             UseShellExecute = false,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
             CreateNoWindow = true,
         };
 

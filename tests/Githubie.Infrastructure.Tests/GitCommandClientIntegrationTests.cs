@@ -80,6 +80,80 @@ public sealed class GitCommandClientIntegrationTests
     }
 
     [Fact]
+    public async Task CommitSelectedAsync_Utf8JapaneseMultipleHunksAndBom_AppliesSelectedPatch()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        string path = Path.Combine(repository.Root, "japanese.txt");
+        string baseline = string.Join('\n', [
+            "先頭行",
+            "一つ目の選択前",
+            "中間行 03", "中間行 04", "中間行 05", "中間行 06", "中間行 07", "中間行 08", "中間行 09",
+            "二つ目の選択前",
+            "後続行 11", "後続行 12", "後続行 13", "後続行 14", "後続行 15", "後続行 16",
+            "終端行",
+        ]) + "\n";
+        var utf8Bom = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+        await File.WriteAllTextAsync(path, baseline, utf8Bom, cancellationToken);
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "add", "--", "japanese.txt");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "base");
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        string expectedHead = (await client.GetHeadAsync(repository.Root, cancellationToken)).StandardOutput.Trim();
+        string changed = baseline.Replace("一つ目の選択前", "一つ目の選択後", StringComparison.Ordinal)
+            .Replace("二つ目の選択前", "二つ目の選択後", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(path, changed, utf8Bom, cancellationToken);
+
+        var diff = await client.GetDiffAsync(repository.Root, cancellationToken);
+
+        diff.IsSuccess.Should().BeTrue(diff.StandardError);
+        diff.StandardOutput.Should().Contain("一つ目の選択前").And.Contain("一つ目の選択後")
+            .And.Contain("二つ目の選択前").And.Contain("二つ目の選択後");
+        diff.StandardOutput.Should().Contain("\uFEFF先頭行");
+        diff.StandardOutput.Split("@@ ", StringSplitOptions.None).Length.Should().BeGreaterThan(2, "the Japanese edits must form multiple hunks");
+
+        var commit = await client.CommitSelectedAsync(repository.Root, "Japanese selected hunks", "Test", "test@example.com", expectedHead, diff.StandardOutput, cancellationToken);
+
+        commit.IsSuccess.Should().BeTrue(commit.StandardError);
+        (await client.GetHeadAsync(repository.Root, cancellationToken)).StandardOutput.Trim().Should().NotBe(expectedHead);
+        (await client.GetStatusAsync(repository.Root, cancellationToken)).StandardOutput.Should().BeEmpty();
+        var committedFile = await new ProcessExecutor().ExecuteAsync(repository.Root, "git", ["show", "HEAD:japanese.txt"], null,
+            TimeSpan.FromSeconds(10), cancellationToken);
+        committedFile.IsSuccess.Should().BeTrue(committedFile.StandardError);
+        committedFile.StandardOutput.Should().Contain("一つ目の選択後").And.Contain("二つ目の選択後");
+    }
+
+    [Fact]
+    public async Task CommitSelectedAsync_InvalidLaterJapaneseHunk_PreservesHeadIndexAndWorktree()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        string path = Path.Combine(repository.Root, "japanese.txt");
+        string baseline = string.Join('\n', [
+            "先頭行", "変更一つ目", "間隔 03", "間隔 04", "間隔 05", "間隔 06", "間隔 07", "間隔 08", "間隔 09",
+            "変更二つ目", "後続 11", "後続 12", "後続 13", "後続 14", "後続 15", "末尾行",
+        ]) + "\n";
+        var utf8Bom = new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: true);
+        await File.WriteAllTextAsync(path, baseline, utf8Bom, cancellationToken);
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "add", "--", "japanese.txt");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "base");
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        string expectedHead = (await client.GetHeadAsync(repository.Root, cancellationToken)).StandardOutput.Trim();
+        string changed = baseline.Replace("変更一つ目", "変更済み一つ目", StringComparison.Ordinal)
+            .Replace("変更二つ目", "変更済み二つ目", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(path, changed, utf8Bom, cancellationToken);
+        string diffBefore = (await client.GetDiffAsync(repository.Root, cancellationToken)).StandardOutput;
+        string invalidLaterHunk = diffBefore.Replace(" 後続 11", " 後続不一致 11", StringComparison.Ordinal);
+        string statusBefore = (await client.GetStatusAsync(repository.Root, cancellationToken)).StandardOutput;
+
+        var commit = await client.CommitSelectedAsync(repository.Root, "invalid Japanese patch", "Test", "test@example.com", expectedHead, invalidLaterHunk, cancellationToken);
+
+        commit.IsSuccess.Should().BeFalse();
+        (await client.GetHeadAsync(repository.Root, cancellationToken)).StandardOutput.Trim().Should().Be(expectedHead);
+        (await client.GetStatusAsync(repository.Root, cancellationToken)).StandardOutput.Should().Be(statusBefore);
+        (await client.GetDiffAsync(repository.Root, cancellationToken)).StandardOutput.Should().Be(diffBefore);
+    }
+
+    [Fact]
     public async Task RepositorySettingsAuthorUpdate_AllowsRegularAndSelectedCommitWithRegisteredIdentity()
     {
         using var repository = await TemporaryGitRepository.CreateEmptyAsync();

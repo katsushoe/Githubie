@@ -23,6 +23,9 @@
 | `remote_unavailable` | Verify the configured repository, remote, and ref. |
 | `non_fast_forward` | Fetch and reconcile remote changes before retrying. |
 | `working_tree_dirty` | Commit or stash changes when clean-tree enforcement is enabled. |
+| `unresolved_conflicts` | Resolve all merge conflicts before creating a local branch. |
+| `local_branch_already_exists` | Choose a destination branch name that does not already exist locally. |
+| `branch_source_not_found` | Specify an existing local branch or tag, or a complete 40-character commit SHA present locally. Remote refs are not resolved. |
 | `branch_protection_denied` | GitHub branch protection or a repository ruleset rejected the rewrite. Review the target ref's rules and force-push policy. |
 | `token_permission_denied` | The configured token lacks repository write permission. Reissue or update the token, then run `auth test`. |
 | `workflow_permission_denied` | The rewrite changes workflow files but the token lacks workflow permission. Grant the required workflow permission. |
@@ -30,7 +33,7 @@
 | `atomic_not_supported` | The remote cannot apply all ref updates atomically. Githubie does not fall back to partial updates. |
 
 `repo status` and `github_repository_status` return up to 20 `working_tree_changes` entries containing only the two-character porcelain status and repository-relative path. No file content is returned. A file ignored only by an interactive user's global Git excludes may still appear when the LocalSystem service evaluates the repository; add operational exclusions to the repository `.gitignore` when all execution identities must share them.
-| `branch_not_allowed` / `protected_branch` | For `branch_not_allowed`, add the exact branch to the relevant list (`local_commit_branches`, `direct_push_branches`, or `pull_branches`). For `protected_branch`, use an unprotected branch. |
+| `branch_not_allowed` / `protected_branch` | Use an allowed branch and the configured pull-request route. |
 | `nothing_to_push` | Create a local commit before pushing. |
 | `non_fast_forward` | Resolve divergence manually; Githubie only performs fast-forward pulls. |
 

@@ -1,4 +1,4 @@
-using Githubie.Application.Git;
+﻿using Githubie.Application.Git;
 
 namespace Githubie.Infrastructure.Git;
 
@@ -76,7 +76,8 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
         string patchFile = Path.Combine(Path.GetTempPath(), $"githubie-selected-commit-{Guid.NewGuid():N}.patch");
         Dictionary<string, string> environment = GitEnvironmentSanitizer.BuildBaseEnvironment();
         environment["GIT_INDEX_FILE"] = index;
-        await File.WriteAllTextAsync(patchFile, patch, new System.Text.UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
+        string patchContent = patch.EndsWith('\n') ? patch : patch + "\n";
+        await File.WriteAllTextAsync(patchFile, patchContent, new System.Text.UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
         try
         {
             GitCommandResult initialized = await ExecuteLocalAsync(repositoryRoot,
