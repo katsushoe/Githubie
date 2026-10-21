@@ -4,9 +4,9 @@
 
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The candidate display version is `1.8.10.1` (not yet published or installed).
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. Display version `1.8.11.0` is installed locally but has not been published.
 
-The `1.8.10.1` candidate adds repository registration settings read and partial update. It includes an eight-field allowlist, preservation of omitted fields, replacement semantics for arrays, explicit `false`, paired author name/email validation, interactive approval, Project/Repository scopes, auditing, and capabilities. Source build and related verification are complete. Publication and installation are pending.
+Version `1.8.11.0` adds per-repository pull request route allowlists. Routes can be read and updated through approved Repository Settings, and `github_pr_create` accepts explicit source and destination branches. Omitting both keeps each repository's legacy configured DevelopBranch-to-MainBranch route; disallowed routes are rejected before the GitHub API call. The Repository Settings read/partial-update feature is also included. All 577 tests passed, and the WiX MSI built with 0 warnings and 0 errors. MSI: `.local/installer/output/Githubie-1.8.11.0-win-x64.msi`; SHA-256: `EE934F2B3A1A4987C6E4C1197F95903224FA2D975172F69EA43B5069480B9304`. On 2026-10-15 it was upgraded into `C:\Githubie`; the Windows service is Running and the live MCP version reports 1.8.11.0. No GitHub Release, commit, or push was performed.
 
 Version `1.8.10.0` adds path-selective stash push, list, apply, and drop through MCP and the generic CLI caller (ADR 0034). Push includes untracked files and accepts repository-relative paths; omitted paths select all changes. Apply restores the index, and apply/drop require a full stash object ID. The operations use the existing repository allowlist, assertion scopes, and audit path.
 

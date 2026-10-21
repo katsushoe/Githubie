@@ -19,9 +19,9 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-候補版のDisplay Versionは`1.8.10.1`です（未公開・未導入）。
+Display Version `1.8.11.0`は未公開ですが、2026-10-15に`C:\Githubie`へ実機Upgrade導入済みです。
 
-Version `1.8.10.1`候補では、Repository登録設定の読取と部分更新を追加します。8項目のallowlist、省略項目保持、空配列置換、false明示、作者名/emailの組検証、対話承認、Project/Repository scope、監査、capabilitiesを含みます。ソースビルドと関連検証は完了しています。公開・実機導入は未実施です。
+Version `1.8.11.0`では、Repository単位のPull Request許可経路を追加しました。`pull_request_routes`で経路の読取・承認付き更新ができ、`github_pr_create`でsource/destinationを指定できます。未指定時は各Repositoryの従来のDevelopBranch→MainBranchを維持します。許可外経路はGitHub API呼出し前に拒否します。Repository設定の読取・部分更新機能も含みます。全577テスト成功、WiX MSIは警告0・エラー0で作成済みです。MSI: `.local/installer/output/Githubie-1.8.11.0-win-x64.msi`、SHA-256 `EE934F2B3A1A4987C6E4C1197F95903224FA2D975172F69EA43B5069480B9304`。2026-10-15に同MSIを`C:\Githubie`へUpgrade導入し、Windows ServiceがRunning、MCP稼働版が1.8.11.0であることを確認しました。GitHub Release・commit・pushは未実施です。
 
 Version `1.8.10.0`では、パス指定に対応したstash作成・一覧・適用・削除をMCPと汎用CLI呼び出しへ追加しました（ADR 0034）。作成はuntracked fileを含み、Repository相対pathsの省略時は全変更を対象にします。適用はindexを復元し、適用・削除には完全なstash object IDを指定します。既存のAllowlist、Assertion Scope、監査経路を使用します。
 
