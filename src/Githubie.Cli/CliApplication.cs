@@ -66,6 +66,7 @@ public static class CliApplication
             ["auth", "delete", var repo] => AuthDelete(layout, repo, output, error),
 
             ["mcp", "status"] => await McpStatusAsync(effectiveConfigPath, output, error, cancellationToken),
+            ["mcp", "auth", "status", "codex"] => await CodexMcpAuthStatusCommand.RunAsync(output, cancellationToken),
             ["mcp", "tools"] => await McpToolsAsync(effectiveConfigPath, output, error, cancellationToken),
             ["mcp", "test"] => await McpTestAsync(effectiveConfigPath, output, error, cancellationToken),
             ["mcp", "call", var tool] => await McpCallAsync(
@@ -138,6 +139,8 @@ public static class CliApplication
               auth delete <repository>
 
               mcp status
+              mcp auth status codex
+                Reports Codex's Githubie auth_status as JSON; unknown is inconclusive.
               mcp tools
               mcp test
               mcp call <tool> [<arguments-json>]

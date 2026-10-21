@@ -72,6 +72,7 @@ CLIは次のJSONをファイルへ保存し、`githubie mcp call github_branch_c
 | コマンド | 説明 |
 | --- | --- |
 | `githubie mcp status` | MCP Endpointへ`initialize`リクエストを送り、応答を表示する |
+| `githubie mcp auth status codex` | 実行ユーザーの`codex mcp list --json`からGithubieの有効状態・認証欄をJSONで表示する。Codex CLIがPATH上に必要。サービス設定は不要。終了0は取得成功（unknown・無効も含む）、1は未登録、2は実行失敗・10秒タイムアウト・応答不正。unknownだけで認証切れと断定しない。設定全文・資格情報・子プロセスの標準エラーは出力しない。 |
 | `githubie mcp tools` | MCP Endpointへ`tools/list`リクエストを送り、公開Tool定義を表示する |
 | `githubie mcp call <tool> [<arguments-json>]` | 実行中Server経由で任意の公開Toolを呼び出す。引数省略時は`{}` |
 | `githubie mcp call <tool> --file <path>` | ファイル内のJSON Objectを引数として公開Toolを呼び出す |

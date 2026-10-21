@@ -32,6 +32,7 @@ Use `githubie.exe --config <path>` to override the default configuration.
 | `githubie auth test <repository>` | Calls GitHub with the stored token and reports authentication status |
 | `githubie auth delete <repository>` | Deletes the stored token |
 | `githubie mcp status` / `mcp test` | Sends MCP `initialize` and reports connectivity |
+| `githubie mcp auth status codex` | Reads Githubie's enabled/auth status from `codex mcp list --json` as the invoking user. Requires Codex CLI on PATH, but no service configuration. Prints JSON only. Exit 0 means status retrieved (including unknown or disabled); 1 means not registered; 2 means execution failure, a 10-second timeout, or invalid output. Unknown is inconclusive. Raw client configuration, credentials, and stderr are not printed. |
 | `githubie mcp tools` | Sends `tools/list` and prints the exposed definitions |
 | `githubie mcp call <tool> [<arguments-json>]` | Calls any exposed MCP tool through the running server; arguments default to `{}` |
 | `githubie mcp call <tool> --file <path>` | Calls an MCP tool with a JSON object read from a file |
