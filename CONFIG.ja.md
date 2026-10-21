@@ -45,8 +45,7 @@ Upgrade時は旧規則`^[A-Za-z0-9._-]+$`のIDから`.`、`_`、`-`を除去し�
 | `remote` | 必須 | string | なし | Git操作で最初に使うRemote名。Sampleは`origin`。URLが登録Repositoryを指さなければ`provider_remote_mismatch`とする。空文字列ではURLによる自動解決を行う（ADR 0032）。Tool引数`remote`の指定が優先する |
 | `develop_branch` | 必須 | string | なし | 許可するPR経路のSource Branch |
 | `main_branch` | 必須 | string | なし | 許可するPR経路のDestination Branch |
-| `direct_push_branches` | 必須 | string[] | なし | `github_push`を許可するBranch一覧。ローカルcommit許可は付与しない |
-| `local_commit_branches` | 任意 | string[] | 既存設定は移行時に`direct_push_branches`を複製、新規登録は登録時のDevelop Branch | `github_repository_commit` / `github_repository_commit_selected`だけを許可する完全一致Branch一覧。直接Push・PR経路とは独立し、wildcard不可。空配列で全Branchのlocal commitを拒否 |
+| `direct_push_branches` | 必須 | string[] | なし | `github_push`を許可するBranch一覧 |
 | `pull_branches` | 必須 | string[] | なし | `github_pull`を許可するBranch一覧 |
 | `protected_branches` | 必須 | string[] | なし | Direct Pushを拒否するBranch一覧 |
 | `tag_target_branch` | 必須 | string | なし | Tag作成を許可するTarget Branch |
@@ -58,7 +57,9 @@ Upgrade時は旧規則`^[A-Za-z0-9._-]+$`のIDから`.`、`_`、`-`を除去し�
 
 Workflow Policyは`allowed_refs`を必須とし、input型は`string`／`boolean`／`integer`、`max_length`は1～4096とする。`max_concurrent`は1～10、`correlation_timeout_seconds`は1～120。`github_repository_update`による変更は対話承認を必要とする。
 
-Pull Request経路（source→destination）は`develop_branch → main_branch`固定で、設定ファイルに個別項目はない。Agentや設定ファイルに自由な経路を指定させない設計上の判断による。
+初期Pull Request経路は`develop_branch → main_branch`です。登録済み経路は承認付きの`github_repository_settings_update`で変更でき、PR作成時は登録された経路だけを指定できます。
+
+ローカルcommit許可は直接push許可と分離されています。`github_repository_commit`と`github_repository_commit_selected`は、登録済みPull Request経路のsource branchだけで実行できます。`direct_push_branches`への登録はローカルcommitを許可せず、PR経路のsourceであっても直接pushは許可されません。`github_push`には引き続き`direct_push_branches`への登録が必要で、`protected_branches`はcommitとpushの両方を拒否します。
 
 Repository登録とPolicyの正本は`<install-root>\data\githubie.db`とする。`github_repository_register`は既存Local Git Repositoryを実行中にSQLiteへ追加する。`github_owner`と`github_repo`は指定remote URLから導出し、対話Desktop承認を必要とする。指定remoteは`https://github.com/OWNER/REPOSITORY.git`形式に限定し、SSH形式は拒否する。Service再起動は不要である。
 

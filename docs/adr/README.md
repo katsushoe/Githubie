@@ -30,7 +30,9 @@
 | [0032](0032-git-remote-resolution.md) | Git remote resolution by repository URL (Moyai Repository Provider Contract) |
 | [0033](0033-approved-moyai-project-mapping.md) | Approved Moyai project mapping applied without a service restart |
 | [0034](0034-path-selective-stash.md) | Path-selective local Git stash |
-| [0035](0035-repository-settings-read-partial-update.md) | Repository settings read and partial update |
-| [0036](0036-pr-source-branch-local-commit-permission.md) | Explicit local commit branch permissions stay separate from PR routes and direct push |
+| [0035](0035-repository-settings-read-partial-update.md) | Registered repository settings read and partial update |
+| [0036](0036-configurable-pull-request-routes.md) | Approved per-repository pull request route allowlists with legacy defaults |
+| [0037](0037-local-branch-create-provider-capability.md) | Explicit capability for local branch creation, distinct from remote branch creation |
+| [0038](0038-pr-create-provider-capability.md) | Explicit provider capability and contract for pull request creation |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

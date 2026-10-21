@@ -2,6 +2,7 @@ using FluentAssertions;
 using Githubie.Application.Configuration;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
+using Githubie.Domain;
 using NSubstitute;
 using Xunit;
 
@@ -20,6 +21,39 @@ public sealed class GitHubPullRequestLifecycleTests
                 ["develop"], ["develop", "main"], ["main"], "main", "^v", "merge", true),
         });
         _gateway = new GitHubRepositoryGateway(allowlist, _api, mergeabilityPollInterval: TimeSpan.Zero);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestAsync_UsesConfiguredAllowedRoute()
+    {
+        var options = new RepositoryOptions("owner", "repo", "C:\\repo", "origin", "develop", "main",
+            ["develop"], ["develop", "main"], ["main"], "main", "^v", "merge", true)
+        { PullRequestRoutes = [new("release", "main")] };
+        var gateway = new GitHubRepositoryGateway(new RepositoryAllowlist(new Dictionary<string, RepositoryOptions> { ["sample"] = options }), _api);
+        var pullRequest = PullRequest(GitHubPullRequestState.Open);
+        _api.CreatePullRequestAsync("sample", "owner", "repo", "release", "main",
+            Arg.Any<GitHubPullRequestCreate>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Success(pullRequest));
+
+        var result = await gateway.CreatePullRequestAsync(
+            "sample", new("title", "description", true, "release", "main"), TestContext.Current.CancellationToken);
+
+        result.Value.Should().Be(pullRequest);
+        await _api.Received(1).CreatePullRequestAsync("sample", "owner", "repo", "release", "main",
+            Arg.Is<GitHubPullRequestCreate>(request => request.Title == "title"
+                && request.Description == "description" && request.Draft
+                && request.SourceBranch == "release" && request.DestinationBranch == "main"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreatePullRequestAsync_RejectsDisallowedRouteBeforeApiCall()
+    {
+        var result = await _gateway.CreatePullRequestAsync("sample", new("title", null, false, "release", "main"), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.PullRequestRouteNotAllowed);
+        await _api.DidNotReceive().CreatePullRequestAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<GitHubPullRequestCreate>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

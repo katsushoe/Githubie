@@ -2,7 +2,7 @@ namespace Githubie.Application.Git;
 
 /// <summary>
 /// `repositoryRoot`を起点とした低レベルGitコマンド実行のポートです。
-/// 許可されたコマンド以外は公開しません（`status` / `rev-parse` / `remote get-url` / `remote add` / `fetch` / `pull --ff-only` / `push`）。
+/// 許可されたコマンド以外は公開しません。Local branch作成は既存のローカルcommitからrefだけを作ります。
 /// </summary>
 public interface IGitCommandClient
 {
@@ -11,6 +11,8 @@ public interface IGitCommandClient
     Task<GitCommandResult> CheckBranchNameAsync(string repositoryRoot, string branch, CancellationToken cancellationToken);
 
     Task<GitCommandResult> SwitchBranchAsync(string repositoryRoot, string branch, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> CreateLocalBranchAsync(string repositoryRoot, string branch, string commitSha, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetHeadAsync(string repositoryRoot, CancellationToken cancellationToken);
 
@@ -59,6 +61,8 @@ public interface IGitCommandClient
     Task<GitCommandResult> FetchTagAsync(string repositoryRoot, string repositoryId, string remote, string tag, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetLocalRefAsync(string repositoryRoot, string reference, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> GetLocalCommitAsync(string repositoryRoot, string reference, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetRemoteRefAsync(string repositoryRoot, string repositoryId, string remote, string reference, CancellationToken cancellationToken);
 

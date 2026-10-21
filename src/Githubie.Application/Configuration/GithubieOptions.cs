@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Githubie.Domain;
 
 namespace Githubie.Application.Configuration;
 
@@ -69,8 +70,8 @@ public sealed record RepositoryOptions(
     public IReadOnlyDictionary<string, WorkflowPolicyOptions> Workflows { get; init; }
         = new Dictionary<string, WorkflowPolicyOptions>(StringComparer.Ordinal);
 
-    /// <summary>Local commitだけを許可するBranch。直接Push権限とは独立し、既定では空です。</summary>
-    public IReadOnlyList<string>? LocalCommitBranches { get; init; }
+    /// <summary>Allowed pull request routes. The initializer preserves the legacy develop-to-main route for old configuration.</summary>
+    public IReadOnlyList<PullRequestRoute> PullRequestRoutes { get; init; } = [new(DevelopBranch, MainBranch)];
 }
 
 public sealed record WorkflowPolicyOptions(

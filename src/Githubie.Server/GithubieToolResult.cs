@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
@@ -15,6 +16,10 @@ public sealed record GithubieToolResult<T>(bool Ok, string Operation, string Rep
     public static GithubieToolResult<T> Failure(string operation, string repository, GithubieToolError error) =>
         new(false, operation, repository, default, error);
 }
+
+/// <summary>Repository Settings read response payload. Keeps the public contract under data.settings.</summary>
+public sealed record RepositorySettingsReadInfo(
+    [property: JsonPropertyName("settings")] RepositorySettings Settings);
 
 /// <summary>
 /// MCP Toolのエラーを表す固定コード + 人間可読メッセージです。
@@ -257,6 +262,7 @@ public static class GithubieToolResultMapper
         GitGatewayError.RemoteUnavailable => new("remote_unavailable", "The configured remote or remote ref is unavailable.", false, "Verify the configured repository, remote, and ref before retrying."),
         GitGatewayError.AuthenticationFailed => new("authentication_failed", "Git authentication failed.", false, "Refresh or replace the configured credential, then retry."),
         GitGatewayError.WorkingTreeDirty => new("working_tree_dirty", "Working tree has uncommitted changes."),
+        GitGatewayError.UnresolvedConflicts => new("unresolved_conflicts", "Resolve merge conflicts before creating a local branch."),
         GitGatewayError.NothingToCommit => new("nothing_to_commit", "Working tree has no changes to commit."),
         GitGatewayError.InvalidSelectedCommitPatch => new("selected_commit_patch_invalid", "The selected unified diff patch is invalid or does not apply to the expected HEAD."),
         GitGatewayError.StagedChangesPresent => new("staged_changes_present", "Commit selected changes after clearing existing staged changes."),
@@ -269,6 +275,8 @@ public static class GithubieToolResultMapper
             "Set commit_author_name and commit_author_email with github_repository_update, or set repository-local user.name and user.email."),
         GitGatewayError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed for this operation."),
         GitGatewayError.BranchNotFound => new("branch_not_found", "The requested local branch does not exist."),
+        GitGatewayError.BranchSourceNotFound => new("branch_source_not_found", "The requested local branch, tag, or commit source does not exist."),
+        GitGatewayError.LocalBranchAlreadyExists => new("local_branch_already_exists", "The destination local branch already exists."),
         GitGatewayError.ProtectedBranch => new("protected_branch", "Direct push to a protected branch is not allowed."),
         GitGatewayError.InvalidRef => new("invalid_ref", "The supplied Git ref is invalid."),
         GitGatewayError.DuplicateRef => new("duplicate_ref", "A history rewrite ref was specified more than once."),

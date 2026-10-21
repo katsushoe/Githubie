@@ -46,7 +46,9 @@ public sealed record GitHubProviderCapabilities(
     bool RepositoryStashDrop = false,
     bool RepositoryCommitSelected = false,
     bool RepositorySettingsRead = false,
-    bool RepositorySettingsUpdate = false)
+    bool RepositorySettingsUpdate = false,
+    bool LocalBranchCreate = false,
+    bool PrCreate = false)
 {
     /// <summary>Moyai Consumer Contractの`integration_mode`と`direct_connection`です。</summary>
     public GitHubProviderAuthentication? Authentication { get; init; }
@@ -101,7 +103,7 @@ public static class GitHubMergeabilityStatus
     public const string UnknownRetryable = "unknown_retryable";
 }
 
-public sealed record GitHubPullRequestCreate(string Title, string? Description, bool Draft);
+public sealed record GitHubPullRequestCreate(string Title, string? Description, bool Draft, string? SourceBranch = null, string? DestinationBranch = null);
 
 public enum GitHubMergeMethod
 {

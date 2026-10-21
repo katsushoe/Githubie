@@ -1,8 +1,11 @@
-﻿using FluentAssertions;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
+using FluentAssertions;
 using Githubie.Application.Configuration;
 using Githubie.Application.Credentials;
 using Githubie.Application.Interactive;
 using Githubie.Application.Repositories;
+using Githubie.Domain;
 using NSubstitute;
 using Xunit;
 
@@ -50,8 +53,16 @@ public sealed class RepositoryManagementServiceTests
         settings.CommitAuthorName.Should().BeNull();
         settings.CommitAuthorEmail.Should().BeNull();
         settings.DirectPushBranches.Should().Equal("develop");
-        settings.LocalCommitBranches.Should().Equal("develop");
         return Task.CompletedTask;
+    }
+
+    [Fact]
+    public void LegacyRepositoryOptionsWithoutPullRequestRoutes_KeepConfiguredDefaultRoute()
+    {
+        var json = JsonNode.Parse(JsonSerializer.Serialize(CreateOptions()))!.AsObject();
+        json.Remove("PullRequestRoutes");
+        var migrated = JsonSerializer.Deserialize<RepositoryOptions>(json.ToJsonString())!;
+        migrated.PullRequestRoutes.Should().Equal(new PullRequestRoute("develop", "main"));
     }
 
     [Fact]
@@ -114,32 +125,18 @@ public sealed class RepositoryManagementServiceTests
     }
 
     [Fact]
-    public async Task SettingsUpdate_LocalCommitBranchesRemainIndependentFromDirectPushBranches()
+    public async Task SettingsUpdate_PullRequestRoutes_ArePersistedAndReturned()
     {
         var service = CreateService();
+        var routes = new[] { new PullRequestRoute("release", "main") };
+
         var result = await service.UpdateSettingsAsync(RepositoryId,
-            new RepositorySettingsChanges(LocalCommitBranches: ["codex/docs-main-v1010"], HasLocalCommitBranches: true),
-            TestContext.Current.CancellationToken);
+            new RepositorySettingsChanges(PullRequestRoutes: routes, HasPullRequestRoutes: true), TestContext.Current.CancellationToken);
 
         result.IsSuccess.Should().BeTrue();
-        result.Value!.Settings!.LocalCommitBranches.Should().Equal("codex/docs-main-v1010");
-        result.Value.Settings.DirectPushBranches.Should().Equal("develop");
-        result.Value.ChangedFields.Should().Contain("local_commit_branches");
         _allowlist.TryGet(RepositoryId, out var updated).Should().BeTrue();
-        updated.LocalCommitBranches.Should().Equal("codex/docs-main-v1010");
-        updated.DirectPushBranches.Should().Equal("develop");
-    }
-
-    [Fact]
-    public async Task SettingsUpdate_LocalCommitWildcardIsRejectedWithoutMutation()
-    {
-        var service = CreateService();
-        var result = await service.UpdateSettingsAsync(RepositoryId,
-            new RepositorySettingsChanges(LocalCommitBranches: ["codex/*"], HasLocalCommitBranches: true),
-            TestContext.Current.CancellationToken);
-
-        result.Error.Should().Be(RepositoryMutationError.InvalidPolicy);
-        await _store.DidNotReceive().SaveRepositoryAsync(Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<CancellationToken>());
+        updated.PullRequestRoutes.Should().Equal(routes);
+        result.Value!.Settings!.PullRequestRoutes.Should().Equal(routes);
     }
 
     [Fact]
@@ -368,8 +365,5 @@ public sealed class RepositoryManagementServiceTests
     private static RepositoryOptions CreateOptions() => new(
         "owner", "repo", "C:\\repo", "origin", "develop", "main",
         ["develop"], ["develop", "main"], ["main"], "main",
-        "^v[0-9]+\\.[0-9]+\\.[0-9]+.*$", "merge", true)
-    {
-        LocalCommitBranches = ["develop"],
-    };
+        "^v[0-9]+\\.[0-9]+\\.[0-9]+.*$", "merge", true);
 }

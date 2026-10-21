@@ -38,8 +38,7 @@ During upgrade, legacy IDs matching the former `^[A-Za-z0-9._-]+$` rule are migr
 | `remote` | Yes | string | None | Git remote tried first by Git operations; the example uses `origin`. Its URL must point to the registered repository (`provider_remote_mismatch` otherwise). An empty value resolves the remote automatically by URL (ADR 0032). A tool call's `remote` argument takes precedence |
 | `develop_branch` | Yes | string | None | Non-empty source branch of the allowed pull-request route |
 | `main_branch` | Yes | string | None | Non-empty destination branch of the allowed pull-request route |
-| `direct_push_branches` | Yes | string array | None | Branches accepted by `github_push` unless protected; does not grant local commit permission |
-| `local_commit_branches` | No | string array | Existing settings copy `direct_push_branches` once during migration; new registrations use their develop branch | Exact branch names allowed only for local commit tools. Independent of direct push and PR routes; wildcards are rejected. An empty array denies local commits on every branch |
+| `direct_push_branches` | Yes | string array | None | Branches accepted by `github_push` unless protected |
 | `pull_branches` | Yes | string array | None | Branches accepted by `github_pull` |
 | `protected_branches` | Yes | string array | None | Branches rejected by direct push |
 | `tag_target_branch` | Yes | string | None | Branch whose HEAD may be tagged |
@@ -51,7 +50,11 @@ During upgrade, legacy IDs matching the former `^[A-Za-z0-9._-]+$` rule are migr
 
 Each workflow policy requires `allowed_refs`; inputs may use `string`, `boolean`, or `integer`, with `required`, `max_length` (1–4096), and `secret`. `max_concurrent` is 1–10 and `correlation_timeout_seconds` is 1–120. Policy changes through `github_repository_update` require desktop approval.
 
-The pull-request route is always `develop_branch` to `main_branch`; clients cannot supply another route.
+The initial pull-request route is `develop_branch` to `main_branch`. Registered routes can be changed through the approved `github_repository_settings_update` operation; clients may create pull requests only on a registered route.
+
+Local commit permission is independent from direct push: `github_repository_commit` and `github_repository_commit_selected` accept only source branches of registered pull-request routes. Membership in `direct_push_branches` does not grant local commit permission, and a pull-request source does not become pushable; `github_push` still requires `direct_push_branches`. `protected_branches` reject both commits and pushes.
+
+Local commit permission is separate from direct push: `github_repository_commit` and `github_repository_commit_selected` accept a branch when it is listed in `direct_push_branches` or is the source of an allowed pull-request route. A route source does not become pushable; `github_push` still requires `direct_push_branches`, and protected branches reject both commit and push.
 
 The repository source of truth is `<install-root>\data\githubie.db`. `github_repository_register` adds an existing local GitHub repository to that database at runtime. It derives `github_owner` and `github_repo` from the selected local remote, requires desktop approval, and applies safe branch-policy defaults. The selected remote must use `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are rejected. A service restart is not required.
 

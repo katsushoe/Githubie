@@ -9,6 +9,9 @@ public interface IGitGateway
 
     Task<GitGatewayResult<GitBranchSwitchInfo>> SwitchBranchAsync(string repository, string branch, CancellationToken cancellationToken);
 
+    /// <summary>CleanなworktreeでローカルBranch/Tag/SHAからローカルBranch refだけを作成します。</summary>
+    Task<GitGatewayResult<GitLocalBranchCreateInfo>> CreateLocalBranchAsync(string repository, string branch, string source, CancellationToken cancellationToken);
+
     Task<GitGatewayResult<GitRepositoryDiff>> GetDiffAsync(string repository, CancellationToken cancellationToken);
 
     Task<GitGatewayResult<GitRepositoryCommit>> CommitAsync(string repository, string message, CancellationToken cancellationToken);

@@ -28,6 +28,9 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> SwitchBranchAsync(string repositoryRoot, string branch, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["switch", "--", branch], cancellationToken);
 
+    public Task<GitCommandResult> CreateLocalBranchAsync(string repositoryRoot, string branch, string commitSha, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["branch", "--no-track", "--", branch, commitSha], cancellationToken);
+
     public async Task<GitCommandResult> GetHeadAsync(string repositoryRoot, CancellationToken cancellationToken)
     {
         var result = await ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--verify", "--quiet", "HEAD"], cancellationToken);
@@ -170,6 +173,9 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
 
     public Task<GitCommandResult> GetLocalRefAsync(string repositoryRoot, string reference, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--verify", reference], cancellationToken);
+
+    public Task<GitCommandResult> GetLocalCommitAsync(string repositoryRoot, string reference, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--verify", $"{reference}^{{commit}}"], cancellationToken);
 
     public Task<GitCommandResult> GetRemoteRefAsync(string repositoryRoot, string repositoryId, string remote, string reference, CancellationToken cancellationToken) =>
         ExecuteNetworkAsync(repositoryRoot, repositoryId, ["ls-remote", "--refs", "--", remote, reference], cancellationToken);

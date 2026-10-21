@@ -33,6 +33,31 @@ public sealed class GitCommandClientIntegrationTests
     }
 
     [Fact]
+    public async Task CreateLocalBranchAsync_FromTag_CreatesRefWithoutChangingHeadOrWorktree()
+    {
+        using var repository = await TemporaryGitRepository.CreateEmptyAsync();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+        await File.WriteAllTextAsync(Path.Combine(repository.Root, "file.txt"), "base", cancellationToken);
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "add", "--", "file.txt");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "base");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "tag", "v1.0.1.0");
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        var beforeHead = await client.GetHeadAsync(repository.Root, cancellationToken);
+        var beforeBranch = await client.GetCurrentBranchAsync(repository.Root, cancellationToken);
+
+        var commit = await client.GetLocalCommitAsync(repository.Root, "refs/tags/v1.0.1.0", cancellationToken);
+        var created = await client.CreateLocalBranchAsync(repository.Root, "release/test", commit.StandardOutput.Trim(), cancellationToken);
+        var branchRef = await client.GetLocalRefAsync(repository.Root, "refs/heads/release/test", cancellationToken);
+
+        created.IsSuccess.Should().BeTrue(created.StandardError);
+        branchRef.IsSuccess.Should().BeTrue(branchRef.StandardError);
+        branchRef.StandardOutput.Trim().Should().Be(beforeHead.StandardOutput.Trim());
+        (await client.GetHeadAsync(repository.Root, cancellationToken)).StandardOutput.Trim().Should().Be(beforeHead.StandardOutput.Trim());
+        (await client.GetCurrentBranchAsync(repository.Root, cancellationToken)).StandardOutput.Should().Be(beforeBranch.StandardOutput);
+        (await client.GetStatusAsync(repository.Root, cancellationToken)).StandardOutput.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task CommitSelectedAsync_CommitsPatchAndPreservesUnselectedWorkingTreeEdit()
     {
         using var repository = await TemporaryGitRepository.CreateEmptyAsync();

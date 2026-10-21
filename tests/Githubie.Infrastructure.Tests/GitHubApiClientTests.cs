@@ -427,7 +427,7 @@ public sealed class GitHubApiClientTests
             };
         });
 
-        await client.CreatePullRequestAsync(
+        var result = await client.CreatePullRequestAsync(
             "repo-id",
             "owner",
             "repo",
@@ -436,6 +436,15 @@ public sealed class GitHubApiClientTests
             new GitHubPullRequestCreate("Release", "Description", false),
             TestContext.Current.CancellationToken);
 
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().NotBeNull();
+        result.Value!.Number.Should().Be(1);
+        result.Value.Title.Should().Be("Release");
+        result.Value.State.Should().Be(GitHubPullRequestState.Open);
+        result.Value.Source.Should().Be("develop");
+        result.Value.Destination.Should().Be("main");
+        result.Value.Author.Should().Be("u");
+        result.Value.Url.Should().Be("https://example.com");
         capturedBody.Should().NotBeNull();
         capturedBody.Should().Contain("\"title\"");
         capturedBody.Should().Contain("\"body\"");
@@ -443,6 +452,25 @@ public sealed class GitHubApiClientTests
         capturedBody.Should().Contain("\"base\"");
         capturedBody.Should().Contain("\"draft\"");
         capturedBody.Should().NotContain("\"Title\"");
+    }
+
+    [Fact]
+    public async Task CreatePullRequestAsync_TimeoutReturnsTypedFailureWithoutRetry()
+    {
+        var requestCount = 0;
+        var client = CreateClient(_ =>
+        {
+            requestCount++;
+            throw new TaskCanceledException("simulated response timeout");
+        });
+
+        var result = await client.CreatePullRequestAsync(
+            "repo-id", "owner", "repo", "develop", "main",
+            new GitHubPullRequestCreate("Release", "Description", false), TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(GitHubError.Timeout);
+        requestCount.Should().Be(1);
     }
 
     [Fact]

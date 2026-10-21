@@ -29,6 +29,7 @@ public static class GithubieAssertionPolicy
             ["github_fetch"] = ["repository.read"],
             ["github_pull"] = ["repository.pull"],
             ["github_branch_switch"] = ["repository.branch.write"],
+            ["github_local_branch_create"] = ["repository.branch.write"],
             ["github_push"] = ["repository.push"],
             ["github_history_rewrite"] = ["provider.githubie.history.rewrite"],
             ["github_branch_list"] = ["repository.read"],

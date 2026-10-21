@@ -145,6 +145,7 @@ public static class CliApplication
 
               github_branch_create arguments: repository, branch, source (required; no default)
               github_branch_switch arguments: repository, branch (existing local branch; requires a clean working tree)
+              github_local_branch_create arguments: repository, branch, source (required; local branch, tag, or full 40-character SHA; requires a clean working tree)
 
               doctor
 

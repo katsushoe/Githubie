@@ -4,9 +4,11 @@
 
 ## Repository settings MCP tools
 
-`github_repository_settings_get` returns only the registered `direct_push_branches`, `local_commit_branches`, `protected_branches`, `pull_branches`, `tag_pattern`, `tag_target_branch`, `require_clean_working_tree`, `commit_author_name`, and `commit_author_email` values. A null author means no registered author; it does not resolve local Git identity. The read requires `repository.read` and does not access Git or GitHub.
+`github_repository_settings_get` returns the nine registered settings under `data.settings`: `direct_push_branches`, `protected_branches`, `pull_branches`, `tag_pattern`, `tag_target_branch`, `require_clean_working_tree`, `commit_author_name`, `commit_author_email`, and `pull_request_routes`. Routes contain `source_branch` and `destination_branch` pairs. A null author means no registered author; it does not resolve local Git identity. The read requires `repository.read` and does not access Git or GitHub.
 
-`github_repository_settings_update` takes `{ "repository": "id", "changes": { ... } }` and requires `repository.settings.write` plus interactive human approval. Omitted fields remain unchanged; explicit null, unknown fields, invalid types, and an empty changes object are rejected. Empty arrays explicitly replace a branch policy with an empty list, and false is preserved. `local_commit_branches` is an exact-match list independent of direct push permission; wildcards are rejected. Author name and email must be supplied together. The legacy `github_repository_update` retains its full-policy arguments and preserves `local_commit_branches` when omitted.
+`github_repository_settings_update` takes `{ "repository": "id", "changes": { ... } }` and requires `repository.settings.write` plus interactive human approval. Omitted fields remain unchanged; explicit null, unknown fields, invalid types, and an empty changes object are rejected. Empty arrays explicitly replace a branch policy or `pull_request_routes` with an empty list, and false is preserved. `pull_request_routes` is an array of `{source_branch, destination_branch}` pairs. Author name and email must be supplied together. The legacy `github_repository_update` remains available with its original full-policy arguments.
+
+Local commits are permitted only on source branches of registered pull-request routes. `direct_push_branches` does not grant local commit permission, and a pull-request source does not grant direct push: `github_push` still requires the branch in `direct_push_branches`. `protected_branches` reject commits and pushes.
 
 ## CLI
 
@@ -46,6 +48,8 @@ Successful diagnostic commands print `[OK]`; failures print `[NG]` and return a 
 
 `github_branch_create` requires `source`: a literal remote branch name or a full 40-character hexadecimal commit SHA. Old two-argument calls fail instead of selecting main/develop/HEAD. Missing source is an MCP argument error; blank/null source is `branch_source_invalid`; missing branch is `branch_not_found`; missing commit is `branch_source_not_found`. Resolution failures never create refs. Destination policy and permissions are unchanged. No checkout is performed. See [ADR 0026](docs/adr/0026-explicit-branch-source.md).
 
+`github_local_branch_create` is a separate local-only operation. It requires an existing local branch name, tag name, or complete 40-character SHA already present in the local object database. It rejects dirty or conflicted worktrees, existing destination branches, remote-tracking refs, and unresolved sources. It does not change HEAD/worktree or contact a remote.
+
 CLI: save the following object in `branch-create.json`, then run `githubie mcp call github_branch_create --file branch-create.json`. Replace `main` with a complete commit SHA when needed. Moyai callers must forward `source` without supplying defaults.
 
 ```json
@@ -74,14 +78,14 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_repository_status` | `repository` | Local/remote HEAD, ahead/behind, and working-tree state from Git; an unborn branch returns an empty local HEAD and zero divergence |
 | `github_repository_diff` | `repository` | Working-tree diff for the registered repository |
 | `github_repository_settings_get` | `repository` | Only the registered non-secret settings allowlist; reads the live in-memory registration and requires no Git or GitHub access |
-| `github_repository_commit` | `repository`, `message` | Create a local commit only on an exact branch listed in `local_commit_branches`; protected branches remain denied. Use the stored or repository-local author pair; return `author_identity_missing` before staging if neither is configured |
-| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | Commit only the supplied patch on an exact branch listed in `local_commit_branches`; reject protected branches, staged changes, or a changed HEAD and preserve unselected working-tree edits. Direct push still requires `direct_push_branches` |
+| `github_repository_commit` | `repository`, `message` | Create a local commit on an allowed pull-request source branch with the stored or repository-local author pair; return `author_identity_missing` before staging if neither is configured |
+| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | Commit only the supplied patch on an allowed pull-request source branch; reject staged changes or a changed HEAD and preserve unselected working-tree edits |
 | `github_repository_description_get` | `repository` | Repository description from GitHub |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run status and metadata without logs |
 | `github_workflow_run_list` | `repository`, optional filters, `limit` | Up to 100 workflow runs without logs |
 | `github_branch_list` | `repository` | Remote branches visible to the stored token |
 | `github_branch_get` | `repository`, `branch` | The named remote branch and HEAD SHA; fails if absent |
-| `github_provider_capabilities` | `repository` | Repository Contract operations supported by this Githubie instance, including `branch_switch` |
+| `github_provider_capabilities` | `repository` | Repository Contract operations supported by this Githubie instance, including `branch_switch`, `local_branch_create`, and `pr_create` |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull requests matching the optional filters |
 | `github_pr_get` | `repository`, `pull_request_number` | Pull-request metadata for an existing number |
 | `github_issue_list` | `repository`, `state?` | Issues matching the optional state filter; excludes pull requests |
@@ -102,7 +106,7 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_repository_moyai_project_set` | `repository`, `moyai_project_id` | After desktop approval, maps a registered repository to a Moyai Project UUID and applies it to the running service. Rejects an empty UUID (`invalid_moyai_project_id`), a UUID used by another repository or differing from the administrator mapping in `provider_authentication.projects` (`duplicate_moyai_project_id`), and an unregistered repository. The change is audited |
 | `github_repository_create` | `repository`, `owner`, `name`, `visibility?`, `description?`, `local_root?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | After desktop approval, creates a GitHub repository (`private` by default) under the token user or the `owner` organization with no initial commit. Uses the stored token for `repository` or asks for one in the token dialog. With `local_root`, sets an unconfigured `origin` to the new repository and registers it without a second prompt. Returns `repository_already_exists`, `permission_denied`, `authentication_failed`, `approval_denied`, `remote_already_configured`, or `token_unavailable` with GitHub's reason in `error.diagnostic`. Push the local history separately with `github_push` |
 | `github_repository_update` | `repository`, branch policy fields, `commit_author_name?`, `commit_author_email?` | Updates branch policy and optional commit author after desktop approval; GitHub identity and paths remain unchanged |
-| `github_repository_settings_update` | `repository`, `changes` | Applies only supplied allowlisted settings after desktop approval. Success returns `data.settings`, actual `data.changed_fields`, and `data.approved: true`; validation/approval/write failures make no partial update |
+| `github_repository_settings_update` | `repository`, `changes` | Applies only supplied allowlisted settings after desktop approval. `pull_request_routes` contains `{source_branch, destination_branch}` pairs; an empty array disables all routes. Success returns `data.settings`, actual `data.changed_fields`, and `data.approved: true`; failures make no partial update |
 | `github_repository_unregister` | `repository` | Removes the entry from Githubie configuration and the live allowlist without deleting GitHub or local data |
 | `github_repository_rename` | `old_repository`, `new_repository` | Migrates configuration and encrypted token together; keeps the old ID usable if migration fails |
 | `github_repository_description_update` | `repository`, `description` | Patches only `description`; empty string removes it; maximum 350 characters |
@@ -110,10 +114,11 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_fetch` | `repository` | Updates remote-tracking refs |
 | `github_pull` | `repository`, `branch` | Fast-forwards an allowed branch; rejects divergent history |
 | `github_branch_switch` | `repository`, `branch` | Switches the local checkout to an existing local branch. Rejects a dirty working tree; does not fetch or create branches. |
+| `github_local_branch_create` | `repository`, `branch`, `source` (required) | Creates a local-only branch from an existing local branch, tag, or complete 40-character SHA. Rejects dirty/conflicted trees, invalid or missing sources, and duplicate destinations; leaves HEAD and checkout unchanged and performs no remote operation. |
 | `github_push` | `repository` | Pushes the current allowed branch, creating it on the remote when absent and requiring fast-forward updates when present; rejects protected branches, dirty trees when configured, and no-op pushes |
 | `github_branch_create` | `repository`, `branch`, `source` (required) | Creates an allowed branch from an explicit branch name or full 40-character commit SHA; no implicit source; conflicts when it already exists |
 | `github_branch_delete` | `repository`, `branch` | Deletes an allowed non-protected branch |
-| `github_pr_create` | `repository`, `title`, `description?`, `draft` | Creates only the configured `develop` to `main` route |
+| `github_pr_create` | `repository`, `title`, nullable `description`, `draft`, `source_branch?`, `destination_branch?` | Creates a pull request on an allowed repository route. Omitting both keeps the legacy `develop` to `main` route; one-sided or disallowed routes are rejected. A timeout or network error may leave the remote result uncertain; do not automatically retry, inspect the pull-request list first. |
 | `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | Polls mergeability at most 3 times at 2-second intervals, then merges an open, mergeable pull request on the allowed route |
 | `github_pr_close` | `repository`, `pull_request_number` | Closes an open, unmerged pull request; already-closed requests are unchanged |
 | `github_pr_reopen` | `repository`, `pull_request_number` | Reopens a closed, unmerged pull request; already-open requests are unchanged |
@@ -129,6 +134,8 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_release_asset_upload` | `repository`, `release_id`, `assets`, `replace_existing` | Adds up to ten approved assets; same-name replacement requires `replace_existing=true` |
 
 Git operations that contact the remote (`github_repository_status`, `github_fetch`, `github_pull`, `github_push`, `github_tag_push`, `github_tag_create`, `github_history_rewrite`) accept an optional `remote` argument (Moyai's `gitRemoteName`). The remote is chosen as: the `remote` argument, then the registered remote name, then the only HTTPS remote whose URL points to the registered repository (with several, the one named `github-origin-https`). Named remotes are verified and never fall back. Failures return `provider_remote_not_found`, `provider_remote_ambiguous`, or `provider_remote_mismatch`; an SSH remote returns `provider_remote_not_found` with `error.provider.code` `remote_https_required`. `github_repository_diff` and `github_repository_commit` also accept `remote` but do not use it. `github_provider_capabilities` reports `remote_resolution` (`version` 1, `mode` `repository_url`). See ADR 0032.
+
+`github_provider_capabilities` reports `pr_create: true` when PR creation is implemented. This is a provider operation capability, not confirmation that a particular route is allowlisted. `github_pr_create` remains bound to the Project assertion scope `provider.githubie.pull_request.write`; see ADR 0038.
 
 ## Audit Log
 

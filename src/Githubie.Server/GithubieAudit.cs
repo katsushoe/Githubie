@@ -89,6 +89,9 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
     public async Task<GitGatewayResult<GitBranchSwitchInfo>> SwitchBranchAsync(string repository, string branch, CancellationToken cancellationToken) =>
         await RunAsync("github_branch_switch", repository, branch, () => inner.SwitchBranchAsync(repository, branch, cancellationToken));
 
+    public async Task<GitGatewayResult<GitLocalBranchCreateInfo>> CreateLocalBranchAsync(string repository, string branch, string source, CancellationToken cancellationToken) =>
+        await RunAsync("github_local_branch_create", repository, branch, () => inner.CreateLocalBranchAsync(repository, branch, source, cancellationToken), source: source);
+
     public async Task<GitGatewayResult<Unit>> PushAsync(string repository, CancellationToken cancellationToken) =>
         await RunAsync("github_push", repository, null, () => inner.PushAsync(repository, cancellationToken));
 
@@ -103,7 +106,7 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
         await RunAsync("github_history_rewrite", repository, null, () => inner.RewriteHistoryAsync(repository, refs, dryRun, cancellationToken));
 
     private async Task<GitGatewayResult<T>> RunAsync<T>(
-        string tool, string repository, string? branch, Func<Task<GitGatewayResult<T>>> action, string? tag = null)
+        string tool, string repository, string? branch, Func<Task<GitGatewayResult<T>>> action, string? tag = null, string? source = null)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = await action();
@@ -116,7 +119,8 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
             ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(),
             CorrelationId: correlationId,
             Diagnostic: result.Diagnostic,
-            ExitCode: result.ExitCode));
+            ExitCode: result.ExitCode,
+            Source: source));
 
         return result with { CorrelationId = correlationId };
     }

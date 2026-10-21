@@ -29,6 +29,9 @@ public sealed record GitStashEntry(string Id, string Subject);
 /// <summary>Branch切替の前後に確認した名前です。</summary>
 public sealed record GitBranchSwitchInfo(string PreviousBranch, string CurrentBranch);
 
+/// <summary>作成したローカルBranchと作成後に確認したHEAD状態です。</summary>
+public sealed record GitLocalBranchCreateInfo(string Name, string Source, string CurrentBranch, string HeadSha);
+
 public sealed record GitHistoryRewriteRef(string Ref, string NewLocalSha, string ExpectedRemoteSha);
 
 public sealed record GitHistoryRewriteRefResult(string Ref, string OldSha, string NewSha, bool Success, string? RejectionReason);
@@ -88,6 +91,7 @@ public enum GitGatewayError
     AuthenticationFailed,
 
     WorkingTreeDirty,
+    UnresolvedConflicts,
     NothingToCommit,
     InvalidSelectedCommitPatch,
     StagedChangesPresent,
@@ -99,6 +103,8 @@ public enum GitGatewayError
     AuthorIdentityMissing,
     BranchNotAllowed,
     BranchNotFound,
+    BranchSourceNotFound,
+    LocalBranchAlreadyExists,
     ProtectedBranch,
 
     NothingToPush,

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Serialization;
 
 namespace Githubie.Domain;
 
@@ -17,9 +18,6 @@ public sealed record RepositoryPolicy(
     string TagPattern,
     bool RequireCleanWorkingTree)
 {
-    /// <summary>Local commitを許可するBranch。直接Push権限およびPR経路から独立します。</summary>
-    public IReadOnlySet<string> LocalCommitBranches { get; init; } = new HashSet<string>(StringComparer.Ordinal);
-
     /// <summary>
     /// 現在の状態で直接Pushできるか検証します。
     /// </summary>
@@ -77,7 +75,9 @@ public sealed record RepositoryPolicy(
 /// <summary>
 /// 許可されたPull Request経路を表します。
 /// </summary>
-public sealed record PullRequestRoute(string Source, string Destination);
+public sealed record PullRequestRoute(
+    [property: JsonPropertyName("source_branch")] string SourceBranch,
+    [property: JsonPropertyName("destination_branch")] string DestinationBranch);
 
 /// <summary>
 /// Policy検証結果を表します。

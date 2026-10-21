@@ -256,15 +256,22 @@ public sealed class GitHubRepositoryGateway(
         }
 
         var options = resolved.Options!;
+        if ((request.SourceBranch is null) != (request.DestinationBranch is null))
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestRouteNotAllowed);
+        var source = request.SourceBranch ?? options.DevelopBranch;
+        var destination = request.DestinationBranch ?? options.MainBranch;
+        if (string.IsNullOrWhiteSpace(source) || source[0] == '-' || source.Any(char.IsWhiteSpace)
+            || string.IsNullOrWhiteSpace(destination) || destination[0] == '-' || destination.Any(char.IsWhiteSpace))
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestRouteNotAllowed);
         var policy = options.ToPolicy(repository);
-        var routeResult = policy.ValidatePullRequest(options.DevelopBranch, options.MainBranch);
+        var routeResult = policy.ValidatePullRequest(source, destination);
         if (!routeResult.IsAllowed)
         {
             return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestRouteNotAllowed);
         }
 
         return await _apiClient.CreatePullRequestAsync(
-            repository, options.GitHubOwner, options.GitHubRepo, options.DevelopBranch, options.MainBranch, request, cancellationToken);
+            repository, options.GitHubOwner, options.GitHubRepo, source, destination, request, cancellationToken);
     }
 
     public async Task<GitHubResult<GitHubPullRequestInfo>> MergePullRequestAsync(

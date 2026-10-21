@@ -52,21 +52,6 @@ public sealed class RepositoryPolicyTests
     }
 
     [Fact]
-    public void ValidatePush_DeniesBranchListedOnlyForLocalCommits()
-    {
-        var policy = CreatePolicy();
-        var localCommitOnly = policy with
-        {
-            LocalCommitBranches = new HashSet<string>(StringComparer.Ordinal) { "codex/docs-main-v1010" },
-        };
-
-        var result = localCommitOnly.ValidatePush("codex/docs-main-v1010", workingTreeClean: true);
-
-        result.IsAllowed.Should().BeFalse();
-        result.ErrorCode.Should().Be(PolicyErrorCode.BranchNotAllowed);
-    }
-
-    [Fact]
     public void ValidatePush_DeniesDirtyWorkingTreeWhenRequired()
     {
         var policy = CreatePolicy(requireCleanWorkingTree: true);
