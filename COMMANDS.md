@@ -8,7 +8,7 @@
 
 `github_repository_settings_update` takes `{ "repository": "id", "changes": { ... } }` and requires `repository.settings.write` plus interactive human approval. Omitted fields remain unchanged; explicit null, unknown fields, invalid types, and an empty changes object are rejected. Empty arrays explicitly replace a branch policy or `pull_request_routes` with an empty list, and false is preserved. `pull_request_routes` is an array of `{source_branch, destination_branch}` pairs. Author name and email must be supplied together. The legacy `github_repository_update` remains available with its original full-policy arguments.
 
-Local commits are permitted only on source branches of registered pull-request routes. `direct_push_branches` does not grant local commit permission, and a pull-request source does not grant direct push: `github_push` still requires the branch in `direct_push_branches`. `protected_branches` reject commits and pushes.
+Ordinary and selected local commits record changes only on the currently checked-out branch, including protected or arbitrary feature branches. No local-commit allowlist, direct-push permission or pull-request route is required. Repository/path validation, authentication, author identity and audit still apply. Detached HEAD, changed branch/HEAD and foreign index/ref locks reject the operation without redirecting it to another branch. Success returns `data.branch` and `data.commit_sha`; it never pushes. `github_push`, pull, PR merge and history rewriting retain their existing policies. See [ADR 0039](docs/adr/0039-current-branch-local-commits.md).
 
 ## CLI
 
@@ -79,8 +79,8 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_repository_status` | `repository` | Local/remote HEAD, ahead/behind, and working-tree state from Git; an unborn branch returns an empty local HEAD and zero divergence |
 | `github_repository_diff` | `repository` | Working-tree diff for the registered repository |
 | `github_repository_settings_get` | `repository` | Only the registered non-secret settings allowlist; reads the live in-memory registration and requires no Git or GitHub access |
-| `github_repository_commit` | `repository`, `message` | Create a local commit on an allowed pull-request source branch with the stored or repository-local author pair; return `author_identity_missing` before staging if neither is configured |
-| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | Commit only the supplied patch on an allowed pull-request source branch; reject staged changes or a changed HEAD and preserve unselected working-tree edits |
+| `github_repository_commit` | `repository`, `message` | Commit all changes on the current attached branch using the registered or repository-local author; return `branch`/`commit_sha`, or `author_identity_missing` before staging |
+| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | Commit only the supplied patch on the current attached branch; reject staged changes or branch/HEAD races, preserve unselected edits and return `branch`/`commit_sha` |
 | `github_repository_description_get` | `repository` | Repository description from GitHub |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run status and metadata without logs |
 | `github_workflow_run_list` | `repository`, optional filters, `limit` | Up to 100 workflow runs without logs |
@@ -141,3 +141,7 @@ Git operations that contact the remote (`github_repository_status`, `github_fetc
 ## Audit Log
 
 Each call records client, tool, repository, relevant branch/PR/tag/source fields, result, duration, and error code in `<install-root>\logs\githubie-yyyyMMdd.log`. Tokens, authorization headers, and raw error messages are excluded.
+
+## Local commit execution
+
+Local commits use a private-index commit-tree pipeline, Windows HEAD-file sharing guard and explicit-ref compare-and-swap. Other platforms fail closed with `atomic_not_supported`. Repository hooks and automatic signing are not run. In-progress merge/rebase/cherry-pick/revert operations require their explicit workflow. Ordinary commits include existing staged and worktree changes; selected commits require an empty real staging area. On pre-publication failure the real index and worktree remain unchanged. If ref publication succeeded but index installation cannot be recovered, `commit_result_unknown` requires inspection before another commit; do not retry automatically.

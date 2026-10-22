@@ -31,6 +31,9 @@ public interface IGitCommandClient
     Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken);
     Task<GitCommandResult> CommitSelectedAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedHead, string patch, CancellationToken cancellationToken);
 
+    /// <summary>検証済みの現在branch/HEADだけへ、専用indexで通常または選択commitを作成します。</summary>
+    Task<GitCommandResult> CommitCurrentBranchAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedBranch, string expectedHead, string? patch, CancellationToken cancellationToken);
+
     Task<GitCommandResult> PushStashAsync(string repositoryRoot, string message, IReadOnlyList<string> paths, CancellationToken cancellationToken);
 
     Task<GitCommandResult> ListStashesAsync(string repositoryRoot, CancellationToken cancellationToken);

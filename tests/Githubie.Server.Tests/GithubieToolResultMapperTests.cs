@@ -14,6 +14,29 @@ namespace Githubie.Server.Tests;
 /// </summary>
 public sealed class GithubieToolResultMapperTests
 {
+    [Fact]
+    public void LocalCommit_UnknownPublicationResult_RequiresInspectionWithoutRetry()
+    {
+        var result = GithubieToolResultMapper.Map("repository_commit", "fixture",
+            GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.CommitResultUnknown));
+        result.Ok.Should().BeFalse();
+        result.Error!.Outcome.Should().Be("unknown");
+        result.Error.Retryable.Should().BeFalse();
+        result.Error.SuggestedAction.Should().Be("check_status");
+    }
+
+    [Fact]
+    public void LocalCommit_Success_ExposesRecordedBranchAndShaInWireJson()
+    {
+        var result = GithubieToolResultMapper.Map("repository_commit_selected", "fixture",
+            GitGatewayResult<GitRepositoryCommit>.Success(new("1111111111111111111111111111111111111111", "main")));
+        var json = System.Text.Json.JsonSerializer.Serialize(result,
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+        using var parsed = System.Text.Json.JsonDocument.Parse(json);
+        parsed.RootElement.GetProperty("data").GetProperty("branch").GetString().Should().Be("main");
+        parsed.RootElement.GetProperty("data").GetProperty("commit_sha").GetString().Should().Be("1111111111111111111111111111111111111111");
+    }
+
     private static readonly IReadOnlyDictionary<GitGatewayError, string> ExpectedGitGatewayCodes = new Dictionary<GitGatewayError, string>
     {
         [GitGatewayError.RepositoryNotFound] = "repository_not_found",
@@ -38,6 +61,11 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.InvalidSelectedCommitPatch] = "selected_commit_patch_invalid",
         [GitGatewayError.StagedChangesPresent] = "staged_changes_present",
         [GitGatewayError.ExpectedHeadMismatch] = "expected_head_mismatch",
+        [GitGatewayError.DetachedHead] = "detached_head",
+        [GitGatewayError.CurrentBranchChanged] = "current_branch_changed",
+        [GitGatewayError.RepositoryBusy] = "repository_busy",
+        [GitGatewayError.CommitResultUnknown] = "commit_result_unknown",
+        [GitGatewayError.CommitInProgress] = "commit_in_progress",
         [GitGatewayError.InvalidStashPath] = "stash_path_invalid",
         [GitGatewayError.InvalidStashReference] = "stash_reference_invalid",
         [GitGatewayError.InvalidStashMessage] = "stash_message_invalid",

@@ -21,7 +21,7 @@ public sealed record GitWorkingTreeChange(string Status, string Path);
 public sealed record GitRepositoryDiff(string Diff);
 
 /// <summary>作成したLocal Commitです。</summary>
-public sealed record GitRepositoryCommit(string CommitSha);
+public sealed record GitRepositoryCommit(string CommitSha, string? Branch = null);
 
 /// <summary>Repository stashの一覧要素です。</summary>
 public sealed record GitStashEntry(string Id, string Subject);
@@ -96,6 +96,11 @@ public enum GitGatewayError
     InvalidSelectedCommitPatch,
     StagedChangesPresent,
     ExpectedHeadMismatch,
+    DetachedHead,
+    CurrentBranchChanged,
+    RepositoryBusy,
+    CommitResultUnknown,
+    CommitInProgress,
     InvalidStashPath,
     InvalidStashReference,
     InvalidStashMessage,

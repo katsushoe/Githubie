@@ -110,6 +110,8 @@ public static class GithubieToolResultMapper
 
         return source switch
         {
+            GitGatewayError.CommitResultUnknown => error with { CommonCode = GithubieCommonErrorCode.ResultUnknown, Outcome = GithubieOperationOutcome.Unknown, Retryable = false, SuggestedAction = GithubieSuggestedAction.CheckStatus },
+            GitGatewayError.DetachedHead or GitGatewayError.CurrentBranchChanged or GitGatewayError.ExpectedHeadMismatch or GitGatewayError.RepositoryBusy or GitGatewayError.CommitInProgress => error with { CommonCode = GithubieCommonErrorCode.Conflict, Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.CheckStatus },
             GitGatewayError.AuthenticationFailed => error with { CommonCode = GithubieCommonErrorCode.AuthenticationRequired, Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.ConfigureAuthentication },
             GitGatewayError.TokenPermissionDenied or GitGatewayError.WorkflowPermissionDenied or GitGatewayError.PermissionDenied => error with { CommonCode = GithubieCommonErrorCode.PermissionDenied, SuggestedAction = GithubieSuggestedAction.VerifyPermissions },
             GitGatewayError.ProtectedBranch or GitGatewayError.BranchProtectionDenied => error with { CommonCode = GithubieCommonErrorCode.PolicyRejected, SuggestedAction = GithubieSuggestedAction.InspectPolicy },
@@ -267,6 +269,11 @@ public static class GithubieToolResultMapper
         GitGatewayError.InvalidSelectedCommitPatch => new("selected_commit_patch_invalid", "The selected unified diff patch is invalid or does not apply to the expected HEAD."),
         GitGatewayError.StagedChangesPresent => new("staged_changes_present", "Commit selected changes after clearing existing staged changes."),
         GitGatewayError.ExpectedHeadMismatch => new("expected_head_mismatch", "Repository HEAD changed after the selected diff was prepared."),
+        GitGatewayError.DetachedHead => new("detached_head", "Local commit requires a currently checked-out branch."),
+        GitGatewayError.CurrentBranchChanged => new("current_branch_changed", "The current branch changed before the commit could be recorded."),
+        GitGatewayError.RepositoryBusy => new("repository_busy", "Repository HEAD or index is locked or unavailable."),
+        GitGatewayError.CommitResultUnknown => new("commit_result_unknown", "Inspect the branch ref and index before another commit; the commit result could not be established."),
+        GitGatewayError.CommitInProgress => new("commit_in_progress", "Complete or abort the existing merge, rebase, cherry-pick or revert before an ordinary local commit."),
         GitGatewayError.InvalidStashPath => new("stash_path_invalid", "A stash path is not a safe repository-relative path."),
         GitGatewayError.InvalidStashReference => new("stash_reference_invalid", "The stash ID is not present in this repository."),
         GitGatewayError.InvalidStashMessage => new("stash_message_invalid", "The stash message is invalid."),
@@ -281,7 +288,7 @@ public static class GithubieToolResultMapper
         GitGatewayError.InvalidRef => new("invalid_ref", "The supplied Git ref is invalid."),
         GitGatewayError.DuplicateRef => new("duplicate_ref", "A history rewrite ref was specified more than once."),
         GitGatewayError.LeaseConflict => new("lease_conflict", "A remote ref changed or does not match the expected SHA."),
-        GitGatewayError.AtomicNotSupported => new("atomic_not_supported", "The remote does not support atomic push."),
+        GitGatewayError.AtomicNotSupported => new("atomic_not_supported", "The remote or local commit platform does not support the required atomic update."),
         GitGatewayError.BranchProtectionDenied => new("branch_protection_denied", "A branch protection rule or repository ruleset rejected the history rewrite."),
         GitGatewayError.TokenPermissionDenied => new("token_permission_denied", "The configured token does not have permission to update the repository."),
         GitGatewayError.WorkflowPermissionDenied => new("workflow_permission_denied", "The token cannot update workflow files; grant the required workflow permission."),

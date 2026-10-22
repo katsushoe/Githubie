@@ -2,6 +2,8 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
+Version `1.8.13.2` corrects ordinary/selected local commits to target only the current attached branch independently of PR routes, push allowlists and branch protection. It adds branch/SHA result fields, atomic expected-branch/HEAD verification, private-index preservation and legacy JSON compatibility. Push/merge/history authorization is unchanged. See ADR 0039. This entry describes the candidate; installation, live Moyai acceptance and public release are separate checkpoints.
+
 ## Versioning
 
 Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. Display version `1.8.11.0` is installed locally but has not been published.

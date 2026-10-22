@@ -62,6 +62,11 @@ public sealed record RepositoryOptions(
 {
     public string? CommitAuthorName { get; init; }
 
+    /// <summary>旧JSONからのみ受け付ける廃止済み設定。通常commitの許可や保存値には使いません。</summary>
+    [JsonPropertyName("local_commit_branches")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? LegacyLocalCommitBranches { get => null; init { } }
+
     public string? CommitAuthorEmail { get; init; }
 
     /// <summary>対話承認で登録したMoyai Project UUIDです。管理者設定`provider_authentication.projects`の対応が優先します。</summary>

@@ -8,7 +8,7 @@
 
 `github_repository_settings_update`は`{ "repository": "id", "changes": { ... } }`を受け取り、`repository.settings.write`と人の対話承認を要求する。省略項目は保持し、明示的なnull、未知項目、型不正、空のchanges objectは拒否する。空配列はBranch Policyや`pull_request_routes`の空配列への置換、falseは明示値として扱う。`pull_request_routes`は`source_branch`と`destination_branch`の組の配列です。作者名とメールは必ず同時に指定する。従来の`github_repository_update`は元の全Policy引数を維持する。
 
-ローカルcommitは登録済みPull Request経路のsource branchだけで許可されます。`direct_push_branches`への登録はローカルcommitを許可せず、PR source branchへの直接pushも許可しません。`github_push`には引き続き`direct_push_branches`への登録が必要で、`protected_branches`はcommitとpushの両方を拒否します。
+通常・選択差分のローカルcommitは、保護ブランチや任意のfeatureブランチを含む現在チェックアウト中のブランチだけへ記録します。ローカルcommit許可リスト、直接push許可、PR経路への登録は要求しません。Repository/Path検証・認証・作者・監査は維持します。detached HEAD、branch/HEAD変更、他操作のindex/ref lockでは別ブランチへ切り替えず拒否します。成功時は`data.branch`と`data.commit_sha`を返し、pushしません。push・pull・PR merge・履歴書き換えの既存制限は維持します。[ADR 0039](docs/adr/0039-current-branch-local-commits.md)を参照してください。
 
 `githubie.exe`（管理CLI）と、MCP Serverが公開するTool一覧を記載する。
 
@@ -112,8 +112,8 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得。初回Commit前はlocal headを空、ahead/behindを0として返す |
 | `github_repository_diff` | `repository` | 登録Repositoryのworking tree差分を取得 |
 | `github_repository_settings_get` | `repository` | 登録済みの非秘密設定allowlistだけを返す。実行中のメモリ登録値を使い、Git/GitHubアクセスを行わない |
-| `github_repository_commit` | `repository`, `message` | 登録済みまたはRepositoryローカルの作成者を使い、許可済みPR source branchへlocal commitする。作成者がなければStage前に`author_identity_missing`を返す |
-| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | 許可済みPR source branchで指定patchだけをlocal commitする。staged変更とHEAD不一致を拒否し、未選択差分は作業ツリーに残す |
+| `github_repository_commit` | `repository`, `message` | 登録済みまたはRepositoryローカルの作者で現在branchへ全変更をcommitし、`branch`/`commit_sha`を返す。作者がなければStage前に拒否する |
+| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | 現在branchで指定patchだけをcommitし、`branch`/`commit_sha`を返す。staged変更とbranch/HEAD競合を拒否し、未選択差分を残す |
 | `github_repository_description_get` | `repository` | Repository Descriptionを取得 |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run状態を取得。log本文は返さない |
 | `github_workflow_run_list` | `repository`、任意filter、`limit` | Workflow runを最大100件取得。log本文は返さない |
@@ -179,3 +179,7 @@ Remoteと通信するGit操作（`github_repository_status`、`github_fetch`、`
 ## 監査ログ
 
 すべてのTool呼び出しは`<install-root>\logs\githubie-yyyyMMdd.log`へ、`client` / `tool` / `repository` / `branch` / `pull_request_number` / `tag` / `result` / `duration_ms` / `error_code`の構造化行として記録する。Personal Access Token・Authorization Header・生エラーメッセージは記録しない。
+
+## ローカルcommit実行条件
+
+ローカルcommitは専用index・commit-tree、WindowsのHEADファイル共有制御、対象refの旧SHA条件付き更新を使います。他OSでは`atomic_not_supported`で拒否します。Repository hookと自動署名は実行しません。進行中のmerge/rebase/cherry-pick/revertは専用手順で完了・中止してください。通常commitはstaged変更と作業ツリーを含め、選択commitは既存staged変更を拒否します。ref公開前の失敗では実indexと作業ツリーを保持します。ref公開後のindex設置に失敗し復旧できない場合は`commit_result_unknown`となり、再commit前の照合が必要です。自動再送しないでください。

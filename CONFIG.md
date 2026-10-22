@@ -52,9 +52,8 @@ Each workflow policy requires `allowed_refs`; inputs may use `string`, `boolean`
 
 The initial pull-request route is `develop_branch` to `main_branch`. Registered routes can be changed through the approved `github_repository_settings_update` operation; clients may create pull requests only on a registered route.
 
-Local commit permission is independent from direct push: `github_repository_commit` and `github_repository_commit_selected` accept only source branches of registered pull-request routes. Membership in `direct_push_branches` does not grant local commit permission, and a pull-request source does not become pushable; `github_push` still requires `direct_push_branches`. `protected_branches` reject both commits and pushes.
+Ordinary and selected local commits record changes only on the currently checked-out branch, including protected or arbitrary feature branches. No local-commit allowlist, direct-push permission or pull-request route is required. Repository/path validation, authentication, author identity and audit still apply. Detached HEAD, changed branch/HEAD and foreign index/ref locks reject the operation without redirecting it to another branch. Success returns `data.branch` and `data.commit_sha`; it never pushes. `github_push`, pull, PR merge and history rewriting retain their existing policies. See [ADR 0039](docs/adr/0039-current-branch-local-commits.md).
 
-Local commit permission is separate from direct push: `github_repository_commit` and `github_repository_commit_selected` accept a branch when it is listed in `direct_push_branches` or is the source of an allowed pull-request route. A route source does not become pushable; `github_push` still requires `direct_push_branches`, and protected branches reject both commit and push.
 
 The repository source of truth is `<install-root>\data\githubie.db`. `github_repository_register` adds an existing local GitHub repository to that database at runtime. It derives `github_owner` and `github_repo` from the selected local remote, requires desktop approval, and applies safe branch-policy defaults. The selected remote must use `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are rejected. A service restart is not required.
 
@@ -91,3 +90,7 @@ At the first startup after upgrading, validated entries under `repositories` are
 ## Personal Access Token
 
 Never place tokens in JSON. `githubie.exe auth set <repository-id>` encrypts a token with DPAPI LocalMachine and stores it under `<install-root>\data\secrets`. See [Security](SECURITY.md).
+
+## `local_commit_branches` (retired compatibility input)
+
+`local_commit_branches` is retired. Legacy JSON arrays (for example `"local_commit_branches": ["develop"]`, or `[]`) are accepted for compatibility, discarded and omitted when saving. They grant no permission and are not exposed in Repository Settings. Existing unused SQLite columns are retained. New configurations must omit this key.

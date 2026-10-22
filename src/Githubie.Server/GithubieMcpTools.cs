@@ -187,7 +187,7 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_repository_commit", Destructive = true, UseStructuredContent = true)]
-    [Description("Policyで許可されたbranchにLocal Commitを作成します。")]
+    [Description("現在branchに全変更のlocal commitを作成し、branchとcommit_shaを返します。branch許可/保護設定には依存せず、detached HEAD・branch/HEAD競合を拒否します。pushは行いません。")]
     public async Task<GithubieToolResult<GitRepositoryCommit>> CommitRepositoryAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("Commit message")] string message,
@@ -200,7 +200,7 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_repository_commit_selected", Destructive = true, UseStructuredContent = true)]
-    [Description("指定HEAD上でunified diff patchの変更だけをlocal commitします。既存staged変更がある場合は拒否します。")]
+    [Description("現在branchの指定HEAD上でpatchだけをlocal commitし、branchとcommit_shaを返します。branch許可/保護設定には依存せず、staged変更・detached HEAD・branch/HEAD競合を拒否します。")]
     public async Task<GithubieToolResult<GitRepositoryCommit>> CommitSelectedRepositoryAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("Commit message")] string message,

@@ -59,7 +59,7 @@ Workflow Policyは`allowed_refs`を必須とし、input型は`string`／`boolean
 
 初期Pull Request経路は`develop_branch → main_branch`です。登録済み経路は承認付きの`github_repository_settings_update`で変更でき、PR作成時は登録された経路だけを指定できます。
 
-ローカルcommit許可は直接push許可と分離されています。`github_repository_commit`と`github_repository_commit_selected`は、登録済みPull Request経路のsource branchだけで実行できます。`direct_push_branches`への登録はローカルcommitを許可せず、PR経路のsourceであっても直接pushは許可されません。`github_push`には引き続き`direct_push_branches`への登録が必要で、`protected_branches`はcommitとpushの両方を拒否します。
+通常・選択差分のローカルcommitは、保護ブランチや任意のfeatureブランチを含む現在チェックアウト中のブランチだけへ記録します。ローカルcommit許可リスト、直接push許可、PR経路への登録は要求しません。Repository/Path検証・認証・作者・監査は維持します。detached HEAD、branch/HEAD変更、他操作のindex/ref lockでは別ブランチへ切り替えず拒否します。成功時は`data.branch`と`data.commit_sha`を返し、pushしません。push・pull・PR merge・履歴書き換えの既存制限は維持します。[ADR 0039](docs/adr/0039-current-branch-local-commits.md)を参照してください。
 
 Repository登録とPolicyの正本は`<install-root>\data\githubie.db`とする。`github_repository_register`は既存Local Git Repositoryを実行中にSQLiteへ追加する。`github_owner`と`github_repo`は指定remote URLから導出し、対話Desktop承認を必要とする。指定remoteは`https://github.com/OWNER/REPOSITORY.git`形式に限定し、SSH形式は拒否する。Service再起動は不要である。
 
@@ -86,3 +86,7 @@ Repository登録とPolicyの正本は`<install-root>\data\githubie.db`とする�
 ## Personal Access Token
 
 Tokenは`githubie.json`に含めない。`githubie.exe auth set <repository-id>`でDPAPI（LocalMachineスコープ）暗号化のうえ`<install-root>\data\secrets\<repository-id>.token`へ1ファイル/Repositoryで保存する。詳細は[SECURITY.md](SECURITY.md)を参照する。
+
+## `local_commit_branches`（廃止済み互換入力）
+
+`local_commit_branches`は廃止済みです。旧JSONの配列（例：`"local_commit_branches": ["develop"]`または`[]`）は互換読込のみ受け付け、破棄して保存時は出力しません。許可判定にもRepository Settingsにも使いません。SQLiteの未使用旧列は保持します。新規設定では省略してください。

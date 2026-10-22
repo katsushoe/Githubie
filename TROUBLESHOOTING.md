@@ -17,6 +17,11 @@
 | `remote_already_configured` | `github_repository_create` does not rewrite an existing `origin`; use `github_repository_register` for a repository that already points to GitHub. |
 | `token_unavailable` | No token is stored for the repository ID and none was entered; enter a token that can create repositories for the owner. |
 | `permission_denied` (repository creation) | The token cannot create repositories for the user or organization; read `error.diagnostic` and use a token with that permission. |
+| `detached_head` | Check out an existing intended branch explicitly; Githubie does not create or switch one. |
+| `current_branch_changed` / `expected_head_mismatch` | Re-read the current branch, HEAD and diff before preparing a new commit. |
+| `repository_busy` | Another operation owns a lock or the index is unavailable. Check its owner; never delete an active lock to bypass it. |
+| `commit_in_progress` | Complete or abort the existing merge/rebase/cherry-pick/revert using its explicit workflow. |
+| `commit_result_unknown` | Inspect branch HEAD, index and reflog before recovery; never automatically repeat the commit. |
 | `git_not_found` / `git_failed` | Install Git for Windows, check `PATH`, inspect `diagnostic` and `exit_code`, then use `correlation_id` to locate the audit event if needed. |
 | `authentication_failed` / `permission_denied` | Refresh the configured credential or grant the required repository permission. |
 | `network_error` | Check DNS, proxy, TLS, and network connectivity, then retry. |

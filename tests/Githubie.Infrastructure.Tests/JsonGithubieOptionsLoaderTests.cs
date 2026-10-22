@@ -39,6 +39,20 @@ public sealed class JsonGithubieOptionsLoaderTests
         """;
 
     [Fact]
+    public async Task LoadAsync_LegacyCommitAllowlist_IsAcceptedButNotSavedOrUsed()
+    {
+        var json = ValidJson.Replace("\"require_clean_working_tree\": true", "\"require_clean_working_tree\": true, \"local_commit_branches\": [\"unrelated\"]", StringComparison.Ordinal);
+        var loader = new JsonGithubieOptionsLoader();
+        await using var input = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        var result = await loader.LoadAsync(input, TestContext.Current.CancellationToken);
+        result.IsSuccess.Should().BeTrue();
+        result.Options!.Repositories["example"].LegacyLocalCommitBranches.Should().BeNull();
+        await using var output = new MemoryStream();
+        await loader.SaveAsync(result.Options, output, TestContext.Current.CancellationToken);
+        Encoding.UTF8.GetString(output.ToArray()).Should().NotContain("local_commit_branches");
+    }
+
+    [Fact]
     public async Task LoadAsync_ParsesValidConfiguration()
     {
         var loader = new JsonGithubieOptionsLoader();

@@ -33,6 +33,7 @@
 | [0035](0035-repository-settings-read-partial-update.md) | Registered repository settings read and partial update |
 | [0036](0036-configurable-pull-request-routes.md) | Approved per-repository pull request route allowlists with legacy defaults |
 | [0037](0037-local-branch-create-provider-capability.md) | Explicit capability for local branch creation, distinct from remote branch creation |
+| [0039](0039-current-branch-local-commits.md) | Current-branch ordinary/selected commits independent of branch policy with atomic ref verification |
 | [0038](0038-pr-create-provider-capability.md) | Explicit provider capability and contract for pull request creation |
 
 ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.

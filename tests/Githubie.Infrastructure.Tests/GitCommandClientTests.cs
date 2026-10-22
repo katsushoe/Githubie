@@ -44,20 +44,6 @@ public sealed class GitCommandClientTests
     }
 
     [Fact]
-    public async Task CommitAsync_UsesExplicitAuthorIdentity()
-    {
-        var executor = new RecordingProcessExecutor();
-        var client = new GitCommandClient(executor, AskPassPath);
-
-        await client.CommitAsync(RepositoryRoot, "message", "Writer", "writer@example.com", CancellationToken.None);
-
-        executor.CapturedArguments.Should().Equal(
-            "-c", "safe.directory=C:/repo",
-            "-c", "user.name=Writer", "-c", "user.email=writer@example.com",
-            "commit", "-m", "message", "--");
-    }
-
-    [Fact]
     public async Task GetStatusAsync_UsesFixedLocalArguments_WithoutAskPassEnvironment()
     {
         var executor = new RecordingProcessExecutor();

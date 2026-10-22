@@ -66,55 +66,29 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> GetLocalConfigAsync(string repositoryRoot, string key, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["config", "--local", "--get", key], cancellationToken);
 
-    public Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken) =>
-        ExecuteLocalAsync(repositoryRoot,
-            ["-c", $"user.name={authorName}", "-c", $"user.email={authorEmail}", "commit", "-m", message, "--"], cancellationToken);
+    public async Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken)
+    {
+        var branch = await GetCurrentBranchAsync(repositoryRoot, cancellationToken);
+        if (!branch.IsSuccess) return branch;
+        var head = await GetHeadAsync(repositoryRoot, cancellationToken);
+        if (!head.IsSuccess) return head;
+        return await CommitCurrentBranchAsync(repositoryRoot, message, authorName, authorEmail,
+            branch.StandardOutput.Trim(), head.StandardOutput.Trim(), null, cancellationToken);
+    }
 
     public async Task<GitCommandResult> CommitSelectedAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedHead, string patch, CancellationToken cancellationToken)
     {
-        string index = Path.Combine(Path.GetTempPath(), $"githubie-selected-commit-{Guid.NewGuid():N}.index");
-        string patchFile = Path.Combine(Path.GetTempPath(), $"githubie-selected-commit-{Guid.NewGuid():N}.patch");
-        Dictionary<string, string> environment = GitEnvironmentSanitizer.BuildBaseEnvironment();
-        environment["GIT_INDEX_FILE"] = index;
-        string patchContent = patch.EndsWith('\n') ? patch : patch + "\n";
-        await File.WriteAllTextAsync(patchFile, patchContent, new System.Text.UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
-        try
-        {
-            GitCommandResult initialized = await ExecuteLocalAsync(repositoryRoot,
-                string.IsNullOrEmpty(expectedHead) ? ["read-tree", "--empty"] : ["read-tree", expectedHead], cancellationToken, environment).ConfigureAwait(false);
-            if (!initialized.IsSuccess) return initialized;
-            GitCommandResult checkedPatch = await ExecuteLocalAsync(repositoryRoot, ["apply", "--cached", "--check", patchFile], cancellationToken, environment).ConfigureAwait(false);
-            if (!checkedPatch.IsSuccess) return checkedPatch;
-            GitCommandResult applied = await ExecuteLocalAsync(repositoryRoot, ["apply", "--cached", patchFile], cancellationToken, environment).ConfigureAwait(false);
-            if (!applied.IsSuccess) return applied;
-            GitCommandResult tree = await ExecuteLocalAsync(repositoryRoot, ["write-tree"], cancellationToken, environment).ConfigureAwait(false);
-            if (!tree.IsSuccess) return tree;
-            List<string> commitArguments = ["-c", $"user.name={authorName}", "-c", $"user.email={authorEmail}", "commit-tree", tree.StandardOutput.Trim()];
-            if (!string.IsNullOrEmpty(expectedHead)) commitArguments.AddRange(["-p", expectedHead]);
-            commitArguments.AddRange(["-m", message]);
-            GitCommandResult commit = await ExecuteLocalAsync(repositoryRoot, commitArguments, cancellationToken, environment).ConfigureAwait(false);
-            if (!commit.IsSuccess) return commit;
-            string commitSha = commit.StandardOutput.Trim();
-            GitCommandResult updateRef = await ExecuteLocalAsync(repositoryRoot,
-                ["update-ref", "-m", $"commit: {message}", "HEAD", commitSha, expectedHead], cancellationToken).ConfigureAwait(false);
-            if (!updateRef.IsSuccess)
-            {
-                if (updateRef.StandardError.Contains("expected", StringComparison.OrdinalIgnoreCase) ||
-                    updateRef.StandardError.Contains("cannot lock ref", StringComparison.OrdinalIgnoreCase) ||
-                    updateRef.StandardError.Contains("already exists", StringComparison.OrdinalIgnoreCase))
-                    return GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "HEAD changed before selected commit.", exitCode: updateRef.ExitCode);
-                return updateRef;
-            }
-            return await ExecuteLocalAsync(repositoryRoot, ["read-tree", "HEAD"], cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            File.Delete(patchFile);
-            if (File.Exists(index)) File.Delete(index);
-            string lockPath = index + ".lock";
-            if (File.Exists(lockPath)) File.Delete(lockPath);
-        }
+        var branch = await GetCurrentBranchAsync(repositoryRoot, cancellationToken);
+        if (!branch.IsSuccess) return branch;
+        return await CommitCurrentBranchAsync(repositoryRoot, message, authorName, authorEmail,
+            branch.StandardOutput.Trim(), expectedHead, patch, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task<GitCommandResult> CommitCurrentBranchAsync(string repositoryRoot, string message, string authorName,
+        string authorEmail, string expectedBranch, string expectedHead, string? patch, CancellationToken cancellationToken) =>
+        new CurrentBranchCommit((arguments, token, environment) => ExecuteLocalAsync(repositoryRoot, arguments, token, environment))
+            .ExecuteAsync(message, authorName, authorEmail, expectedBranch, expectedHead, patch, cancellationToken);
 
     public Task<GitCommandResult> PushStashAsync(
         string repositoryRoot, string message, IReadOnlyList<string> paths, CancellationToken cancellationToken)

@@ -2,6 +2,16 @@
 
 [English](TROUBLESHOOTING.md) | [日本語](TROUBLESHOOTING.ja.md)
 
+## ローカルcommitの状態確認
+
+| エラー | 対処 |
+| --- | --- |
+| `detached_head` | 意図した既存branchへ明示的に切り替えてください。Githubieはbranchを自動作成・切替しません。 |
+| `current_branch_changed` / `expected_head_mismatch` | 現在branch・HEAD・diffを読み直してからcommitを準備してください。 |
+| `repository_busy` | 他操作のlockまたはindexが利用できない状態です。所有者を確認し、稼働中のlockを削除して迂回しないでください。 |
+| `commit_in_progress` | 進行中のmerge/rebase/cherry-pick/revertを専用手順で完了または中止してください。 |
+| `commit_result_unknown` | branch HEAD・index・reflogを照合して復旧し、commitを自動再送しないでください。 |
+
 MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー形式は共通で以下。
 
 ```json

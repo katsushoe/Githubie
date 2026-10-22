@@ -4,6 +4,8 @@
 
 本書はバージョニング方針とリリース手順を定めます（Buckettieの運用を踏襲）。
 
+Version `1.8.13.2`は通常・選択差分commitを現在branchだけへ記録し、PR経路・push許可・保護設定から分離します。branch/SHA返却、branch/HEAD原子検証、専用indexによる保全、旧JSON互換を加え、push/merge/履歴操作の認可は維持します。ADR 0039を参照してください。この記述は候補版のもので、実機導入・Moyai実受入・公開Releaseは別の工程です。
+
 ## バージョニング方針
 
 `Directory.Build.props`の`<Version>` / `<AssemblyVersion>` / `<FileVersion>` / `<InformationalVersion>`を4部構成`a.b.c.d`（各パート0以上の整数）の表示バージョン（Display Version）として一元管理します（AI_prompt共通バージョニングポリシーに準拠）。
