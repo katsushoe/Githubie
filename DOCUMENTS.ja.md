@@ -4,6 +4,7 @@
 
 | 文書 | 内容 |
 | --- | --- |
+| [USER_HOST.ja.md](USER_HOST.ja.md) | 2.0のユーザーホスト・導入・自動起動・接続・復旧の正本 |
 | [README.md](README.md) | 概要、状態、クイックスタート |
 | [INSTALLATION.md](INSTALLATION.md) | ソースからのビルドとバイナリ配置手順 |
 | [CONFIG.md](CONFIG.md) | `githubie.json`の全項目と検証ルール |

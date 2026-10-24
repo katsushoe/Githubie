@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Githubie.Cli;
 using Xunit;
 
@@ -25,7 +25,7 @@ public sealed class CliApplicationTests
     }
 
     [Fact]
-    public async Task RunAsync_Help_DescribesConsoleAuthOption()
+    public async Task RunAsync_Help_DescribesHostOwnedTokenInput()
     {
         using var output = new StringWriter();
         using var error = new StringWriter();
@@ -33,8 +33,9 @@ public sealed class CliApplicationTests
         var exitCode = await CliApplication.RunAsync(["help"], output, error, TestContext.Current.CancellationToken);
 
         exitCode.Should().Be(0);
-        output.ToString().Should().Contain("auth set <repository> [--console]");
-        output.ToString().Should().Contain("GUI by default; only --console uses masked terminal input.");
+        output.ToString().Should().Contain("auth set <repository>");
+        output.ToString().Should().Contain("current user host's dedicated token GUI");
+        output.ToString().Should().NotContain("--console");
         output.ToString().Should().Contain("The GUI waits until the token is entered or cancelled.");
         output.ToString().Should().Contain("CANCELLED, DIALOG_FAILED, SAVE_FAILED");
         output.ToString().Should().NotContain("timeout");

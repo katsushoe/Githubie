@@ -1,4 +1,4 @@
-using System.IO.Pipes;
+﻿using System.IO.Pipes;
 using Githubie.Application.Interactive;
 
 namespace Githubie.ApprovalPrompt;
@@ -55,8 +55,10 @@ internal static class Program
         var request = await ApprovalPipeProtocol.ReadFrameAsync<TokenPromptRequest>(pipe, CancellationToken.None);
         if (request is null) return;
         using var form = new TokenForm(request);
-        var accepted = form.ShowDialog() == DialogResult.OK;
-        var response = new TokenPromptResponse(accepted, accepted ? form.Token : string.Empty);
+        var result = form.ShowDialog();
+        var accepted = result == DialogResult.OK;
+        var response = new TokenPromptResponse(accepted, accepted ? form.Token : string.Empty,
+            request.AllowSkip && result == DialogResult.Ignore);
         form.ClearToken();
         try { await ApprovalPipeProtocol.WriteFrameAsync(pipe, response, CancellationToken.None); }
         catch (IOException) { }

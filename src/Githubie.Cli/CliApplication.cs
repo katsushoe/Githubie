@@ -1,15 +1,8 @@
-using System.Diagnostics;
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Reflection;
 using System.Text.Json;
 using Githubie.Application.Configuration;
-using Githubie.Application.Credentials;
-using Githubie.Application.Git;
-using Githubie.Application.GitHub;
-using Githubie.Application.Repositories;
 using Githubie.Infrastructure.Configuration;
-using Githubie.Infrastructure.Credentials;
-using Githubie.Server;
 
 namespace Githubie.Cli;
 
@@ -24,74 +17,41 @@ public static class CliApplication
     private static readonly TimeSpan McpCallTimeout = Timeout.InfiniteTimeSpan;
 
     public static async Task<int> RunAsync(string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken)
-        => await RunAsync(args, output, error, cancellationToken, null);
-
-    internal static async Task<int> RunAsync(string[] args, TextWriter output, TextWriter error,
-        CancellationToken cancellationToken, AuthSetDependencies? auth)
     {
         var (configPath, remaining) = ExtractConfigOption(args);
-        var binDirectory = AppContext.BaseDirectory;
-        var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
+        var layout = GithubiePathLayout.FromBinDirectory(AppContext.BaseDirectory);
         var effectiveConfigPath = configPath ?? Path.Combine(layout.ConfigDirectory, "githubie.json");
-
+        if (remaining.Length > 0 && remaining[0] is "repo" or "issue" or "auth" or "doctor" or "start" or "stop" or "restart" or "status")
+        {
+            if (configPath is not null)
+            {
+                error.WriteLine("[NG] Business commands use the current user host; --config cannot select an offline database.");
+                return 1;
+            }
+            return await UserHostCli.RunAsync(remaining, output, error, cancellationToken);
+        }
+        if (remaining.Length > 0 && remaining[0] is "host" or "autostart" or "profile" or "setup-user" or "configure" or "unconfigure" or "logs")
+            return await UserHostCli.RunAsync(remaining, output, error, cancellationToken);
+        if (remaining is ["mcp", "stdio"] || (configPath is null &&
+            File.Exists(Path.Combine(Path.GetDirectoryName(GithubiePathLayout.ForCurrentUser(AppContext.BaseDirectory).ConfigDirectory)!, "profile.json")) &&
+            remaining.Length > 0 && remaining[0] is "mcp" or "config"))
+            return await UserHostCli.RunAsync(remaining, output, error, cancellationToken);
         return remaining switch
         {
             [] or ["help"] => PrintHelp(output),
             ["version"] => PrintVersion(output),
-            ["logs"] => PrintLogsPath(output, layout),
-
             ["config", "check"] => await ConfigCheckAsync(effectiveConfigPath, false, output, cancellationToken),
-            ["config", "check", GithubieServerArguments.MoyaiOption] => await ConfigCheckAsync(effectiveConfigPath, true, output, cancellationToken),
+            ["config", "check", "--moyai"] => await ConfigCheckAsync(effectiveConfigPath, true, output, cancellationToken),
             ["config", "show"] => await ConfigShowAsync(effectiveConfigPath, output, cancellationToken),
-
-            ["repo", "list"] => await RepoListAsync(effectiveConfigPath, binDirectory, output, error, cancellationToken),
-            ["repo", "status", var repo] => await RepoStatusAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
-            ["repo", "description", "get", var repo] => await RepoDescriptionGetAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
-            ["repo", "description", "update", var repo, var description] => await RepoDescriptionUpdateAsync(effectiveConfigPath, binDirectory, repo, description, output, error, cancellationToken),
-            ["repo", "rename", var oldRepo, var newRepo] => await RepoRenameAsync(
-                effectiveConfigPath, binDirectory, oldRepo, newRepo, output, error, cancellationToken),
-
-            ["issue", "list", var repo] => await IssueListAsync(
-                effectiveConfigPath, binDirectory, repo, null, output, error, cancellationToken),
-            ["issue", "list", var repo, "--state", "open"] => await IssueListAsync(
-                effectiveConfigPath, binDirectory, repo, GitHubIssueState.Open, output, error, cancellationToken),
-            ["issue", "list", var repo, "--state", "closed"] => await IssueListAsync(
-                effectiveConfigPath, binDirectory, repo, GitHubIssueState.Closed, output, error, cancellationToken),
-            ["issue", "get", var repo, var number] when int.TryParse(number, out var issueNumber) => await IssueGetAsync(
-                effectiveConfigPath, binDirectory, repo, issueNumber, output, error, cancellationToken),
-
-            ["auth", "test", var repo] => await AuthTestAsync(effectiveConfigPath, binDirectory, repo, output, error, cancellationToken),
-            ["auth", "set", var repo] => await AuthSetAsync(layout, binDirectory, repo, false, output, error, cancellationToken, auth),
-            ["auth", "set", var repo, "--console"] => await AuthSetAsync(layout, binDirectory, repo, true, output, error, cancellationToken, auth),
-            ["auth", "delete", var repo] => AuthDelete(layout, repo, output, error),
-
-            ["mcp", "status"] => await McpStatusAsync(effectiveConfigPath, output, error, cancellationToken),
             ["mcp", "auth", "status", "codex"] => await CodexMcpAuthStatusCommand.RunAsync(output, cancellationToken),
+            ["mcp", "status"] => await McpStatusAsync(effectiveConfigPath, output, error, cancellationToken),
             ["mcp", "tools"] => await McpToolsAsync(effectiveConfigPath, output, error, cancellationToken),
             ["mcp", "test"] => await McpTestAsync(effectiveConfigPath, output, error, cancellationToken),
-            ["mcp", "call", var tool] => await McpCallAsync(
-                effectiveConfigPath, tool, "{}", output, error, cancellationToken),
-            ["mcp", "call", var tool, var argumentsJson] => await McpCallAsync(
-                effectiveConfigPath, tool, argumentsJson, output, error, cancellationToken),
-            ["mcp", "call", var tool, "--file", var argumentsPath] => await McpCallFileAsync(
-                effectiveConfigPath, tool, argumentsPath, output, error, cancellationToken),
-
-            ["doctor"] => await DoctorAsync(effectiveConfigPath, binDirectory, output, cancellationToken),
-
-            ["start"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).StartAsync(cancellationToken),
-            ["stop"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).StopAsync(cancellationToken),
-            ["restart"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).RestartAsync(cancellationToken),
-            ["status"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).StatusAsync(cancellationToken),
-
-            ["service", "install"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output)
-                .InstallAsync(Path.Combine(binDirectory, "Githubie.Server.exe"), effectiveConfigPath, false, cancellationToken),
-            ["service", "install", GithubieServerArguments.MoyaiOption] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output)
-                .InstallAsync(Path.Combine(binDirectory, "Githubie.Server.exe"), effectiveConfigPath, true, cancellationToken),
-            ["service", "install", GithubieServerArguments.MoyaiOption, GithubieServerArguments.DirectUnrestrictedOption] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output)
-                .InstallAsync(Path.Combine(binDirectory, "Githubie.Server.exe"), effectiveConfigPath, true, cancellationToken, directUnrestricted: true),
-            ["service", "uninstall"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).UninstallAsync(cancellationToken),
+            ["mcp", "call", var tool] => await McpCallAsync(effectiveConfigPath, tool, "{}", output, error, cancellationToken),
+            ["mcp", "call", var tool, var json] => await McpCallAsync(effectiveConfigPath, tool, json, output, error, cancellationToken),
+            ["mcp", "call", var tool, "--file", var path] => await McpCallFileAsync(effectiveConfigPath, tool, path, output, error, cancellationToken),
             ["service", "status"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).StatusAsync(cancellationToken),
-
+            ["service", "uninstall"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).UninstallAsync(cancellationToken),
             _ => PrintUnknown(remaining, error),
         };
     }
@@ -114,50 +74,31 @@ public static class CliApplication
     {
         output.WriteLine("""
             githubie <command>
-
-              help
-              version
-              logs
-
-              config check [--moyai]
-                Checks standalone settings by default; --moyai also checks Moyai integration settings.
-              config show
-
-              repo list
-              repo status <repository>
+              help | version | logs
+              profile initialize|status
+              host start|stop|restart|status|endpoint
+              start|stop|restart|status|doctor
+              autostart on|off|status
+              configure codex|claude [--replace-legacy]
+              unconfigure codex|claude
+              config check [--moyai] | config show
+              repo list | repo status <repository>
               repo description get <repository>
               repo description update <repository> <description>
               repo rename <old-repository> <new-repository>
-
               issue list <repository> [--state open|closed]
               issue get <repository> <number>
-
-              auth test <repository>
-              auth set <repository> [--console]
-                GUI by default; only --console uses masked terminal input.
-                The GUI waits until the token is entered or cancelled. Results: OK, CANCELLED, DIALOG_FAILED, SAVE_FAILED.
-              auth delete <repository>
-
-              mcp status
+              auth set <repository>
+                Opens the current user host's dedicated token GUI.
+                The GUI waits until the token is entered or cancelled.
+                CANCELLED, DIALOG_FAILED, SAVE_FAILED leave an existing token unchanged.
+              auth delete <repository> | auth test <repository>
+              mcp stdio | mcp status | mcp tools | mcp test
               mcp auth status codex
-                Reports Codex's Githubie auth_status as JSON; unknown is inconclusive.
-              mcp tools
-              mcp test
-              mcp call <tool> [<arguments-json>]
-              mcp call <tool> --file <arguments-json-path>
-
-              github_branch_create arguments: repository, branch, source (required; no default)
-              github_branch_switch arguments: repository, branch (existing local branch; requires a clean working tree)
-              github_local_branch_create arguments: repository, branch, source (required; local branch, tag, or full 40-character SHA; requires a clean working tree)
-
-              doctor
-
-              start | stop | restart | status
-              service install [--moyai [--direct-unrestricted]] | uninstall | status
-                The service runs standalone by default; --moyai registers it in Moyai integration mode.
-                --direct-unrestricted (with --moyai) lets header-less loopback clients use every repository tool.
-
-              --config <path>   githubie.json の場所を指定します（省略時は既定位置）
+              mcp call <tool> [<JSON-object> | --file <arguments-file>]
+                Branch/tag creation source (required; no default).
+              service status | service uninstall
+                Legacy Service diagnostics/removal only. Use host commands for 2.0.
             """);
         return 0;
     }
@@ -166,12 +107,6 @@ public static class CliApplication
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "unknown";
         output.WriteLine(version);
-        return 0;
-    }
-
-    private static int PrintLogsPath(TextWriter output, GithubiePathLayout layout)
-    {
-        output.WriteLine(layout.LogsDirectory);
         return 0;
     }
 
@@ -260,307 +195,6 @@ public static class CliApplication
         }
 
         return 0;
-    }
-
-    private static async Task<int> RepoListAsync(string configPath, string binDirectory, TextWriter output, TextWriter error, CancellationToken cancellationToken)
-    {
-        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
-        if (!composition.IsSuccess)
-        {
-            foreach (var e in composition.Errors)
-            {
-                error.WriteLine(e);
-            }
-
-            return 1;
-        }
-
-        var options = composition.Services!.GetService(typeof(GithubieOptions)) as GithubieOptions;
-        foreach (var repositoryId in options?.Repositories.Keys ?? [])
-        {
-            output.WriteLine(repositoryId);
-        }
-
-        return 0;
-    }
-
-    private static async Task<int> RepoStatusAsync(string configPath, string binDirectory, string repository, TextWriter output, TextWriter error, CancellationToken cancellationToken)
-    {
-        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
-        if (!composition.IsSuccess)
-        {
-            foreach (var e in composition.Errors)
-            {
-                error.WriteLine(e);
-            }
-
-            return 1;
-        }
-
-        var gateway = (IGitGateway)composition.Services!.GetService(typeof(IGitGateway))!;
-        var result = await gateway.GetStatusAsync(repository, cancellationToken);
-        if (!result.IsSuccess)
-        {
-            error.WriteLine($"[NG] {result.Error}");
-            return 1;
-        }
-
-        var status = result.Value!;
-        output.WriteLine($"repository: {status.Repository}");
-        output.WriteLine($"local_branch: {status.LocalBranch}");
-        output.WriteLine($"local_head: {status.LocalHead}");
-        output.WriteLine($"ahead: {status.Ahead} behind: {status.Behind}");
-        output.WriteLine($"working_tree_clean: {status.WorkingTreeClean}");
-        foreach (var change in status.WorkingTreeChanges)
-            output.WriteLine($"working_tree_change: {change.Status} {change.Path}");
-        return 0;
-    }
-
-    private static async Task<int> RepoRenameAsync(
-        string configPath, string binDirectory, string oldRepository, string newRepository,
-        TextWriter output, TextWriter error, CancellationToken cancellationToken)
-    {
-        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
-        if (!composition.IsSuccess)
-        {
-            foreach (var item in composition.Errors) error.WriteLine(item);
-            return 1;
-        }
-        var service = (Application.Repositories.IRepositoryManagementService)composition.Services!
-            .GetService(typeof(Application.Repositories.IRepositoryManagementService))!;
-        var result = await service.RenameAsync(oldRepository, newRepository, cancellationToken);
-        output.WriteLine(result.IsSuccess ? $"[OK] renamed: {oldRepository} -> {newRepository}" : $"[NG] {result.Error}");
-        return result.IsSuccess ? 0 : 1;
-    }
-
-    private static async Task<int> RepoDescriptionGetAsync(
-        string configPath, string binDirectory, string repository, TextWriter output, TextWriter error, CancellationToken cancellationToken)
-    {
-        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
-        if (!composition.IsSuccess) { foreach (var item in composition.Errors) error.WriteLine(item); return 1; }
-        var gateway = (IGitHubRepositoryGateway)composition.Services!.GetService(typeof(IGitHubRepositoryGateway))!;
-        var result = await gateway.GetRepositoryAsync(repository, cancellationToken);
-        if (!result.IsSuccess) { error.WriteLine($"[NG] {result.Error}"); return 1; }
-        output.WriteLine(result.Value!.Description ?? string.Empty);
-        return 0;
-    }
-
-    private static async Task<int> RepoDescriptionUpdateAsync(
-        string configPath, string binDirectory, string repository, string description,
-        TextWriter output, TextWriter error, CancellationToken cancellationToken)
-    {
-        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
-        if (!composition.IsSuccess) { foreach (var item in composition.Errors) error.WriteLine(item); return 1; }
-        var gateway = (IGitHubRepositoryGateway)composition.Services!.GetService(typeof(IGitHubRepositoryGateway))!;
-        var result = await gateway.UpdateRepositoryDescriptionAsync(repository, description, cancellationToken);
-        if (!result.IsSuccess) { error.WriteLine($"[NG] {result.Error}"); return 1; }
-        output.WriteLine(result.Value!.Description ?? string.Empty);
-        return 0;
-    }
-
-    private static async Task<int> IssueListAsync(
-        string configPath, string binDirectory, string repository, GitHubIssueState? state,
-        TextWriter output, TextWriter error, CancellationToken cancellationToken)
-    {
-        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
-        if (!composition.IsSuccess) { foreach (var item in composition.Errors) error.WriteLine(item); return 1; }
-        var gateway = (IGitHubRepositoryGateway)composition.Services!.GetService(typeof(IGitHubRepositoryGateway))!;
-        var result = await gateway.ListIssuesAsync(repository, state, cancellationToken);
-        if (!result.IsSuccess) { error.WriteLine($"[NG] {result.Error}"); return 1; }
-        foreach (var issue in result.Value!)
-            output.WriteLine($"#{issue.Number} [{issue.State.ToString().ToLowerInvariant()}] {issue.Title} ({issue.Url})");
-        return 0;
-    }
-
-    private static async Task<int> IssueGetAsync(
-        string configPath, string binDirectory, string repository, int number,
-        TextWriter output, TextWriter error, CancellationToken cancellationToken)
-    {
-        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
-        if (!composition.IsSuccess) { foreach (var item in composition.Errors) error.WriteLine(item); return 1; }
-        var gateway = (IGitHubRepositoryGateway)composition.Services!.GetService(typeof(IGitHubRepositoryGateway))!;
-        var result = await gateway.GetIssueAsync(repository, number, cancellationToken);
-        if (!result.IsSuccess) { error.WriteLine($"[NG] {result.Error}"); return 1; }
-        var issue = result.Value!;
-        output.WriteLine($"number: {issue.Number}");
-        output.WriteLine($"state: {issue.State.ToString().ToLowerInvariant()}");
-        output.WriteLine($"title: {issue.Title}");
-        output.WriteLine($"author: {issue.Author}");
-        output.WriteLine($"url: {issue.Url}");
-        output.WriteLine($"labels: {string.Join(", ", issue.Labels)}");
-        output.WriteLine($"assignees: {string.Join(", ", issue.Assignees)}");
-        output.WriteLine($"body: {issue.Body ?? string.Empty}");
-        return 0;
-    }
-
-    private static async Task<int> AuthTestAsync(string configPath, string binDirectory, string repository, TextWriter output, TextWriter error, CancellationToken cancellationToken)
-    {
-        var composition = await GithubieCompositionRoot.BuildAsync(configPath, binDirectory, cancellationToken);
-        if (!composition.IsSuccess)
-        {
-            foreach (var e in composition.Errors)
-            {
-                error.WriteLine(e);
-            }
-
-            return 1;
-        }
-
-        var gateway = (IGitHubRepositoryGateway)composition.Services!.GetService(typeof(IGitHubRepositoryGateway))!;
-        var result = await gateway.ListBranchesAsync(repository, cancellationToken);
-        output.WriteLine(result.IsSuccess ? "[OK] GitHub API authentication succeeded" : $"[NG] {result.Error}");
-        return result.IsSuccess ? 0 : 1;
-    }
-
-    private static async Task<int> AuthSetAsync(
-        GithubiePathLayout layout,
-        string binDirectory,
-        string repository,
-        bool useConsole,
-        TextWriter output,
-        TextWriter error,
-        CancellationToken cancellationToken,
-        AuthSetDependencies? dependencies)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            error.WriteLine("[NG] auth set requires Windows.");
-            return 1;
-        }
-
-        char[]? token;
-        if (useConsole)
-        {
-            output.Write("Personal Access Token: ");
-            token = dependencies is null ? ReadMaskedLine() : dependencies.ReadConsole();
-            output.WriteLine($"({token.Length} characters captured)");
-        }
-        else
-        {
-            if (!RepositoryId.TryNormalize(repository, out repository))
-            {
-                error.WriteLine("[NG] invalid repository ID");
-                return 1;
-            }
-
-            RepositoryOptions? options;
-            try
-            {
-                options = dependencies is null
-                    ? await new SqliteRepositoryConfigurationStore(layout.RepositoryDatabasePath).GetRepositoryAsync(repository, cancellationToken)
-                    : await dependencies.GetRepository(repository, cancellationToken);
-            }
-            catch (Exception exception) when (exception is IOException or InvalidDataException)
-            {
-                error.WriteLine($"[NG] {exception.Message}");
-                return 1;
-            }
-            if (options is null)
-            {
-                error.WriteLine("[NG] repository is not registered");
-                return 1;
-            }
-
-            var prompt = new TokenPromptClient(Path.Combine(binDirectory, "Githubie.ApprovalPrompt.exe"));
-            try
-            {
-                var request = new Application.Interactive.TokenPromptRequest(
-                    repository, $"https://github.com/{options.GitHubOwner}/{options.GitHubRepo}");
-                token = dependencies is null
-                    ? await prompt.RequestAsync(request, cancellationToken)
-                    : await dependencies.RequestGui(request, cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                output.WriteLine("[CANCELLED] token was not saved");
-                return 1;
-            }
-            catch (Exception exception) when (exception is IOException or System.ComponentModel.Win32Exception or UnauthorizedAccessException)
-            {
-                error.WriteLine("[DIALOG_FAILED] token dialog could not be started or completed");
-                return 1;
-            }
-            if (token is null)
-            {
-                output.WriteLine("[CANCELLED] token was not saved");
-                return 1;
-            }
-        }
-
-        try
-        {
-            var result = dependencies is null
-                ? new DpapiFileTokenStore(layout.SecretsDirectory).Save(repository, token)
-                : dependencies.Save(repository, token);
-            output.WriteLine(result.IsSuccess ? "[OK] token saved" : $"[SAVE_FAILED] {result.Error}");
-            return result.IsSuccess ? 0 : 1;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.Security.Cryptography.CryptographicException)
-        {
-            error.WriteLine("[SAVE_FAILED] token could not be saved");
-            return 1;
-        }
-        finally
-        {
-            System.Security.Cryptography.CryptographicOperations.ZeroMemory(
-                System.Runtime.InteropServices.MemoryMarshal.AsBytes(token.AsSpan()));
-        }
-    }
-
-    private static int AuthDelete(GithubiePathLayout layout, string repository, TextWriter output, TextWriter error)
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            error.WriteLine("[NG] auth delete requires Windows.");
-            return 1;
-        }
-
-        var store = new DpapiFileTokenStore(layout.SecretsDirectory);
-        var result = store.Delete(repository);
-        output.WriteLine(result.IsSuccess ? "[OK] token deleted" : $"[NG] {result.Error}");
-        return result.IsSuccess ? 0 : 1;
-    }
-
-    private static char[] ReadMaskedLine()
-    {
-        var chars = new List<char>();
-        while (true)
-        {
-            var key = Console.ReadKey(intercept: true);
-            if (key.Key == ConsoleKey.Enter)
-            {
-                break;
-            }
-
-            if (key.Key == ConsoleKey.Backspace)
-            {
-                if (chars.Count > 0)
-                {
-                    chars[^1] = '\0';
-                    chars.RemoveAt(chars.Count - 1);
-                    Console.Write("\b \b");
-                }
-
-                continue;
-            }
-
-            chars.Add(key.KeyChar);
-            Console.Write('*');
-        }
-
-        Console.WriteLine();
-
-        // 貼り付け時に混入しやすい先頭/末尾の空白・改行を除去する。
-        try
-        {
-            return System.Runtime.InteropServices.CollectionsMarshal.AsSpan(chars).Trim().ToArray();
-        }
-        finally
-        {
-            System.Security.Cryptography.CryptographicOperations.ZeroMemory(
-                System.Runtime.InteropServices.MemoryMarshal.AsBytes(
-                    System.Runtime.InteropServices.CollectionsMarshal.AsSpan(chars)));
-        }
     }
 
     private static async Task<int> McpStatusAsync(string configPath, TextWriter output, TextWriter error, CancellationToken cancellationToken)
@@ -739,110 +373,6 @@ public static class CliApplication
             return true;
         }
         catch (JsonException)
-        {
-            return false;
-        }
-    }
-
-    private static async Task<int> DoctorAsync(string configPath, string binDirectory, TextWriter output, CancellationToken cancellationToken)
-    {
-        var readinessTimeout = TimeSpan.FromSeconds(30);
-        var readinessPollInterval = TimeSpan.FromMilliseconds(250);
-        var failures = 0;
-
-        var options = await TryLoadOptionsAsync(configPath, output, cancellationToken);
-        if (options is null)
-        {
-            output.WriteLine("[NG] Configuration");
-            return 1;
-        }
-
-        output.WriteLine("[OK] Configuration");
-
-        var gitFound = await CheckGitAsync(cancellationToken);
-        output.WriteLine(gitFound ? "[OK] Git" : "[NG] Git");
-        if (!gitFound)
-        {
-            failures++;
-        }
-
-        var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
-        ServiceReadinessResult readiness;
-        try
-        {
-            readiness = await new ServiceReadinessStore(layout.ServiceStatePath).WaitForReadyAsync(
-                readinessTimeout,
-                readinessPollInterval,
-                cancellationToken);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or JsonException)
-        {
-            output.WriteLine($"[NG] Service readiness ({ex.Message})");
-            return failures + 1;
-        }
-
-        output.WriteLine(readiness.IsReady
-            ? "[OK] Service readiness"
-            : $"[NG] Service readiness ({readiness.Error})");
-        if (!readiness.IsReady) return failures + 1;
-
-        var composition = await GithubieCompositionRoot.BuildForDoctorAsync(configPath, binDirectory, cancellationToken);
-        if (!composition.IsSuccess)
-        {
-            output.WriteLine("[NG] Service composition");
-            foreach (var e in composition.Errors)
-            {
-                output.WriteLine($"     {e}");
-            }
-
-            return failures + 1;
-        }
-
-        output.WriteLine("[OK] Service composition");
-
-        var tokenStore = (IApiTokenStore)composition.Services!.GetService(typeof(IApiTokenStore))!;
-        var gitGateway = (IGitGateway)composition.Services!.GetService(typeof(IGitGateway))!;
-
-        foreach (var repositoryId in options.Repositories.Keys)
-        {
-            var tokenResult = tokenStore.Read(repositoryId);
-            output.WriteLine(tokenResult.IsSuccess ? $"[OK] Token: {repositoryId}" : $"[NG] Token: {repositoryId} ({tokenResult.Error})");
-            if (!tokenResult.IsSuccess)
-            {
-                failures++;
-            }
-
-            var statusResult = await gitGateway.GetStatusAsync(repositoryId, cancellationToken);
-            output.WriteLine(statusResult.IsSuccess ? $"[OK] Repository: {repositoryId}" : $"[NG] Repository: {repositoryId} ({statusResult.Error})");
-            if (!statusResult.IsSuccess)
-            {
-                failures++;
-            }
-        }
-
-        return failures == 0 ? 0 : 1;
-    }
-
-    private static async Task<bool> CheckGitAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var process = Process.Start(new ProcessStartInfo("git", "--version")
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-            });
-
-            if (process is null)
-            {
-                return false;
-            }
-
-            await process.WaitForExitAsync(cancellationToken);
-            return process.ExitCode == 0;
-        }
-        catch (System.ComponentModel.Win32Exception)
         {
             return false;
         }

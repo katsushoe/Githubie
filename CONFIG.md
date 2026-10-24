@@ -2,6 +2,14 @@
 
 [English](CONFIG.md) | [日本語](CONFIG.ja.md)
 
+## 2.0 user host
+
+Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `C:\Githubie`; mutable data is per user. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.
+
+## 1.x reference and recovery
+
+The following Service paths, direct token input and installation procedures describe 1.x. The 2.0 guide above takes precedence. Unchanged typed MCP tool argument/result schemas still apply to 2.0. Historical acceptance statements apply only to their stated versions.
+
 Githubie reads strict `snake_case` JSON. Unknown properties, comments, and trailing commas are rejected. See [githubie.example.json](githubie.example.json).
 
 The MCP repository settings tools operate on the registered values loaded from the configuration store. Their response is an explicit allowlist and does not expose credentials, local paths, GitHub identity, workflow inputs, or Moyai mappings.

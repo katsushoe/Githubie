@@ -1,6 +1,6 @@
 param(
-    [string]$DisplayVersion = '1.8.13.2',
-    [string]$ProductVersion = '1.8.13',
+    [string]$DisplayVersion = '2.0.0.0',
+    [string]$ProductVersion = '2.0.0',
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$NoRestore
 )
@@ -83,6 +83,7 @@ if ($LASTEXITCODE -ne 0) { throw 'MSI build failed.' }
 
 $msiPath = Join-Path $outputDirectory "Githubie-$DisplayVersion-win-x64.msi"
 if (-not (Test-Path -LiteralPath $msiPath)) { throw "MSI was not created: $msiPath" }
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-UserHost.ps1') -Destination $outputDirectory
 $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $msiPath
 $hashLine = "$($hash.Hash)  $([IO.Path]::GetFileName($msiPath))"
 [IO.File]::WriteAllText("$msiPath.sha256", "$hashLine`r`n", [Text.Encoding]::ASCII)

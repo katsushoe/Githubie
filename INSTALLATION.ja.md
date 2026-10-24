@@ -2,6 +2,14 @@
 
 [English](INSTALLATION.md) | [日本語](INSTALLATION.ja.md)
 
+## 2.0 ユーザーホスト
+
+2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。バイナリは `C:\Githubie`、可変データはユーザー別です。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
+
+## 1.x の参照・復旧資料
+
+以下のService配置・直接Token入力・導入手順は1.x向けです。2.0では上記正本を優先してください。変更していない型付きMCP Toolの引数・結果schemaは2.0でも使用します。過去の受入記録は、その記載版の結果です。
+
 Githubieではx64 MSI、Portable ZIP、ソースからのBuildを利用できます。推奨する配布形式はMSIです。初回のMSI Install／Major Upgrade／Uninstall検証はVersion `1.0.0.0`で完了しています。Version `1.8.3.2`では、単独の`githubie auth set`からToken登録画面を開く場合も登録済みRepository URLを解決して表示し、`C:\Githubie`へのMSI Install、Install済みVersion、Windows Service自動起動、CLI設定検査、登録済みProjectの保持、実PATによるHTTPS pull／tag push経路、手動Uninstall／ReinstallをWindows実機で検証しました。UninstallでServiceを消去しながら設定とDataを保持し、ReinstallでServiceを再作成・起動することを確認しています。Version `1.8.4.0`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、設定検査、登録済み9 Projectの保持、Issue一覧・詳細Toolの公開を実機検証しました。`logs`には組み込みUsersの読み取り・書き込み・走査権限を付与し、一般ユーザーの管理CLIが昇格なしで監査ログを追記できるようにします。Secret ACLは別に制限します。
 
 Version `1.8.5.0`では`C:\Githubie`へのUpgrade Install、CLI／MCP Version、Service自動起動、設定検査、登録済み9 Projectの保持、初回Commit前のRepository状態取得を実機検証しました。

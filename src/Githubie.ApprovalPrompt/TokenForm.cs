@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using Githubie.Application.Interactive;
 
 namespace Githubie.ApprovalPrompt;
@@ -9,6 +9,14 @@ internal sealed partial class TokenForm : Form
     {
         ArgumentNullException.ThrowIfNull(request);
         InitializeComponent();
+        var strings = new System.Resources.ResourceManager("Githubie.ApprovalPrompt.TokenStrings", typeof(TokenForm).Assembly);
+        instructionLabel.Text = strings.GetString("Instruction");
+        projectNameCaptionLabel.Text = strings.GetString("Project");
+        repositoryUrlCaptionLabel.Text = strings.GetString("Repository");
+        cancelButton.Text = strings.GetString("Cancel");
+        skipButton.Text = strings.GetString("Skip");
+        skipButton.Visible = request.AllowSkip;
+        Text = strings.GetString("Title");
         projectNameValueLabel.Text = request.ProjectName;
         repositoryUrlValueLabel.Text = request.RepositoryUrl;
         ActiveControl = tokenTextBox;

@@ -1,10 +1,10 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 
 namespace Githubie.Application.Interactive;
 
 public sealed record ApprovalPromptResponse(bool Approved);
 
-public sealed record TokenPromptResponse(bool Accepted, string Token);
+public sealed record TokenPromptResponse(bool Accepted, string Token, bool Skipped = false);
 
 public static class ApprovalPipeProtocol
 {

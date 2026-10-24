@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace Githubie.Cli;
 
@@ -57,8 +57,8 @@ public sealed class WindowsServiceManager(IServiceCommandExecutor executor, Text
         if (directUnrestricted && !moyaiIntegration)
             throw new ArgumentException("--direct-unrestricted requires --moyai.", nameof(directUnrestricted));
         var binPath = $"\"{serverExecutablePath}\" \"{configPath}\"";
-        if (moyaiIntegration) binPath += $" {Githubie.Server.GithubieServerArguments.MoyaiOption}";
-        if (directUnrestricted) binPath += $" {Githubie.Server.GithubieServerArguments.DirectUnrestrictedOption}";
+        if (moyaiIntegration) binPath += " --moyai";
+        if (directUnrestricted) binPath += " --direct-unrestricted";
         var (exitCode, result) = await executor.RunAsync(
             ["create", ServiceName, "binPath=", binPath, "start=", "auto", "DisplayName=", "Githubie MCP Server"], cancellationToken);
 

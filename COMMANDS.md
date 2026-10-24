@@ -2,6 +2,14 @@
 
 [English](COMMANDS.md) | [日本語](COMMANDS.ja.md)
 
+## 2.0 user host
+
+Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `C:\Githubie`; mutable data is per user. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.
+
+## 1.x reference and recovery
+
+The following Service paths, direct token input and installation procedures describe 1.x. The 2.0 guide above takes precedence. Unchanged typed MCP tool argument/result schemas still apply to 2.0. Historical acceptance statements apply only to their stated versions.
+
 ## Repository settings MCP tools
 
 `github_repository_settings_get` returns the nine registered settings under `data.settings`: `direct_push_branches`, `protected_branches`, `pull_branches`, `tag_pattern`, `tag_target_branch`, `require_clean_working_tree`, `commit_author_name`, `commit_author_email`, and `pull_request_routes`. Routes contain `source_branch` and `destination_branch` pairs. A null author means no registered author; it does not resolve local Git identity. The read requires `repository.read` and does not access Git or GitHub.

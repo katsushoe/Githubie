@@ -102,12 +102,14 @@ public sealed class RepositoryManagementService(
     IInteractiveApprovalPrompt approvalPrompt,
     IRepositoryConfigurationStore configurationStore,
     IApiTokenStore tokenStore,
-    MoyaiProjectMapping? moyaiProjects = null) : IRepositoryManagementService
+    MoyaiProjectMapping? moyaiProjects = null,
+    IAtomicRepositoryManagementStore? atomicManagementStore = null,
+    RepositoryMutationLock? mutationLock = null) : IRepositoryManagementService
 {
     private readonly MoyaiProjectMapping _moyaiProjects = moyaiProjects ?? new MoyaiProjectMapping(allowlist, null);
 
     private static readonly TimeSpan ApprovalTimeout = TimeSpan.FromMinutes(5);
-    private readonly SemaphoreSlim _mutationLock = new(1, 1);
+    private readonly SemaphoreSlim _mutationLock = mutationLock?.Gate ?? new(1, 1);
 
     public bool TryGetSettings(string repositoryId, out RepositorySettings settings)
     {
@@ -313,7 +315,11 @@ public sealed class RepositoryManagementService(
         {
             if (!allowlist.TryGet(repositoryId, out _))
                 return RepositoryMutationResult.Failure(RepositoryMutationError.RepositoryNotRegistered);
-            try { await configurationStore.DeleteRepositoryAsync(repositoryId, cancellationToken); }
+            try
+            {
+                if (atomicManagementStore is not null) await atomicManagementStore.DeleteRegistrationAsync(repositoryId, cancellationToken);
+                else await configurationStore.DeleteRepositoryAsync(repositoryId, cancellationToken);
+            }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyNotFoundException)
             { return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed); }
             allowlist.TryRemove(repositoryId);
@@ -336,6 +342,15 @@ public sealed class RepositoryManagementService(
             if (allowlist.TryGet(newRepositoryId, out _))
                 return RepositoryMutationResult.Failure(RepositoryMutationError.DuplicateRepositoryId);
 
+            if (atomicManagementStore is not null)
+            {
+                try { await atomicManagementStore.RenameRegistrationAsync(oldRepositoryId, newRepositoryId, cancellationToken); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed); }
+                if (!allowlist.TryRename(oldRepositoryId, newRepositoryId))
+                    throw new InvalidOperationException("The committed repository rename could not be published.");
+                return RepositoryMutationResult.Success(new RepositoryMutationInfo(false, newRepositoryId));
+            }
             var tokenMove = tokenStore.Rename(oldRepositoryId, newRepositoryId);
             if (!tokenMove.IsSuccess)
                 return RepositoryMutationResult.Failure(tokenMove.Error == ApiTokenStoreError.TokenNotFound

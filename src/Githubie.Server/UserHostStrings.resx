@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Autostart" xml:space="preserve"><value>Start at sign-in</value></data>
+  <data name="Restart" xml:space="preserve"><value>Restart host</value></data>
+  <data name="Stop" xml:space="preserve"><value>Stop host</value></data>
+  <data name="StartupFailed" xml:space="preserve"><value>The startup setting could not be saved. Check the current user's permissions.</value></data>
+  <data name="HostFailed" xml:space="preserve"><value>Githubie could not run. Check the user profile log and ensure another host is not using this profile or port.</value></data>
+</root>

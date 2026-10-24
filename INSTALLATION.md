@@ -2,6 +2,14 @@
 
 [English](INSTALLATION.md) | [日本語](INSTALLATION.ja.md)
 
+## 2.0 user host
+
+Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `C:\Githubie`; mutable data is per user. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.
+
+## 1.x reference and recovery
+
+The following Service paths, direct token input and installation procedures describe 1.x. The 2.0 guide above takes precedence. Unchanged typed MCP tool argument/result schemas still apply to 2.0. Historical acceptance statements apply only to their stated versions.
+
 Githubie supports an x64 MSI, a portable ZIP, and source builds. Windows 10/11 or Windows Server and Git for Windows are required.
 
 ## MSI Installation

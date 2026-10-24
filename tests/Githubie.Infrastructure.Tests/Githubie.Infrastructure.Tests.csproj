@@ -11,4 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Githubie.Infrastructure/Githubie.Infrastructure.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Fixtures/PipePromptFixture.ps1" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

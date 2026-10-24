@@ -14,6 +14,10 @@
       DowngradeErrorMessage="A newer version of Githubie is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
     <Property Id="ROOTDRIVE" Value="C:\" Secure="yes" />
+    <Property Id="GITHUBIE_USER_SETUP_PENDING" Secure="yes" />
+    <Property Id="GITHUBIE_TARGET_SID" Secure="yes" />
+    <Launch Condition="Installed OR REMOVE = &quot;ALL&quot; OR (GITHUBIE_USER_SETUP_PENDING = &quot;1&quot; AND GITHUBIE_TARGET_SID)"
+            Message="Run Install-UserHost.ps1 as the intended non-elevated signed-in user. MSI alone does not complete user startup setup." />
 
     <!-- Service mode: standalone by default; MOYAI=1 registers the service in Moyai integration mode (MOYAI=0 returns to standalone).
          The value is remembered in the registry so later upgrades keep the selected mode. -->
@@ -64,16 +68,6 @@
           Part="last"
           Action="set"
           System="yes" />
-        <ServiceInstall
-          Id="GithubieServiceInstall"
-          Name="Githubie"
-          DisplayName="Githubie MCP Server"
-          Description="Local MCP gateway for approved Git and GitHub.com operations."
-          Type="ownProcess"
-          Start="auto"
-          ErrorControl="normal"
-          Account="LocalSystem"
-          Arguments="&quot;[CONFIGDIR]githubie.json&quot;[GITHUBIE_MOYAI_SWITCH]" />
         <RegistryValue
           Root="HKLM"
           Key="SOFTWARE\Akatsukisoft\Githubie"
@@ -89,9 +83,8 @@
         <ServiceControl
           Id="GithubieServiceControl"
           Name="Githubie"
-          Start="install"
           Stop="both"
-          Remove="uninstall"
+          Remove="both"
           Wait="yes" />
       </Component>
       <Files Include="$(PublishDir)\**">
@@ -146,6 +139,9 @@
         <File Source="..\..\DOCUMENTS.ja.md" />
         <File Source="..\..\MCP_SETUP.md" />
         <File Source="..\..\MCP_SETUP.ja.md" />
+        <File Source="..\..\USER_HOST.md" />
+        <File Source="..\..\USER_HOST.ja.md" />
+        <File Source="..\..\docs\licenses\Tomlyn.txt" Name="Tomlyn.LICENSE.txt" />
         <File Source="..\..\INSTALLATION.md" />
         <File Source="..\..\INSTALLATION.ja.md" />
         <File Source="..\..\OPERATIONS.md" />

@@ -2,6 +2,14 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
+## 2.0 ユーザーホスト
+
+2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。バイナリは `C:\Githubie`、可変データはユーザー別です。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
+
+## 1.x の参照・復旧資料
+
+以下のService配置・直接Token入力・導入手順は1.x向けです。2.0では上記正本を優先してください。変更していない型付きMCP Toolの引数・結果schemaは2.0でも使用します。過去の受入記録は、その記載版の結果です。
+
 本書はバージョニング方針とリリース手順を定めます（Buckettieの運用を踏襲）。
 
 Version `1.8.13.2`は通常・選択差分commitを現在branchだけへ記録し、PR経路・push許可・保護設定から分離します。branch/SHA返却、branch/HEAD原子検証、専用indexによる保全、旧JSON互換を加え、push/merge/履歴操作の認可は維持します。ADR 0039を参照してください。この記述は候補版のもので、実機導入・Moyai実受入・公開Releaseは別の工程です。

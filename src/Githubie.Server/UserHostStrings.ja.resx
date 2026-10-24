@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="Autostart" xml:space="preserve"><value>ログオン時に起動</value></data>
+  <data name="Restart" xml:space="preserve"><value>ホストを再起動</value></data>
+  <data name="Stop" xml:space="preserve"><value>ホストを停止</value></data>
+  <data name="StartupFailed" xml:space="preserve"><value>自動起動設定を保存できませんでした。現在ユーザーの権限を確認してください。</value></data>
+  <data name="HostFailed" xml:space="preserve"><value>Githubieを実行できませんでした。ユーザープロフィールのログと、同じプロフィールやポートを使用している別ホストの有無を確認してください。</value></data>
+</root>

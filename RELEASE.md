@@ -2,6 +2,14 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
+## 2.0 user host
+
+Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `C:\Githubie`; mutable data is per user. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.
+
+## 1.x reference and recovery
+
+The following Service paths, direct token input and installation procedures describe 1.x. The 2.0 guide above takes precedence. Unchanged typed MCP tool argument/result schemas still apply to 2.0. Historical acceptance statements apply only to their stated versions.
+
 Version `1.8.13.2` corrects ordinary/selected local commits to target only the current attached branch independently of PR routes, push allowlists and branch protection. It adds branch/SHA result fields, atomic expected-branch/HEAD verification, private-index preservation and legacy JSON compatibility. Push/merge/history authorization is unchanged. See ADR 0039. This entry describes the candidate; installation, live Moyai acceptance and public release are separate checkpoints.
 
 ## Versioning

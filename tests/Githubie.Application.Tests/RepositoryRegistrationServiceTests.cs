@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Githubie.Application.Configuration;
 using Githubie.Application.Credentials;
 using Githubie.Application.Git;
@@ -488,7 +488,68 @@ public sealed class RepositoryRegistrationServiceTests
             .Returns(GitHubResult<GitHubCreatedRepository>.Success(new GitHubCreatedRepository(
                 owner, "NewRepo", isPrivate, $"https://github.com/{owner}/NewRepo", $"https://github.com/{owner}/NewRepo.git")));
 
-    private RepositoryRegistrationService CreateService() => new(
+    [Theory]
+    [InlineData(InteractiveTokenPromptOutcome.Cancelled)]
+    [InlineData(InteractiveTokenPromptOutcome.LaunchFailed)]
+    [InlineData(InteractiveTokenPromptOutcome.ProtocolError)]
+    public async Task AtomicRegistration_UnavailableCredential_DoesNotPersistOrPublish(InteractiveTokenPromptOutcome outcome)
+    {
+        var atomic = Substitute.For<IAtomicRepositoryRegistrationStore>();
+        _tokenPrompt.RequestTokenAsync(Arg.Any<TokenPromptRequest>(), Arg.Any<CancellationToken>())
+            .Returns(InteractiveTokenPromptResult.Failure(outcome));
+        var result = await CreateService(atomic).RegisterAsync(new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null), TestContext.Current.CancellationToken);
+        result.IsSuccess.Should().BeFalse();
+        result.Error.Should().Be(RepositoryRegistrationError.TokenUnavailable);
+        _allowlist.TryGet("sample", out _).Should().BeFalse();
+        await atomic.DidNotReceiveWithAnyArgs().SaveRegistrationAsync(default!, default!, default, TestContext.Current.CancellationToken);
+        await _store.DidNotReceiveWithAnyArgs().SaveRepositoryAsync(default!, default!, TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task AtomicRegistration_SaveFailure_ClearsCredentialAndLeavesAllowlistUnchanged()
+    {
+        var atomic = Substitute.For<IAtomicRepositoryRegistrationStore>();
+        var secret = "test-secret".ToCharArray();
+        _tokenPrompt.RequestTokenAsync(Arg.Any<TokenPromptRequest>(), Arg.Any<CancellationToken>())
+            .Returns(InteractiveTokenPromptResult.Accepted(secret));
+        atomic.SaveRegistrationAsync(Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<char[]?>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new IOException("Injected failure")));
+        var result = await CreateService(atomic).RegisterAsync(new RepositoryRegistrationRequest("sample", LocalRoot, null, null, null), TestContext.Current.CancellationToken);
+        result.Error.Should().Be(RepositoryRegistrationError.PersistenceFailed);
+        _allowlist.TryGet("sample", out _).Should().BeFalse();
+        secret.Should().OnlyContain(value => value == '\0');
+        _tokenStore.SavedToken.Should().BeNull();
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AtomicCreation_LocalRegistrationUsesTransactionAndPreservesExistingToken(bool failSave)
+    {
+        ArrangeLocalRootWithoutOrigin();
+        _tokenStore.Stored = "existing-credential";
+        ArrangeLogin("owner");
+        ArrangeCreated(isPrivate: true);
+        var atomic = Substitute.For<IAtomicRepositoryRegistrationStore>();
+        char[]? receivedToken = null;
+        atomic.SaveRegistrationAsync(Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<char[]?>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                receivedToken = call.ArgAt<char[]>(2);
+                new string(receivedToken).Should().Be("existing-credential");
+                return failSave ? Task.FromException(new IOException("Injected failure")) : Task.CompletedTask;
+            });
+        var result = await CreateService(atomic).CreateAsync(
+            new RepositoryCreateRequest("newrepo", "owner", "NewRepo", null, null, LocalRoot), TestContext.Current.CancellationToken);
+        result.IsSuccess.Should().Be(!failSave);
+        _allowlist.TryGet("newrepo", out _).Should().Be(!failSave);
+        if (failSave) result.Diagnostic.Should().Contain("https://github.com/owner/NewRepo");
+        _tokenStore.Stored.Should().Be("existing-credential");
+        receivedToken.Should().NotBeNull().And.OnlyContain(value => value == '\0');
+        await _store.DidNotReceiveWithAnyArgs().SaveRepositoryAsync(default!, default!, TestContext.Current.CancellationToken);
+    }
+
+    private RepositoryRegistrationService CreateService(IAtomicRepositoryRegistrationStore? atomic = null) => new(
         _allowlist,
         new LocalPathValidator(_environment),
         _git,
@@ -496,7 +557,7 @@ public sealed class RepositoryRegistrationServiceTests
         _store,
         _tokenPrompt,
         _tokenStore,
-        _gitHub);
+        _gitHub, atomicRegistrationStore: atomic);
 
     private static RepositoryOptions CreateOptions() => new(
         "owner", "repo", LocalRoot, "origin", "develop", "main",

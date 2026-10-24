@@ -2,6 +2,14 @@
 
 [English](MCP_SETUP.md) | [日本語](MCP_SETUP.ja.md)
 
+## 2.0 user host
+
+Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `C:\Githubie`; mutable data is per user. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.
+
+## 1.x reference and recovery
+
+The following Service paths, direct token input and installation procedures describe 1.x. The 2.0 guide above takes precedence. Unchanged typed MCP tool argument/result schemas still apply to 2.0. Historical acceptance statements apply only to their stated versions.
+
 Githubie exposes MCP over Streamable HTTP at `http://127.0.0.1:45460/mcp` by default. Start `Githubie.Server.exe` or the Windows Service and register credentials with `githubie.exe auth set <repository>` first.
 
 ## Connectivity Check

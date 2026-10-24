@@ -35,5 +35,7 @@
 | [0037](0037-local-branch-create-provider-capability.md) | Explicit capability for local branch creation, distinct from remote branch creation |
 | [0039](0039-current-branch-local-commits.md) | Current-branch ordinary/selected commits independent of branch policy with atomic ref verification |
 | [0038](0038-pr-create-provider-capability.md) | Explicit provider capability and contract for pull request creation |
+| [0040](0040-user-session-host.md) | Same-process user host/tray, fresh profiles, protected connections and atomic registration |
 
-ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.
+ADRs are written in English. Public guides are maintained in English with Japanese translations.
+

@@ -6,6 +6,7 @@ This public index links only to documentation that is safe to publish. Internal 
 
 | Document | Purpose |
 | --- | --- |
+| [USER_HOST.md](USER_HOST.md) | Canonical 2.0 user host, setup, startup, client registration and recovery |
 | [README.md](README.md) | Overview and shortest setup path |
 | [INSTALLATION.md](INSTALLATION.md) | MSI, ZIP, and source installation |
 | [CONFIG.md](CONFIG.md) | Complete `githubie.json` reference |
