@@ -92,7 +92,8 @@ internal static class UserHostCli
                 .AddHttpClient("UserHost", client => client.Timeout = Timeout.InfiniteTimeSpan)
                 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false })
                 .Services.BuildServiceProvider();
-            var transport = new UserHostMcpClient(transportServices.GetRequiredService<IHttpClientFactory>());
+            var transport = new UserHostMcpClient(transportServices.GetRequiredService<IHttpClientFactory>(),
+                () => new UserHostConnectionStore(layout.DataDirectory).Read(profiles.ReadIdentity()));
             if (args is ["mcp", "stdio"]) return await UserHostStdioBridge.RunAsync(connection, transport, Console.In, output, cancellationToken);
             var control = args switch
             {

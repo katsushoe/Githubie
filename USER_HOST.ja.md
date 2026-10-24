@@ -29,7 +29,7 @@ MSI実行だけがUAC昇格します。別の管理者がUACを承認しても�
 | HTTP設定 | `config\githubie.json`：専用port/path、必要なProvider信頼設定 |
 | 自動起動の選択 | `config\startup.json`：`enabled` |
 | Repositoryと保護Token | `data\githubie.db`：登録時に同じSQLiteトランザクションで確定 |
-| 接続情報 | `data\connection.dpapi`：起動ごとに更新する保護済み資格 |
+| 接続情報 | `data\connection.json`：schema 1メタデータと保護済み資格。起動ごとに更新 |
 | ログ・起動状態 | `logs`・`data\host-state.json` |
 
 新規プロフィールは空いているloopbackポートを選んで保存します。その後のbind競合では起動を拒否し、別プロセスのlistenerへ接続しません。1プロフィールのホストは1つのWindowsセッションだけで実行できます。別セッションでは、所有ホストの停止・ログオフまで待ちます。接続情報のSID・プロフィール・session・PID・プロセス開始時刻を照合します。
@@ -79,11 +79,25 @@ GitHub Repository作成は外部APIを含むため、ローカルSQLiteだけで
 
 ## HTTP・IPC・Moyai
 
-loopbackだけをユーザー認証には使いません。HTTP業務呼び出しには起動ごとのランダムな `X-Githubie-Session` と正しいHost/Originが必要です。無認証ではRepository情報を含まない初期メタデータだけを公開します。資格はCurrentUser DPAPIと非共有ACLで保護し、旧LocalMachine形式を取り込みません。CurrentUserOnly制御Pipeでは、OSが報告する接続元Windows sessionと起動資格も照合します。
+loopbackだけをユーザー認証には使いません。bootstrapを含む全ユーザーホストHTTP要求に、起動ごとの `X-Githubie-Session`、`X-Githubie-Generation`、正しいHost/Originを要求します。資格はCurrentUser DPAPIと非共有ACLで保護し、旧LocalMachine形式を取り込みません。CurrentUserOnly制御Pipeでは、OSが報告する接続元Windows sessionと起動資格も照合します。
 
-Moyaiモードは `config\host.json` で有効化し、`githubie.json` に従来のissuer・trust・replay・project対応を設定します。ES256署名・replay防止・操作束縛・直接接続read_onlyを維持し、接続資格だけでこれらを迂回できません。既知の署名対象Provider Toolだけを署名検証へ渡し、Bearerヘッダーがあるだけでは権限を付与しません。
+Moyaiモードは `config\host.json` で有効化し、`githubie.json` に従来のissuer・trust・replay・project対応を設定します。所有者認証の後もES256署名・replay防止・操作束縛・選択済み直接接続方針を維持します。所有者資格とAssertionは相互に代用できません。
 
-ユーザーセッションのMoyaiクライアントは、署名なしdiscovery等の直接呼び出しでは同じユーザーの接続情報・資格を、保護Provider操作では署名Assertionも使用します。旧共有LocalSystemクライアントの権限を暗黙に引き継ぎません。新プロフィールのendpoint・信頼鍵・project対応を再設定し、通常切替前にConsumerを検証してください。保護接続資格を共有のmachine設定や標準出力helperへ書かないでください。
+ユーザーセッションのMoyaiクライアントは、全HTTP要求に同じユーザーの所有者資格と起動世代を付け、保護Provider操作には署名Assertionも付けます。旧共有LocalSystemクライアントの権限を暗黙に引き継ぎません。新プロフィールのendpoint・信頼鍵・project対応を再設定し、通常切替前にConsumerを検証してください。保護接続資格を共有machine設定や標準出力helperへ書かないでください。
+
+### 版付き接続検出契約（候補・Consumer合意待ち）
+
+対象は現在ユーザーのLocalApplicationData/Akatsukisoft/Githubie配下の既定profileだけです。他profileやportの探索、旧Serviceや版なし`connection.dpapi`へのフォールバックはしません。endpointはuserinfo/query/fragmentのない`http://127.0.0.1:<port>/mcp`だけとします。fresh profileで選択したportを保存し、再起動ごとには選び直しません。
+
+UTF-8 JSONの13項目を固定します。`schema_version`=1、`provider_id`=`githubie`、`profile_id`=GUID、`owner_sid`、`session_id`=Int32、`process_id`=Int32、`process_start_utc_ticks`=.NET UTC ticksのInt64、`endpoint`、`generation`=GUIDのN形式32文字、`runtime_path`=実行ファイル絶対path、`runtime_sha256`、`profile_sha256`、`protected_credential`です。SHA-256は選択した実行ファイルと`profile.json`の生byte列の大文字16進値です。Consumerは選択runtime/profileを固定します。hashは署名や任意runtimeを選択する権限ではありません。
+
+`protected_credential`はUTF-8の`Githubie.UserDPAPI.v2`＋NUL＋DPAPI CurrentUser blobを標準padding付きBase64にした値です。追加entropyはUTF-8の`Githubie/UserHost/Connection/v1`。DPAPI平文はランダム32byteの標準padding付きBase64文字列をUTF-8にしたものです。headerにはこの平文文字列をそのまま付け、暗号blobは送りません。平文はメモリー内だけで扱い、文字列表現・検出エラーには資格や保護本文を含めません。
+
+復号前に、重複・未知・不足field、65536byte超、非対応版/Provider、path内reparse、所有者以外に開いたACLを拒否します。root/data directoryは継承を切り現在SIDだけを許可し、profile/discovery fileはその所有者だけの継承を許可します。検出のたびに現在SID/profile/session、生存PIDと正確な開始ticks、実行ファイルpath/hash、profile hashを照合します。同directory内の一時fileからatomicに公開し、毎起動で資格とgenerationを更新します。旧世代の終了処理は新世代のdiscoveryを削除できません。
+
+安定したローカルエラーは`discovery_missing`、`discovery_invalid`、`discovery_unsupported`、`discovery_profile_mismatch`、`discovery_acl_rejected`、`discovery_reparse_rejected`、`discovery_host_stale`、`discovery_runtime_mismatch`、`discovery_runtime_unavailable`、`discovery_credential_invalid`、`discovery_endpoint_rejected`です。HTTPの所有者/世代拒否は403と`X-Githubie-Error: user_host_owner_rejected`。ES256エラーは既存の別認証契約を維持します。
+
+native clientはredirectを禁止します。明示的な所有者拒否で、応答frame未出力のinitialize/ping/tools-list/prompts-list/get-versionメタデータ要求だけ、discoveryを1回再検出します。書込や結果不明の通信失敗は自動再送しません。他Consumerも上限を守り、書込を再送する前に状態を照合してください。この候補はMoyai相互運用完了や実機導入承認を意味しません。既存706件/MSIの証跡は改訂前sourceの結果です。
 
 ## 削除と復旧
 

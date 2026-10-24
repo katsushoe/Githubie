@@ -82,12 +82,12 @@ public sealed class UserProfileStore(GithubiePathLayout layout)
         return identity;
     }
 
-    internal static async Task WriteJsonAsync<T>(string path, T value, CancellationToken cancellationToken)
+    internal static async Task WriteJsonAsync<T>(string path, T value, CancellationToken cancellationToken, JsonSerializerOptions? options = null)
     {
         var temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
-            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(value, new JsonSerializerOptions { WriteIndented = true }), cancellationToken);
+            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(value, options ?? new JsonSerializerOptions { WriteIndented = true }), cancellationToken);
             File.Move(temporary, path, overwrite: true);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }

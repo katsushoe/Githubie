@@ -28,7 +28,7 @@ public sealed class UserHostRuntimeTests
         using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         lifetime.CancelAfter(TimeSpan.FromSeconds(40));
         var running = HostRuntime.RunAsync(["--user-host"], lifetime.Token, layout);
-        var connections = new UserHostConnectionStore(layout.DataDirectory);
+        var connections = new UserHostConnectionStore(layout.DataDirectory, Environment.ProcessPath);
         try
         {
             UserHostConnection? connection = null;
@@ -45,11 +45,14 @@ public sealed class UserHostRuntimeTests
             using var client = new HttpClient(new HttpClientHandler { UseProxy = false });
             using var rejected = await Call(client, connection, "list_projects", authenticated: false);
             rejected.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            using var unknownPath = await client.GetAsync(new Uri(new Uri(connection.Endpoint), "/"), TestContext.Current.CancellationToken);
+            unknownPath.StatusCode.Should().Be(HttpStatusCode.Forbidden);
             using var allowed = await Call(client, connection, "list_projects", authenticated: true);
             allowed.StatusCode.Should().Be(HttpStatusCode.OK);
             (await allowed.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().NotContain("repository_not_found");
             using var metadata = await Call(client, connection, "get_version", authenticated: false);
-            metadata.StatusCode.Should().Be(HttpStatusCode.OK);
+            metadata.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+            metadata.Headers.GetValues(UserHostProtocol.ErrorHeader).Single().Should().Be(UserHostProtocol.OwnerRejected);
             var control = await UserHostControlPipe.SendAsync(connection, "status", null, TestContext.Current.CancellationToken);
             control.Success.Should().BeTrue();
             var duplicate = () => HostRuntime.RunAsync(["--user-host"], TestContext.Current.CancellationToken, layout);
@@ -57,7 +60,7 @@ public sealed class UserHostRuntimeTests
             var stop = await UserHostControlPipe.SendAsync(connection, "stop", null, TestContext.Current.CancellationToken);
             stop.Success.Should().BeTrue();
             (await running).Should().Be(0);
-            File.Exists(Path.Combine(layout.DataDirectory, "connection.dpapi")).Should().BeFalse();
+            File.Exists(Path.Combine(layout.DataDirectory, "connection.json")).Should().BeFalse();
             var repositories = await new Githubie.Infrastructure.Configuration.SqliteRepositoryConfigurationStore(layout.RepositoryDatabasePath)
                 .LoadExistingAsync(TestContext.Current.CancellationToken);
             repositories.Should().BeEmpty("a fresh profile never imports machine repositories");
@@ -79,7 +82,11 @@ public sealed class UserHostRuntimeTests
         };
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
-        if (authenticated) request.Headers.Add(UserHostRequestGate.CredentialHeader, connection.Credential);
+        if (authenticated)
+        {
+            request.Headers.Add(UserHostRequestGate.CredentialHeader, connection.Credential);
+            request.Headers.Add(UserHostProtocol.GenerationHeader, connection.Generation);
+        }
         return client.SendAsync(request, TestContext.Current.CancellationToken);
     }
 }

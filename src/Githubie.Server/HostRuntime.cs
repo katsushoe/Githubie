@@ -147,16 +147,17 @@ internal static class HostRuntime
         
         await using var app = builder.Build();
         UserHostConnection? connection = null;
-        var connections = userHost ? new UserHostConnectionStore(layout.DataDirectory) : null;
+        var connections = userHost ? new UserHostConnectionStore(layout.DataDirectory,
+            isolatedUserLayout is null ? null : Environment.ProcessPath) : null;
         if (userHost)
         {
             app.Use(async (context, next) =>
             {
-                if (context.Request.Path.StartsWithSegments(options.McpPath)
-                    && (connection is null || !await UserHostRequestGate.IsAuthorizedAsync(context.Request,
-                        connection.Credential, options.McpPort, assertionValidator is not null, context.RequestAborted)))
+                if (connection is null || !await UserHostRequestGate.IsAuthorizedAsync(context.Request,
+                        connection.Credential, options.McpPort, assertionValidator is not null, context.RequestAborted, connection.Generation))
                 {
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.Headers[UserHostProtocol.ErrorHeader] = UserHostProtocol.OwnerRejected;
                     return;
                 }
                 await next();

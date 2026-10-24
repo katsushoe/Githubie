@@ -99,6 +99,66 @@ public sealed class UserHostTransportTests
     private static HttpResponseMessage JsonResponse(string body) => new(HttpStatusCode.OK)
     { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
+    [Fact]
+    public async Task MetadataOwnerRejection_RefreshesCredentialOnceAndForwardsGeneration()
+    {
+        var calls = 0;
+        var resolutions = 0;
+        var refreshed = Connection with { Credential = "rotated-secret", Generation = "new-generation" };
+        using var factory = new Factory((request, _) =>
+        {
+            calls++;
+            if (calls == 1) return Task.FromResult(OwnerRejected());
+            request.Headers.GetValues("X-Githubie-Session").Single().Should().Be(refreshed.Credential);
+            request.Headers.GetValues("X-Githubie-Generation").Single().Should().Be(refreshed.Generation);
+            return Task.FromResult(JsonResponse("{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}"));
+        });
+        var client = new UserHostMcpClient(factory, () => { resolutions++; return refreshed; });
+        var result = await client.SendAsync(Connection, "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}", TestContext.Current.CancellationToken);
+        calls.Should().Be(2);
+        resolutions.Should().Be(1);
+        result.Should().NotContain(refreshed.Credential);
+    }
+
+    [Theory]
+    [InlineData("tools/list", 2, 1)]
+    [InlineData("tools/call", 1, 0)]
+    public async Task RepeatedOwnerRejection_IsBoundedAndNeverReplaysMutation(string method, int attempts, int refreshes)
+    {
+        var calls = 0;
+        var resolutions = 0;
+        using var factory = new Factory((_, _) => { calls++; return Task.FromResult(OwnerRejected()); });
+        var client = new UserHostMcpClient(factory, () => { resolutions++; return Connection; });
+        var send = () => client.SendAsync(Connection,
+            JsonSerializer.Serialize(new { jsonrpc = "2.0", id = 1, method, @params = new { name = "github_repository_commit" } }),
+            TestContext.Current.CancellationToken);
+        await send.Should().ThrowAsync<HttpRequestException>().WithMessage("user_host_owner_rejected");
+        calls.Should().Be(attempts);
+        resolutions.Should().Be(refreshes);
+    }
+
+    [Fact]
+    public async Task TransportFailure_NeverRefreshesOrReplaysMutation()
+    {
+        var calls = 0;
+        var resolutions = 0;
+        using var factory = new Factory((_, _) => { calls++; throw new HttpRequestException("dispatch outcome unknown"); });
+        var client = new UserHostMcpClient(factory, () => { resolutions++; return Connection; });
+        var send = () => client.SendAsync(Connection,
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"github_repository_commit\"}}",
+            TestContext.Current.CancellationToken);
+        await send.Should().ThrowAsync<HttpRequestException>();
+        calls.Should().Be(1);
+        resolutions.Should().Be(0);
+    }
+
+    private static HttpResponseMessage OwnerRejected()
+    {
+        var response = new HttpResponseMessage(HttpStatusCode.Forbidden);
+        response.Headers.Add("X-Githubie-Error", "user_host_owner_rejected");
+        return response;
+    }
+
     private sealed class Factory(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond) : IHttpClientFactory, IDisposable
     {
         private readonly Handler _handler = new(respond);

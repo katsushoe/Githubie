@@ -44,29 +44,42 @@ public sealed class UserHostRequestGateTests
     }
 
     [Theory]
-    [InlineData("get_version", true)]
+    [InlineData("get_version", false)]
     [InlineData("github_provider_capabilities", false)]
-    public async Task Bootstrap_ExposesOnlyNonRepositoryMetadata(string tool, bool allowed)
+    public async Task Bootstrap_RequiresOwnerCredential(string tool, bool allowed)
     {
         (await Authorize(Request(tool))).Should().Be(allowed);
     }
 
     [Theory]
-    [InlineData("github_repository_status", true, true)]
+    [InlineData("github_repository_status", true, false)]
     [InlineData("github_repository_status", false, false)]
     [InlineData("list_projects", true, false)]
     [InlineData("unknown_tool", true, false)]
-    public async Task ProviderMarker_DelegatesOnlyKnownScopedToolsToAssertionValidation(string tool, bool providerEnabled, bool delegated)
+    public async Task ProviderMarker_DoesNotReplaceOwnerCredential(string tool, bool providerEnabled, bool delegated)
     {
         var request = Request(tool);
         request.Headers.Authorization = "Bearer deliberately-not-a-valid-signature";
         request.Headers["X-Moyai-Operation-Id"] = "test-operation";
         (await Authorize(request, providerEnabled)).Should().Be(delegated);
-        // This gate delegates; GithubieAssertionMiddleware remains responsible for cryptographic validation.
+        // 後段の署名検証と、全HTTPのowner認証は独立しています。
     }
 
     private static Task<bool> Authorize(HttpRequest request, bool providerEnabled = false) =>
         UserHostRequestGate.IsAuthorizedAsync(request, Credential, 45460, providerEnabled, TestContext.Current.CancellationToken);
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("old-generation", false)]
+    [InlineData("current-generation", true)]
+    public async Task OwnerCredential_AlsoRequiresCurrentGeneration(string? generation, bool allowed)
+    {
+        var request = Request("get_version");
+        request.Headers[UserHostRequestGate.CredentialHeader] = Credential;
+        if (generation is not null) request.Headers[Githubie.Application.Configuration.UserHostProtocol.GenerationHeader] = generation;
+        (await UserHostRequestGate.IsAuthorizedAsync(request, Credential, 45460, true,
+            TestContext.Current.CancellationToken, "current-generation")).Should().Be(allowed);
+    }
 
     private static HttpRequest Request(string tool)
     {

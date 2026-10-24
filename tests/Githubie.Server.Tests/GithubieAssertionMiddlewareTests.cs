@@ -40,6 +40,12 @@ public sealed class GithubieAssertionMiddlewareTests
         var dispatched = 0;
         var context = fixture.CreateRequest(assertion);
 
+        context.Request.Host = new HostString("127.0.0.1", 45460);
+        context.Request.Headers[UserHostProtocol.CredentialHeader] = "fixture-owner";
+        context.Request.Headers[UserHostProtocol.GenerationHeader] = "fixture-generation";
+        (await UserHostRequestGate.IsAuthorizedAsync(context.Request, "fixture-owner", 45460, true,
+            TestContext.Current.CancellationToken, "fixture-generation")).Should().BeTrue();
+
         await CreateMiddleware(() => dispatched++).InvokeAsync(context, fixture.Options, fixture.Repositories,
             fixture.Validator, fixture.Validator, fixture.ExecutionContext);
 

@@ -29,7 +29,7 @@ The profile root is the Windows LocalApplicationData known folder plus `Akatsuki
 | HTTP settings | `config\githubie.json`: own port/path and optional Provider trust configuration |
 | Startup preference | `config\startup.json`: persisted `enabled` flag |
 | Repositories and protected tokens | `data\githubie.db`, single SQLite transaction for registration |
-| Connection discovery | `data\connection.dpapi`, protected and rotated each host start |
+| Connection discovery | `data\connection.json`, schema 1 metadata and a protected credential, rotated each host start |
 | Logs / readiness | `logs`, `data\host-state.json` |
 
 A fresh profile selects an available loopback port and stores it. Binding a port later owned by another process fails closed; it never adopts that listener. One profile can be hosted by one Windows session at a time. Another session must wait for the owning host to stop/log off. Discovery checks SID, profile, session, PID and process start time.
@@ -79,11 +79,25 @@ GitHub repository creation involves an external API and cannot be a local SQLite
 
 ## HTTP, IPC and Moyai
 
-Loopback is not user authentication. Business HTTP calls require the random per-start `X-Githubie-Session` credential and valid Host/Origin. Only non-repository bootstrap metadata is anonymous. Credentials are protected with CurrentUser DPAPI and private profile ACLs; legacy machine-format blobs are not imported. The same-user control pipe additionally checks the kernel-reported client Windows session and per-start credential.
+Loopback is not user authentication. Every user-host HTTP request, including bootstrap, requires the random per-start `X-Githubie-Session` credential, `X-Githubie-Generation` and valid Host/Origin. Credentials are protected with CurrentUser DPAPI and private profile ACLs; legacy machine-format blobs are not imported. The same-user control pipe additionally checks the kernel-reported client Windows session and per-start credential.
 
-Moyai mode is enabled in `config\host.json` and requires the existing `provider_authentication` issuer/trust/replay/project settings in `githubie.json`. ES256 assertion validation, replay protection, operation binding and direct read-only mode remain enforced. A valid session credential does not bypass those checks. Known signed Provider tools may enter the assertion validator; an arbitrary Bearer header never grants a new tool permission.
+Moyai mode is enabled in `config\host.json` and requires the existing `provider_authentication` issuer/trust/replay/project settings in `githubie.json`. ES256 assertion validation, replay protection, operation binding and the selected direct-access policy remain enforced after owner authentication. A valid owner credential does not replace an assertion. A Bearer assertion does not replace the owner credential.
 
-A user-session Moyai client must use the matching user's discovery/credential for unsigned discovery and other direct calls, and its signed assertion for protected Provider operations. The old shared LocalSystem client's access is not silently inherited. Rebind the endpoint/trust/project mappings for the fresh profile and validate the consumer before switching normal workflows. Do not add a protected connection credential to a shared machine configuration or print it via a helper.
+A user-session Moyai client must attach the matching user's owner credential and generation to all HTTP requests, and additionally its signed assertion for protected Provider operations. The old shared LocalSystem client's access is not silently inherited. Rebind the endpoint/trust/project mappings for the fresh profile and validate the consumer before switching normal workflows. Do not add a protected connection credential to a shared machine configuration or print it via a helper.
+
+### Versioned discovery contract (candidate, Consumer agreement pending)
+
+Resolve only the selected current user's default profile under LocalApplicationData/Akatsukisoft/Githubie. Never scan ports, choose another profile or fall back to the old Service or unversioned `connection.dpapi`. The user-host endpoint is restricted to `http://127.0.0.1:<port>/mcp` without userinfo, query or fragment. A fresh profile's port is persisted; it is not reselected on restart.
+
+The UTF-8 JSON record has exactly these 13 snake_case fields: `schema_version` (1), `provider_id` (`githubie`), `profile_id` (GUID), `owner_sid`, `session_id` (Int32), `process_id` (Int32), `process_start_utc_ticks` (.NET UTC ticks, Int64), `endpoint`, `generation` (32-character GUID N), `runtime_path` (absolute executable path), `runtime_sha256`, `profile_sha256`, and `protected_credential`. SHA-256 values are uppercase hex of the selected executable and the exact `profile.json` bytes. Consumers pin the selected executable path/hash and profile; hashes are not signatures or permission to select an arbitrary runtime.
+
+`protected_credential` is standard padded Base64 of: UTF-8 `Githubie.UserDPAPI.v2` + NUL + a Windows DPAPI CurrentUser blob. Additional entropy is UTF-8 `Githubie/UserHost/Connection/v1`; the DPAPI plaintext is the UTF-8 standard padded Base64 string of 32 random credential bytes. The header carries that plaintext string, not the encrypted blob. Plaintext exists only in memory. The record's string representation and discovery errors omit credentials and protected content.
+
+Before decrypting, reject duplicate/unknown/missing fields, records over 65536 bytes, unsupported schema/Provider, reparse points in the path, and broadened/non-owner ACLs. Root/data ACLs must disable inheritance and allow only the current owner SID; profile/discovery files may inherit only that owner. Verify the current SID/profile/session, live PID and exact start ticks, selected executable path/hash, and exact profile hash on each discovery read. Publish by a same-directory temporary file and atomic replacement. Rotate generation and credential each start. A previous generation cannot delete its successor's discovery on shutdown.
+
+Stable local error codes: `discovery_missing`, `discovery_invalid`, `discovery_unsupported`, `discovery_profile_mismatch`, `discovery_acl_rejected`, `discovery_reparse_rejected`, `discovery_host_stale`, `discovery_runtime_mismatch`, `discovery_runtime_unavailable`, `discovery_credential_invalid`, `discovery_endpoint_rejected`. Owner/generation HTTP rejection is 403 with `X-Githubie-Error: user_host_owner_rejected`. ES256 errors retain their separate existing authentication contract.
+
+The native client disables redirects and re-resolves discovery at most once after that explicit owner rejection, only for initialize/ping/tools-list/prompts-list/get-version metadata and before any response frame. It never automatically retries a mutation or transport failure with an unknown outcome. Other Consumers must preserve the same bound and reconcile state before resending a mutation. This candidate does not establish Moyai interoperability or authorize live installation; the previous 706-test/MSI evidence describes the earlier source.
 
 ## Uninstall and recovery
 
