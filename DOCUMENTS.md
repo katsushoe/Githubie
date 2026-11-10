@@ -18,3 +18,5 @@ This public index links only to documentation that is safe to publish. Internal 
 | [PACKAGES.md](PACKAGES.md) | MSI and ZIP package contract |
 | [RELEASE.md](RELEASE.md) | Versioning and release procedure |
 | [docs/adr/](docs/adr/) | Architecture Decision Records |
+
+- [PR source publication](docs/specifications/pr-source-publication.md)

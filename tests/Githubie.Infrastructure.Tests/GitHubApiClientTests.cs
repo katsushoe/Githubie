@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using FluentAssertions;
 using Githubie.Application.Credentials;
 using Githubie.Application.GitHub;
@@ -7,7 +7,7 @@ using Xunit;
 
 namespace Githubie.Infrastructure.Tests;
 
-public sealed class GitHubApiClientTests
+public sealed partial class GitHubApiClientTests
 {
     private sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
     {
@@ -376,7 +376,7 @@ public sealed class GitHubApiClientTests
     {
         var mergeableJson = mergeable is null ? "null" : mergeable.Value.ToString().ToLowerInvariant();
         var client = CreateClient(_ => Json(HttpStatusCode.OK, $$"""
-            {"number":1,"title":"t","state":"open","merged":false,"head":{"ref":"develop"},"base":{"ref":"main"},"user":{"login":"u"},"mergeable":{{mergeableJson}},"mergeable_state":"{{mergeableState}}","html_url":"https://example.com","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}
+            {"number":1,"title":"t","state":"open","merged":false,"head":{"ref":"develop","sha":"1111111111111111111111111111111111111111"},"base":{"ref":"main"},"user":{"login":"u"},"mergeable":{{mergeableJson}},"mergeable_state":"{{mergeableState}}","html_url":"https://example.com","created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-01T00:00:00Z"}
             """));
 
         var result = await client.GetPullRequestAsync(

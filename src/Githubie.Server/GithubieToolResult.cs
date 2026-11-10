@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
@@ -129,7 +129,7 @@ public static class GithubieToolResultMapper
             : GithubieToolResult<T>.Failure(
                 operation,
                 repository,
-                MapGitHubError(result.Error!.Value) with
+                ApplyGitHubContract(operation, result.Error!.Value, MapGitHubError(result.Error.Value)) with
                 {
                     CorrelationId = result.CorrelationId ?? Guid.NewGuid().ToString("N"),
                     Diagnostic = result.Diagnostic,
@@ -321,6 +321,13 @@ public static class GithubieToolResultMapper
         GitHubError.BranchAlreadyExists => new("branch_already_exists", "Branch already exists."),
         GitHubError.BranchNotAllowed => new("branch_not_allowed", "Branch is not allowed by repository policy."),
         GitHubError.ProtectedBranch => new("protected_branch", "Protected branch cannot be deleted."),
+        GitHubError.BranchProtectionNotFoundOrInaccessible => BranchProtectionPreflight("branch_protection_not_found_or_inaccessible", "GitHub did not expose a classic protection rule. Verify the branch and Administration permission.", GithubieCommonErrorCode.ProviderError, GithubieSuggestedAction.VerifyPermissions),
+        GitHubError.BranchProtectionInvalidInput => BranchProtectionPreflight("branch_protection_invalid_input", "The branch or requested protection changes are invalid.", GithubieCommonErrorCode.ProviderError, GithubieSuggestedAction.InspectPolicy),
+        GitHubError.BranchProtectionUnsupportedPolicy => BranchProtectionPreflight("branch_protection_unsupported_policy", "Existing or requested settings cannot be preserved safely; no change was sent.", GithubieCommonErrorCode.PolicyRejected, GithubieSuggestedAction.InspectPolicy),
+        GitHubError.BranchProtectionChanged => BranchProtectionPreflight("branch_protection_changed", "Protection changed after review; read it again before approving another change.", GithubieCommonErrorCode.Conflict, GithubieSuggestedAction.CheckStatus),
+        GitHubError.BranchProtectionApprovalDenied => BranchProtectionPreflight("branch_protection_approval_denied", "The user declined the protection change.", GithubieCommonErrorCode.PolicyRejected, GithubieSuggestedAction.InspectPolicy),
+        GitHubError.BranchProtectionApprovalTimedOut => BranchProtectionPreflight("branch_protection_approval_timed_out", "The protection approval timed out.", GithubieCommonErrorCode.PolicyRejected, GithubieSuggestedAction.InspectPolicy),
+        GitHubError.BranchProtectionApprovalUnavailable => BranchProtectionPreflight("branch_protection_approval_unavailable", "Interactive Desktop approval is unavailable.", GithubieCommonErrorCode.PolicyRejected, GithubieSuggestedAction.InspectPolicy),
         GitHubError.TagSourceInvalid => new("tag_source_invalid", "An explicit source branch or full commit SHA is required."),
         GitHubError.TagSourceNotFound => new("tag_source_not_found", "Source branch or commit was not found."),
         GitHubError.AuthenticationFailed => new("authentication_failed", "GitHub authentication failed."),
@@ -331,6 +338,27 @@ public static class GithubieToolResultMapper
         GitHubError.SecondaryRateLimited => new("secondary_rate_limited", "GitHub secondary rate limit was exceeded."),
         GitHubError.InvalidResponse => new("github_api_error", "GitHub API returned an unexpected response."),
         GitHubError.PullRequestNotFound => new("pull_request_not_found", "Pull request was not found."),
+        GitHubError.BranchProtectionResultUnknown => new("branch_protection_result_unknown", "Read the current protection state before attempting another change.")
+        {
+            CommonCode = GithubieCommonErrorCode.ResultUnknown,
+            Outcome = GithubieOperationOutcome.Unknown,
+            Retryable = false,
+            SuggestedAction = GithubieSuggestedAction.CheckStatus,
+        },
+        GitHubError.PullRequestNumberInvalid => MergePreflight("pull_request_number_invalid", "Pull request number must be a positive Int32."),
+        GitHubError.PullRequestMergeMethodInvalid => MergePreflight("merge_strategy_invalid", "Only merge, squash, rebase, or null for the repository default is supported."),
+        GitHubError.PullRequestMergeMessageInvalid => MergePreflight("merge_message_invalid", "Merge message must be null or contain non-whitespace text."),
+        GitHubError.ExpectedSourceCommitRequired => MergePreflight("expected_source_commit_required", "The expected source commit SHA is required for this connection."),
+        GitHubError.ExpectedSourceCommitInvalid => MergePreflight("expected_source_commit_invalid", "Expected source commit must be a full 40-hex SHA."),
+        GitHubError.ExpectedSourceCommitMismatch => MergePreflight("expected_source_commit_mismatch", "The pull request source commit changed.", GithubieCommonErrorCode.Conflict),
+        GitHubError.PullRequestDraft => MergePreflight("pull_request_draft", "Draft pull requests cannot be merged.", GithubieCommonErrorCode.PolicyRejected),
+        GitHubError.PullRequestMergeResultUnknown => new("pr_merge_result_unknown", "Reconcile the pull request and merge commit using a new read before any further mutation.")
+        {
+            CommonCode = GithubieCommonErrorCode.ResultUnknown,
+            Outcome = GithubieOperationOutcome.Unknown,
+            Retryable = false,
+            SuggestedAction = GithubieSuggestedAction.CheckStatus,
+        },
         GitHubError.PullRequestNotOpen => new("pull_request_not_open", "Pull request is not open."),
         GitHubError.PullRequestNotMergeable => new("pull_request_not_mergeable", "Pull request is not mergeable."),
         GitHubError.MergeabilityCalculating => new("mergeability_calculating", "GitHub is still calculating pull request mergeability.", true, "Wait briefly, then get the pull request again.")
@@ -376,5 +404,41 @@ public static class GithubieToolResultMapper
         GitHubError.NetworkError => new("network_error", "Network error occurred while calling GitHub."),
         GitHubError.Timeout => new("timeout", "GitHub API call timed out."),
         _ => new("github_api_error", "GitHub operation failed."),
+    };
+
+    private static GithubieToolError ApplyGitHubContract(string operation, GitHubError source, GithubieToolError error)
+    {
+        if (operation is "branch_protection_get" or "branch_protection_update" or "branch_protection_delete"
+            or "github_branch_protection_get" or "github_branch_protection_update" or "github_branch_protection_delete")
+        {
+            return source switch
+            {
+                GitHubError.AuthenticationFailed => error with { CommonCode = GithubieCommonErrorCode.AuthenticationRequired, Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.ConfigureAuthentication },
+                GitHubError.PermissionDenied or GitHubError.TokenScopeMissing => new("branch_protection_access_denied", "GitHub denied access; verify Administration permission and plan availability.")
+                { CommonCode = GithubieCommonErrorCode.ProviderError, Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.VerifyPermissions },
+                _ => error,
+            };
+        }
+        if (operation is not ("pr_merge" or "github_pr_merge")) return error;
+        return source switch
+        {
+            GitHubError.AuthenticationFailed => error with { CommonCode = GithubieCommonErrorCode.AuthenticationRequired, Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.ConfigureAuthentication },
+            GitHubError.PermissionDenied or GitHubError.TokenScopeMissing => error with { CommonCode = GithubieCommonErrorCode.PermissionDenied, Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.VerifyPermissions },
+            GitHubError.PullRequestRouteNotAllowed or GitHubError.PullRequestNotOpen or GitHubError.PullRequestBlocked or GitHubError.PullRequestMergeRejected => error with { CommonCode = GithubieCommonErrorCode.PolicyRejected, Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.InspectPolicy },
+            GitHubError.InvalidResponse or GitHubError.PullRequestNotFound or GitHubError.PullRequestNotMergeable or GitHubError.MergeabilityCalculating or GitHubError.MergeabilityUnknownRetryable => error with { Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.CheckStatus },
+            _ => error,
+        };
+    }
+
+    private static GithubieToolError BranchProtectionPreflight(string code, string message, string commonCode, string action) =>
+        new(code, message) { CommonCode = commonCode, Outcome = GithubieOperationOutcome.NotExecuted, Retryable = false, SuggestedAction = action };
+
+    private static GithubieToolError MergePreflight(string code, string message,
+        string commonCode = GithubieCommonErrorCode.ProviderError) => new(code, message)
+    {
+        CommonCode = commonCode,
+        Outcome = GithubieOperationOutcome.NotExecuted,
+        Retryable = false,
+        SuggestedAction = GithubieSuggestedAction.CheckStatus,
     };
 }

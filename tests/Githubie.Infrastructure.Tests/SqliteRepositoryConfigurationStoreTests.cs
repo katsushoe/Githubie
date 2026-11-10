@@ -8,6 +8,31 @@ namespace Githubie.Infrastructure.Tests;
 public sealed class SqliteRepositoryConfigurationStoreTests
 {
     [Fact]
+    public async Task PublicationList_RestartAndExplicitClear_PreserveIndependentPolicy()
+    {
+        var root = CreateRoot();
+        try
+        {
+            var database = Path.Combine(root, "repositories.db");
+            var store = new SqliteRepositoryConfigurationStore(database);
+            await store.InitializeAsync(new Dictionary<string, RepositoryOptions>
+            { ["sample"] = CreateOptions("owner", "repo", root) }, TestContext.Current.CancellationToken);
+            var legacy = await store.GetRepositoryAsync("sample", TestContext.Current.CancellationToken);
+            legacy!.PrPublicationSourceBranches.Should().BeEmpty();
+            await store.SaveRepositoryAsync("sample", legacy with { PrPublicationSourceBranches = ["docs/topic"] }, TestContext.Current.CancellationToken);
+            var restarted = new SqliteRepositoryConfigurationStore(database);
+            var saved = await restarted.GetRepositoryAsync("sample", TestContext.Current.CancellationToken);
+            saved!.PrPublicationSourceBranches.Should().Equal("docs/topic");
+            saved.DirectPushBranches.Should().Equal(legacy.DirectPushBranches);
+            saved.PullRequestRoutes.Should().Equal(legacy.PullRequestRoutes);
+            await restarted.SaveRepositoryAsync("sample", saved with { PrPublicationSourceBranches = [] }, TestContext.Current.CancellationToken);
+            (await new SqliteRepositoryConfigurationStore(database).GetRepositoryAsync("sample", TestContext.Current.CancellationToken))!
+                .PrPublicationSourceBranches.Should().BeEmpty();
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public async Task GetRepositoryAsync_UnregisteredId_ReturnsNull()
     {
         var root = CreateRoot();

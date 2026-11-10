@@ -6,7 +6,7 @@ namespace Githubie.Infrastructure.Git;
 /// <see cref="IGitCommandClient"/>の実装です。許可された固定引数配列だけをGitへ渡します。
 /// Agent入力をGit Argumentへ直接連結せず、remote名/branch名の前に`--`を置いてoption injectionを防ぎます。
 /// </summary>
-public sealed class GitCommandClient(IProcessExecutor processExecutor, string askPassExecutablePath) : IGitCommandClient
+public sealed class GitCommandClient(IProcessExecutor processExecutor, string askPassExecutablePath) : IGitCommandClient, Githubie.Application.Publishing.IPrPublicationGit
 {
     private static readonly TimeSpan LocalTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan NetworkTimeout = TimeSpan.FromSeconds(120);
@@ -139,6 +139,23 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
 
     public Task<GitCommandResult> PushAsync(string repositoryRoot, string repositoryId, string remote, string branch, CancellationToken cancellationToken) =>
         ExecuteNetworkAsync(repositoryRoot, repositoryId, ["push", "--", remote, branch], cancellationToken);
+
+    public Task<GitCommandResult> GetPushUrlsAsync(string root, string remote, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(root, ["remote", "get-url", "--push", "--all", "--", remote], cancellationToken);
+
+    public Task<GitCommandResult> CreateBranchAtCommitAsync(string root, string repository, string remote,
+        string branch, string sha, CancellationToken cancellationToken)
+    {
+        if (!Githubie.Application.Publishing.PrPublicationService.IsBranch(branch)
+            || sha.Length != 40 || !sha.All(Uri.IsHexDigit)
+            || remote.Length is 0 or > 255 || remote.StartsWith('-') || remote.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
+            throw new ArgumentException("Invalid creation-only publication arguments.");
+        // Empty explicit lease requires remote non-existence. No existing ref can be advanced or replaced.
+        return ExecuteNetworkAsync(root, repository,
+            ["-c", $"remote.{remote}.mirror=false", "-c", "push.followTags=false", "-c", "push.recurseSubmodules=no",
+             "push", "--porcelain", "--no-follow-tags", "--recurse-submodules=no",
+             $"--force-with-lease=refs/heads/{branch}:", "--", remote, $"{sha}:refs/heads/{branch}"], cancellationToken);
+    }
 
     public Task<GitCommandResult> PushTagAsync(string repositoryRoot, string repositoryId, string remote, string tag, CancellationToken cancellationToken) =>
         ExecuteNetworkAsync(repositoryRoot, repositoryId, ["push", "--", remote, $"refs/tags/{tag}:refs/tags/{tag}"], cancellationToken);

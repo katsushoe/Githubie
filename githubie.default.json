@@ -1,0 +1,11 @@
+{
+  "mcp_port": 45460,
+  "mcp_path": "/mcp",
+  "user_host": {
+    "moyai_integration": false,
+    "direct_unrestricted": false,
+    "autostart_enabled": true,
+    "authentication_mode": "windows_owner"
+  },
+  "repositories": {}
+}

@@ -1,10 +1,10 @@
-# Installation
+﻿# Installation
 
 [English](INSTALLATION.md) | [日本語](INSTALLATION.ja.md)
 
 ## 2.0 user host
 
-Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `C:\Githubie`; mutable data is per user. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.
+Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. The default installation root is `C:\Githubie`, and another root may be selected; mutable data is per user. MSI and ZIP include `githubiemcp.exe` beside `githubie.exe` for connecting to the running service. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.
 
 ## 1.x reference and recovery
 

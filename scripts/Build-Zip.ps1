@@ -1,5 +1,5 @@
-param(
-    [string]$DisplayVersion = '1.8.10.0',
+﻿param(
+    [string]$DisplayVersion = '2.1.5.0',
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$NoRestore
 )
@@ -13,6 +13,8 @@ $outputDirectory = Join-Path $releaseWorkDirectory 'output'
 if (-not $NoRestore) {
     dotnet restore (Join-Path $repositoryRoot 'src\Githubie.Cli\Githubie.Cli.csproj') -r $RuntimeIdentifier --nologo
     if ($LASTEXITCODE -ne 0) { throw 'CLI restore failed.' }
+    dotnet restore (Join-Path $repositoryRoot 'src\Githubie.McpClient\Githubie.McpClient.csproj') -r $RuntimeIdentifier --nologo
+    if ($LASTEXITCODE -ne 0) { throw 'MCP client restore failed.' }
     dotnet restore (Join-Path $repositoryRoot 'src\Githubie.Server\Githubie.Server.csproj') -r $RuntimeIdentifier --nologo
     if ($LASTEXITCODE -ne 0) { throw 'Server restore failed.' }
     dotnet restore (Join-Path $repositoryRoot 'src\Githubie.AskPass\Githubie.AskPass.csproj') -r $RuntimeIdentifier --nologo
@@ -47,6 +49,7 @@ $publishStagingDirectory = Join-Path $releaseWorkDirectory 'publish-staging'
 if (Test-Path -LiteralPath $publishStagingDirectory) { Remove-Item -LiteralPath $publishStagingDirectory -Recurse -Force }
 foreach ($project in @(
         'src\Githubie.Cli\Githubie.Cli.csproj',
+        'src\Githubie.McpClient\Githubie.McpClient.csproj',
         'src\Githubie.AskPass\Githubie.AskPass.csproj',
         'src\Githubie.ApprovalPrompt\Githubie.ApprovalPrompt.csproj',
         'src\Githubie.Server\Githubie.Server.csproj')) {
@@ -78,6 +81,7 @@ foreach ($target in $serverDeps.targets.PSObject.Properties) {
     }
 }
 
+Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.default.json') -Destination (Join-Path $configDirectory 'githubie.json')
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.example.json') -Destination $configDirectory
   $documents = @(
       'README.md',
@@ -88,6 +92,8 @@ Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.example.json') -Dest
       'MCP_SETUP.ja.md',
       'INSTALLATION.md',
       'INSTALLATION.ja.md',
+      'USER_HOST.md',
+      'USER_HOST.ja.md',
       'OPERATIONS.md',
       'OPERATIONS.ja.md',
       'TROUBLESHOOTING.md',
@@ -106,6 +112,17 @@ Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.example.json') -Dest
 )
 foreach ($document in $documents) {
     Copy-Item -LiteralPath (Join-Path $repositoryRoot $document) -Destination $docsDirectory
+}
+
+# Preserve the repository-relative links used by the packaged public guides.
+foreach ($document in @(
+    'docs\specifications\pr-source-publication.md',
+    'docs\specifications\pr-source-publication.ja.md',
+    'docs\adr\0046-pr-source-publication-integration.md',
+    'docs\adr\0047-pr-publication-source-allowlist.md')) {
+    $destination = Join-Path $docsDirectory $document
+    New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $repositoryRoot $document) -Destination $destination
 }
 
 $zipPath = Join-Path $outputDirectory "Githubie-$DisplayVersion-win-x64.zip"

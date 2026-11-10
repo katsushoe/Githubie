@@ -19,6 +19,9 @@ public sealed class UserHostRuntimeTests
         var layout = GithubiePathLayout.FromUserProfileRoot(AppContext.BaseDirectory, root);
         var profiles = new UserProfileStore(layout);
         var identity = await profiles.InitializeAsync(TestContext.Current.CancellationToken);
+        File.Exists(Path.Combine(layout.ConfigDirectory, "githubie.json")).Should().BeFalse();
+        File.Exists(Path.Combine(layout.ConfigDirectory, "host.json")).Should().BeFalse();
+        File.Exists(Path.Combine(layout.ConfigDirectory, "startup.json")).Should().BeFalse();
         using var reservation = new TcpListener(IPAddress.Loopback, 0);
         reservation.Start();
         var port = ((IPEndPoint)reservation.LocalEndpoint).Port;

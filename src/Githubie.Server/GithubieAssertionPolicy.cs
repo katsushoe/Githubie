@@ -8,6 +8,12 @@ public static class GithubieAssertionPolicy
     public const string ProviderId = "githubie";
     public const string ProtocolVersion = "1";
 
+    /// <summary>所有ユーザー認証で扱う既存Repository操作の正確なTool名です。</summary>
+    public static IReadOnlyList<string> OperationNames => ToolScopes.Keys.Concat(
+        ["github_repository_register", "github_repository_create", "github_repository_unregister",
+            "github_repository_moyai_project_set", "github_repository_update", "github_repository_rename"])
+        .Order(StringComparer.Ordinal).ToArray();
+
     private static readonly IReadOnlyDictionary<string, string[]> ToolScopes =
         new Dictionary<string, string[]>(StringComparer.Ordinal)
         {
@@ -35,6 +41,9 @@ public static class GithubieAssertionPolicy
             ["github_branch_list"] = ["repository.read"],
             ["github_provider_capabilities"] = ["repository.read"],
             ["github_branch_get"] = ["repository.read"],
+            ["github_branch_protection_get"] = ["repository.read"],
+            ["github_branch_protection_update"] = ["provider.githubie.branch_protection.write"],
+            ["github_branch_protection_delete"] = ["provider.githubie.branch_protection.write"],
             ["github_branch_create"] = ["repository.branch.write"],
             ["github_branch_delete"] = ["repository.branch.write"],
             ["github_pr_list"] = ["repository.read"],
@@ -42,8 +51,10 @@ public static class GithubieAssertionPolicy
             ["github_issue_list"] = ["repository.read"],
             ["github_issue_get"] = ["repository.read"],
             ["github_pr_diff"] = ["repository.read"],
+            ["github_pr_publish_create"] = ["repository.push", "provider.githubie.pull_request.write"],
+            ["github_pr_publish_status"] = ["repository.read"],
             ["github_pr_create"] = ["provider.githubie.pull_request.write"],
-            ["github_pr_merge"] = ["provider.githubie.pull_request.write"],
+            ["github_pr_merge"] = ["provider.githubie.pull_request.merge"],
             ["github_pr_close"] = ["provider.githubie.pull_request.write"],
             ["github_pr_reopen"] = ["provider.githubie.pull_request.write"],
             ["github_pr_comment_list"] = ["repository.read"],

@@ -18,7 +18,8 @@ public sealed class UserAutostart
     public UserAutostart(string hostExecutablePath, string? preferencePath = null, IUserStartupRegistration? registration = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(hostExecutablePath);
-        _preferencePath = preferencePath ?? Path.Combine(GithubiePathLayout.ForCurrentUser(Path.GetDirectoryName(hostExecutablePath)!).ConfigDirectory, "startup.json");
+        _preferencePath = preferencePath ?? GithubieConfigurationPath.Resolve(null,
+            Path.GetDirectoryName(Path.GetFullPath(hostExecutablePath))!);
         _command = $"\"{Path.GetFullPath(hostExecutablePath)}\" --user-host --autostart";
         _registration = registration ?? new CurrentUserRegistration();
     }
@@ -30,10 +31,7 @@ public sealed class UserAutostart
 
     public bool Initialize()
     {
-        using var preferenceLock = new FileStream(_preferencePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        var enabled = !File.Exists(_preferencePath) || (JsonSerializer.Deserialize<StartupPreference>(File.ReadAllText(_preferencePath))
-            ?? throw new InvalidDataException("The startup preference is invalid.")).Enabled;
-        return SetEnabledCore(enabled);
+        return ApplyRegistration(new UserHostSettingsStore(_preferencePath).Read().AutostartEnabled);
     }
 
     public bool SetEnabled(bool enabled)
@@ -47,13 +45,12 @@ public sealed class UserAutostart
         var existing = _registration.Read();
         if (existing is not null && !string.Equals(existing, _command, StringComparison.Ordinal))
             throw new IOException("A different installation owns the Githubie startup entry.");
-        var temporary = _preferencePath + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        var temporary = new UserHostSettingsStore(_preferencePath).PrepareAutostart(enabled);
         try
         {
-            File.WriteAllText(temporary, JsonSerializer.Serialize(new StartupPreference(enabled)));
             _registration.Write(enabled ? _command : null);
             if (IsEnabled() != enabled) throw new IOException("Startup registration could not be verified.");
-            File.Move(temporary, _preferencePath, overwrite: true);
+            File.Replace(temporary, _preferencePath, null);
         }
         catch
         {
@@ -64,7 +61,19 @@ public sealed class UserAutostart
         return enabled;
     }
 
-    private sealed record StartupPreference([property: System.Text.Json.Serialization.JsonPropertyName("enabled")] bool Enabled);
+    private bool ApplyRegistration(bool enabled)
+    {
+        var existing = _registration.Read();
+        if (existing is not null && !string.Equals(existing, _command, StringComparison.Ordinal))
+            throw new IOException("A different installation owns the Githubie startup entry.");
+        try
+        {
+            _registration.Write(enabled ? _command : null);
+            if (IsEnabled() != enabled) throw new IOException("Startup registration could not be verified.");
+            return enabled;
+        }
+        catch { _registration.Write(existing); throw; }
+    }
 
     private sealed class CurrentUserRegistration : IUserStartupRegistration
     {

@@ -58,3 +58,9 @@ Repository registrations and policies are stored in `data\githubie.db`. Existing
 ## Backup
 
 Stop the service and back up `config\githubie.json`, `data\githubie.db`, and any adjacent `githubie.db-wal`/`githubie.db-shm` files as one consistent snapshot. Back up `data\secrets\` only when required. DPAPI LocalMachine ciphertext cannot be restored on another machine; register tokens again after migration. Retain `logs\` according to your audit policy.
+
+## PR source publication
+
+`github_pr_publish_create` requires an explicit route, fixed SHA, UUID and interactive approval. `github_pr_publish_status` reconciles the same UUID through reads. Check status before any later request after an unknown outcome, and inspect both effect states in failure data. Ordinary push permission is unchanged.
+
+Follow the [recovery procedure](docs/specifications/pr-source-publication.md#errors-and-recovery); do not automatically delete a published source branch.

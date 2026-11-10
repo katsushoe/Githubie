@@ -7,6 +7,7 @@ public static class UserHostProtocol
     public const string GenerationHeader = "X-Githubie-Generation";
     public const string ErrorHeader = "X-Githubie-Error";
     public const string OwnerRejected = "user_host_owner_rejected";
+    public const string AuthenticationModeMismatch = "user_host_auth_mode_mismatch";
     public const string ProviderId = "githubie";
     public const int DiscoveryVersion = 1;
 }

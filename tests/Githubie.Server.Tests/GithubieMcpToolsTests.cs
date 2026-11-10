@@ -82,7 +82,24 @@ public sealed class GithubieMcpToolsTests
         var changesSchema = tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("changes");
         changesSchema.GetProperty("type").GetString().Should().Be("object");
         changesSchema.GetProperty("properties").EnumerateObject().Select(p => p.Name)
-            .Should().Contain(["commit_author_name", "commit_author_email", "require_clean_working_tree", "direct_push_branches"]);
+            .Should().Contain(["commit_author_name", "commit_author_email", "require_clean_working_tree", "direct_push_branches", "pr_publication_source_branches"]);
+    }
+
+    [Theory]
+    [InlineData("{\"pr_publication_source_branches\":[]}", true)]
+    [InlineData("{\"pr_publication_source_branches\":[\"docs/topic\"]}", true)]
+    [InlineData("{\"pr_publication_source_branches\":null}", false)]
+    public void RepositorySettingsInput_PublicationList_PreservesPresenceAndRejectsNull(string json, bool valid)
+    {
+        var input = JsonSerializer.Deserialize<RepositorySettingsInput>(json)!;
+        input.HasPrPublicationSourceBranches.Should().BeTrue();
+        var changes = input.ToChanges();
+        (changes is not null).Should().Be(valid);
+        if (valid)
+        {
+            changes!.HasPrPublicationSourceBranches.Should().BeTrue();
+            changes.PrPublicationSourceBranches.Should().Equal(input.PrPublicationSourceBranches!);
+        }
     }
 
     [Fact]
@@ -429,6 +446,8 @@ public sealed class GithubieMcpToolsTests
 
     private static readonly string[] ExpectedToolNames =
     [
+        "github_pr_publish_create",
+        "github_pr_publish_status",
         "list_projects",
         "github_repository_status",
         "github_repository_diff",
@@ -459,6 +478,9 @@ public sealed class GithubieMcpToolsTests
         "github_history_rewrite",
         "github_branch_list",
         "github_branch_get",
+        "github_branch_protection_get",
+        "github_branch_protection_update",
+        "github_branch_protection_delete",
         "github_provider_capabilities",
         "github_branch_create",
         "github_branch_delete",
@@ -493,6 +515,7 @@ public sealed class GithubieMcpToolsTests
 
     private static readonly string[] ExpectedReadOnlyTools =
     [
+        "github_pr_publish_status",
         "list_projects",
         "github_repository_status",
         "github_repository_settings_get",
@@ -503,6 +526,7 @@ public sealed class GithubieMcpToolsTests
         "github_workflow_run_list",
         "github_branch_list",
         "github_branch_get",
+        "github_branch_protection_get",
         "github_provider_capabilities",
         "github_pr_list",
         "github_pr_get",

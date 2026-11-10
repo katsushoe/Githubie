@@ -87,6 +87,9 @@ public static class GithubieCompositionRoot
         }
 
         var layout = userLayout ?? GithubiePathLayout.FromBinDirectory(binDirectory);
+        var windowsOwner = options.UserHost.AuthenticationMode == UserHostAuthenticationMode.WindowsOwner;
+        if (windowsOwner && userLayout is null)
+            return GithubieCompositionResult.Failure("windows_owner requires the authenticated user host.");
         SqliteRepositoryConfigurationStore configurationStore;
         IReadOnlyDictionary<string, RepositoryOptions> repositories;
         try
@@ -107,11 +110,12 @@ public static class GithubieCompositionRoot
         options = options with
         {
             Repositories = repositories,
-            ProviderAuthentication = moyaiIntegration ? options.ProviderAuthentication : null,
-            DirectUnrestricted = directUnrestricted,
+            ProviderAuthentication = !windowsOwner && moyaiIntegration ? options.ProviderAuthentication : null,
+            DirectUnrestricted = windowsOwner || directUnrestricted,
+            WindowsOwnerSid = windowsOwner ? new UserProfileStore(userLayout!).ReadIdentity().OwnerSid : null,
         };
         var databaseErrors = JsonGithubieOptionsLoader.Validate(options);
-        if (moyaiIntegration)
+        if (moyaiIntegration && !windowsOwner)
         {
             databaseErrors.AddRange(JsonGithubieOptionsLoader.ValidateMoyaiIntegration(options));
         }
@@ -172,9 +176,25 @@ public static class GithubieCompositionRoot
             client.BaseAddress = new Uri("https://api.github.com/");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
-        services.AddSingleton<IGitHubApiClient>(sp => new GitHubApiClient(
+        services.AddSingleton(sp => new GitHubApiClient(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("GitHub"), sp.GetRequiredService<IApiTokenStore>()));
+        services.AddSingleton<IGitHubApiClient>(sp => sp.GetRequiredService<GitHubApiClient>());
         services.AddSingleton<IGitHubRepositoryGateway, GitHubRepositoryGateway>();
+        var publicationStore = new SqlitePrPublicationStore(layout.RepositoryDatabasePath);
+        if (initializeDatabase)
+        {
+            try { await publicationStore.InitializeAsync(cancellationToken); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+            { return GithubieCompositionResult.Failure("publication database initialization failed"); }
+        }
+        services.AddSingleton<Githubie.Application.Publishing.IPrPublicationStore>(publicationStore);
+        services.AddSingleton<Githubie.Application.Publishing.IPrPublicationDiagnostics, PrPublicationDiagnostics>();
+        services.AddSingleton<Githubie.Application.Publishing.IPrPublicationGit>(sp =>
+            (Githubie.Application.Publishing.IPrPublicationGit)sp.GetRequiredService<IGitCommandClient>());
+        services.AddSingleton<Githubie.Application.Publishing.IPrPublicationService, Githubie.Application.Publishing.PrPublicationService>();
+
+        services.AddSingleton<IGitHubBranchProtectionBackend, GitHubBranchProtectionBackend>();
+        services.AddSingleton<IGitHubBranchProtectionGateway, GitHubBranchProtectionGateway>();
 
         try
         {

@@ -388,6 +388,64 @@ public sealed class GitCommandClientIntegrationTests
         result.StandardError.Should().Contain("rejected");
     }
 
+    [Fact]
+    public async Task CreateBranchAtCommit_RealGit_CreatesOnlyFixedRefDespiteMirrorAndFollowTags()
+    {
+        using var repository = await TemporaryGitRepository.CreateWithBareRemoteAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        string sha = await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "rev-parse", "HEAD");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "tag", "-a", "unpublished-tag", "-m", "tag");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "config", "remote.origin.mirror", "true");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "config", "push.followTags", "true");
+        var result = await client.CreateBranchAtCommitAsync(repository.Root, "sample", "origin", "work/topic", sha, TestContext.Current.CancellationToken);
+        result.IsSuccess.Should().BeTrue(result.StandardError);
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.RemoteRoot, "for-each-ref", "--format=%(refname):%(objectname)"))
+            .Should().Be("refs/heads/work/topic:" + sha);
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "branch", "--show-current")).Should().Be("develop");
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "status", "--porcelain")).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateBranchAtCommit_RealGit_RejectsExistingRefEvenFastForward()
+    {
+        using var repository = await TemporaryGitRepository.CreateWithBareRemoteAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        string original = await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "rev-parse", "HEAD");
+        (await client.CreateBranchAtCommitAsync(repository.Root, "sample", "origin", "work/topic", original, TestContext.Current.CancellationToken))
+            .IsSuccess.Should().BeTrue();
+        await repository.CommitAsync("newer commit");
+        string newer = await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "rev-parse", "HEAD");
+        var result = await client.CreateBranchAtCommitAsync(repository.Root, "sample", "origin", "work/topic", newer, TestContext.Current.CancellationToken);
+        result.IsSuccess.Should().BeFalse();
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.RemoteRoot, "rev-parse", "refs/heads/work/topic")).Should().Be(original);
+    }
+
+    [Fact]
+    public async Task CreateBranchAtCommit_RealGit_EqualShaIsUpToDateWithoutCreation()
+    {
+        using var repository = await TemporaryGitRepository.CreateWithBareRemoteAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        string sha = await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "rev-parse", "HEAD");
+        (await client.CreateBranchAtCommitAsync(repository.Root, "sample", "origin", "work/topic", sha, TestContext.Current.CancellationToken)).IsSuccess.Should().BeTrue();
+        var repeated = await client.CreateBranchAtCommitAsync(repository.Root, "sample", "origin", "work/topic", sha, TestContext.Current.CancellationToken);
+        repeated.IsSuccess.Should().BeTrue(repeated.StandardError);
+        repeated.StandardOutput.Should().NotContain("*\t");
+        (await TemporaryGitRepository.RunGitForOutputAsync(repository.RemoteRoot, "rev-parse", "refs/heads/work/topic")).Should().Be(sha);
+    }
+
+    [Fact]
+    public async Task GetPushUrls_RealGit_ReturnsAllEffectivePushTargets()
+    {
+        using var repository = await TemporaryGitRepository.CreateWithBareRemoteAsync();
+        var client = new GitCommandClient(new ProcessExecutor(), "unused-askpass.exe");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "config", "--add", "remote.origin.pushurl", "https://github.com/owner/repo.git");
+        await TemporaryGitRepository.RunGitForOutputAsync(repository.Root, "config", "--add", "remote.origin.pushurl", "https://github.com/owner/other.git");
+        var result = await client.GetPushUrlsAsync(repository.Root, "origin", TestContext.Current.CancellationToken);
+        result.IsSuccess.Should().BeTrue(result.StandardError);
+        result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Should().Equal("https://github.com/owner/repo.git", "https://github.com/owner/other.git");
+    }
+
     private sealed class TemporaryGitRepository : IDisposable
     {
         private TemporaryGitRepository(string root, string? container = null, string? remoteRoot = null)

@@ -47,9 +47,36 @@ public sealed class JsonGithubieOptionsLoaderTests
         var result = await loader.LoadAsync(input, TestContext.Current.CancellationToken);
         result.IsSuccess.Should().BeTrue();
         result.Options!.Repositories["example"].LegacyLocalCommitBranches.Should().BeNull();
+        result.Options.Repositories["example"].PrPublicationSourceBranches.Should().BeEmpty();
         await using var output = new MemoryStream();
         await loader.SaveAsync(result.Options, output, TestContext.Current.CancellationToken);
         Encoding.UTF8.GetString(output.ToArray()).Should().NotContain("local_commit_branches");
+    }
+
+    [Theory]
+    [InlineData("[\"docs/topic\"]", true)]
+    [InlineData("[]", true)]
+    [InlineData("null", false)]
+    [InlineData("[\"topic\",\"topic\"]", false)]
+    [InlineData("[\"refs/heads/topic\"]", false)]
+    [InlineData("[\"*\"]", false)]
+    public async Task LoadAsync_PublicationList_ValidatesAndRoundtrips(string array, bool valid)
+    {
+        var json = ValidJson.Replace("\"require_clean_working_tree\": true", "\"require_clean_working_tree\": true, \"pr_publication_source_branches\": " + array, StringComparison.Ordinal);
+        var loader = new JsonGithubieOptionsLoader();
+        await using var input = new MemoryStream(Encoding.UTF8.GetBytes(json));
+        var result = await loader.LoadAsync(input, TestContext.Current.CancellationToken);
+        result.IsSuccess.Should().Be(valid);
+        if (!valid)
+        {
+            result.Errors.Should().Contain(e => e.Path.EndsWith("pr_publication_source_branches", StringComparison.Ordinal));
+            return;
+        }
+        await using var output = new MemoryStream();
+        await loader.SaveAsync(result.Options!, output, TestContext.Current.CancellationToken);
+        output.Position = 0;
+        var reloaded = await loader.LoadAsync(output, TestContext.Current.CancellationToken);
+        reloaded.Options!.Repositories["example"].PrPublicationSourceBranches.Should().Equal(result.Options!.Repositories["example"].PrPublicationSourceBranches);
     }
 
     [Fact]

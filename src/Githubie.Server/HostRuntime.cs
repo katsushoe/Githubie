@@ -37,23 +37,26 @@ internal static class HostRuntime
         }
         var userHost = args.Contains("--user-host", StringComparer.OrdinalIgnoreCase);
         var layout = userHost ? isolatedUserLayout ?? GithubiePathLayout.ForCurrentUser(binDirectory) : GithubiePathLayout.FromBinDirectory(binDirectory);
+        var configPath = isolatedUserLayout is null ? GithubieConfigurationPath.Resolve(serverArguments.ConfigPath, binDirectory)
+            : serverArguments.ConfigPath ?? Path.Combine(layout.ConfigDirectory, "githubie.json");
+        var settings = new UserHostSettingsStore(configPath).Read();
+        var windowsOwner = settings.AuthenticationMode == UserHostAuthenticationMode.WindowsOwner;
+        if (windowsOwner && !userHost) throw new ArgumentException("windows_owner requires --user-host.");
+        if (!windowsOwner && ((serverArguments.MoyaiIntegration && !settings.MoyaiIntegration)
+            || (serverArguments.DirectUnrestricted && !settings.DirectUnrestricted)))
+            throw new ArgumentException("Host mode flags must match user_host in githubie.json.");
+        serverArguments = serverArguments with { MoyaiIntegration = !windowsOwner && settings.MoyaiIntegration,
+            DirectUnrestricted = !windowsOwner && settings.DirectUnrestricted };
         UserProfileIdentity? identity = null;
         FileStream? profileLock = null;
         if (userHost)
         {
             identity = await new UserProfileStore(layout).InitializeAsync(cancellationToken);
             if (args.Contains("--autostart", StringComparer.OrdinalIgnoreCase)
-                && !new UserAutostart(Path.Combine(layout.BinDirectory, "Githubie.Server.exe")).Initialize()) return 0;
-            var settings = System.Text.Json.JsonSerializer.Deserialize<UserHostOptions>(
-                await File.ReadAllTextAsync(Path.Combine(layout.ConfigDirectory, "host.json"), cancellationToken),
-                new System.Text.Json.JsonSerializerOptions { UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow })
-                ?? throw new InvalidDataException("User host settings are missing.");
-            serverArguments = serverArguments with { MoyaiIntegration = serverArguments.MoyaiIntegration || settings.MoyaiIntegration,
-                DirectUnrestricted = serverArguments.DirectUnrestricted || settings.DirectUnrestricted };
+                && !new UserAutostart(Path.Combine(layout.BinDirectory, "Githubie.Server.exe"), configPath).Initialize()) return 0;
             profileLock = new FileStream(Path.Combine(layout.DataDirectory, "host.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         }
         using var ownedProfileLock = profileLock;
-        var configPath = serverArguments.ConfigPath ?? Path.Combine(layout.ConfigDirectory, "githubie.json");
         var readinessStore = new ServiceReadinessStore(layout.ServiceStatePath);
         await readinessStore.WriteInitializingAsync(CancellationToken.None);
         
@@ -89,6 +92,7 @@ internal static class HostRuntime
         
         var innerGitGateway = applicationServices.GetRequiredService<IGitGateway>();
         var innerGitHubGateway = applicationServices.GetRequiredService<IGitHubRepositoryGateway>();
+        var innerBranchProtectionGateway = applicationServices.GetRequiredService<IGitHubBranchProtectionGateway>();
         var innerRegistrationService = applicationServices.GetRequiredService<IRepositoryRegistrationService>();
         var innerManagementService = applicationServices.GetRequiredService<IRepositoryManagementService>();
         var repositoryAllowlist = applicationServices.GetRequiredService<RepositoryAllowlist>();
@@ -125,6 +129,7 @@ internal static class HostRuntime
         builder.Services.AddSingleton<IGithubieAuditLogger, GithubieAuditLogger>();
         builder.Services.AddSingleton<IGitGateway>(sp => new AuditedGitGateway(innerGitGateway, sp.GetRequiredService<IGithubieAuditLogger>()));
         builder.Services.AddSingleton<IGitHubRepositoryGateway>(sp => new AuditedGitHubRepositoryGateway(innerGitHubGateway, sp.GetRequiredService<IGithubieAuditLogger>()));
+        builder.Services.AddSingleton<IGitHubBranchProtectionGateway>(sp => new AuditedGitHubBranchProtectionGateway(innerBranchProtectionGateway, sp.GetRequiredService<IGithubieAuditLogger>()));
         builder.Services.AddSingleton<IRepositoryRegistrationService>(sp =>
             new AuditedRepositoryRegistrationService(innerRegistrationService, sp.GetRequiredService<IGithubieAuditLogger>()));
         builder.Services.AddSingleton<IRepositoryManagementService>(sp =>
@@ -137,6 +142,9 @@ internal static class HostRuntime
             builder.Services.AddSingleton<IAssertionExecutionValidator>(assertionValidator);
         }
         builder.Services.AddSingleton(assertionExecutionContext);
+        builder.Services.AddSingleton<Githubie.Application.Publishing.IPrPublicationService>(sp =>
+            new AuditedPrPublicationService(applicationServices.GetRequiredService<Githubie.Application.Publishing.IPrPublicationService>(),
+                sp.GetRequiredService<IGithubieAuditLogger>(), sp.GetRequiredService<ILogger<AuditedPrPublicationService>>()));
         builder.Services.AddSingleton<GithubieMcpTools>();
         
         builder.Services
@@ -158,6 +166,12 @@ internal static class HostRuntime
                 {
                     context.Response.StatusCode = StatusCodes.Status403Forbidden;
                     context.Response.Headers[UserHostProtocol.ErrorHeader] = UserHostProtocol.OwnerRejected;
+                    return;
+                }
+                if (options.WindowsOwnerAuthentication && context.Request.Headers.Authorization.Count > 0)
+                {
+                    context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                    context.Response.Headers[UserHostProtocol.ErrorHeader] = UserHostProtocol.AuthenticationModeMismatch;
                     return;
                 }
                 await next();

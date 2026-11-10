@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Githubie.Application.Configuration;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
@@ -8,7 +8,7 @@ using Xunit;
 
 namespace Githubie.Application.Tests;
 
-public sealed class GitHubPullRequestLifecycleTests
+public sealed partial class GitHubPullRequestLifecycleTests
 {
     private readonly IGitHubApiClient _api = Substitute.For<IGitHubApiClient>();
     private readonly GitHubRepositoryGateway _gateway;
@@ -219,9 +219,9 @@ public sealed class GitHubPullRequestLifecycleTests
         GitHubPullRequestState state,
         string mergeabilityStatus = GitHubMergeabilityStatus.Mergeable,
         bool? mergeable = true) => new(
-        1, "title", null, state, "develop", "main", "user", null, mergeable,
+        1, "title", null, state, "develop", "main", "user", state == GitHubPullRequestState.Merged ? new string('2', 40) : null, mergeable,
         DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, "https://example.com/pr/1",
-        mergeabilityStatus, mergeabilityStatus.EndsWith("_retryable", StringComparison.Ordinal) ? 2 : null);
+        mergeabilityStatus, mergeabilityStatus.EndsWith("_retryable", StringComparison.Ordinal) ? 2 : null, new string('1', 40), false);
 
     private static GitHubPullRequestReview Review(string state) => new(
         10, "body", "reviewer", state, DateTimeOffset.UnixEpoch, "abc", "https://example.com/review/10");

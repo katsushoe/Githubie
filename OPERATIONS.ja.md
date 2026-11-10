@@ -114,3 +114,9 @@ githubie.exe restart
 - `data\secrets\`（DPAPI暗号化済みだが、LocalMachineスコープのため同一マシン以外へ復元しても復号できない。移設時は各RepositoryでToken再登録が必要）
 
 `logs\`はバックアップ対象外（監査証跡として必要な期間だけ別途保全する）。
+
+## PR元ブランチ限定公開
+
+`github_pr_publish_create`は明示経路・固定SHA・UUID・対話承認で新規公開とPR作成を行います。`github_pr_publish_status`は同じUUIDの結果を読み取り照合します。結果不明時は再送せず先にstatusを呼び、失敗時もdata内の両副作用の状態を確認してください。通常push許可は拡張しません。
+
+[回復手順](docs/specifications/pr-source-publication.ja.md#エラーと回復)に従い、公開済みbranchを自動削除しないでください。

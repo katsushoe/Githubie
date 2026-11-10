@@ -30,7 +30,7 @@ public sealed class CliApplicationTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await CliApplication.RunAsync(["help"], output, error, TestContext.Current.CancellationToken);
+        var exitCode = await CliApplication.RunIsolatedAsync(["help"], output, error, TestContext.Current.CancellationToken);
 
         exitCode.Should().Be(0);
         output.ToString().Should().Contain("auth set <repository>");
@@ -48,7 +48,7 @@ public sealed class CliApplicationTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await CliApplication.RunAsync([], output, error, TestContext.Current.CancellationToken);
+        var exitCode = await CliApplication.RunIsolatedAsync([], output, error, TestContext.Current.CancellationToken);
 
         exitCode.Should().Be(0);
         output.ToString().Should().Contain("githubie <command>");
@@ -60,7 +60,7 @@ public sealed class CliApplicationTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await CliApplication.RunAsync(["version"], output, error, TestContext.Current.CancellationToken);
+        var exitCode = await CliApplication.RunIsolatedAsync(["version"], output, error, TestContext.Current.CancellationToken);
 
         exitCode.Should().Be(0);
         output.ToString().Trim().Should().MatchRegex(@"^\d+\.\d+\.\d+\.\d+$");
@@ -72,7 +72,7 @@ public sealed class CliApplicationTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await CliApplication.RunAsync(["not-a-command"], output, error, TestContext.Current.CancellationToken);
+        var exitCode = await CliApplication.RunIsolatedAsync(["not-a-command"], output, error, TestContext.Current.CancellationToken);
 
         exitCode.Should().Be(1);
         error.ToString().Should().Contain("unknown command");
@@ -84,7 +84,7 @@ public sealed class CliApplicationTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await CliApplication.RunAsync(
+        var exitCode = await CliApplication.RunIsolatedAsync(
             ["mcp", "call", "github_pr_list", "not-json"], output, error,
             TestContext.Current.CancellationToken);
 
@@ -98,7 +98,7 @@ public sealed class CliApplicationTests
         using var output = new StringWriter();
         using var error = new StringWriter();
 
-        var exitCode = await CliApplication.RunAsync(
+        var exitCode = await CliApplication.RunIsolatedAsync(
             ["mcp", "call", "github_pr_list", "[]"], output, error,
             TestContext.Current.CancellationToken);
 
@@ -113,7 +113,7 @@ public sealed class CliApplicationTests
         using var error = new StringWriter();
         var path = Path.Combine(Path.GetTempPath(), $"githubie-missing-{Guid.NewGuid():N}.json");
 
-        var exitCode = await CliApplication.RunAsync(
+        var exitCode = await CliApplication.RunIsolatedAsync(
             ["mcp", "call", "github_push", "--file", path], output, error,
             TestContext.Current.CancellationToken);
 
@@ -128,7 +128,7 @@ public sealed class CliApplicationTests
         using var error = new StringWriter();
         var missingPath = Path.Combine(Path.GetTempPath(), $"githubie-missing-{Guid.NewGuid():N}.json");
 
-        var exitCode = await CliApplication.RunAsync(["--config", missingPath, "config", "check"], output, error, TestContext.Current.CancellationToken);
+        var exitCode = await CliApplication.RunIsolatedAsync(["--config", missingPath, "config", "check"], output, error, TestContext.Current.CancellationToken);
 
         exitCode.Should().Be(1);
         output.ToString().Should().Contain("config file not found");
@@ -173,7 +173,7 @@ public sealed class CliApplicationTests
             using var output = new StringWriter();
             using var error = new StringWriter();
 
-            var exitCode = await CliApplication.RunAsync(["--config", configPath, "config", "show"], output, error, TestContext.Current.CancellationToken);
+            var exitCode = await CliApplication.RunIsolatedAsync(["--config", configPath, "config", "show"], output, error, TestContext.Current.CancellationToken);
 
             exitCode.Should().Be(0);
             output.ToString().Should().Contain("example-org/example-repo");
@@ -201,7 +201,7 @@ public sealed class CliApplicationTests
                 ? ["--config", configPath, "config", "check", "--moyai"]
                 : ["--config", configPath, "config", "check"];
 
-            var exitCode = await CliApplication.RunAsync(args, output, error, TestContext.Current.CancellationToken);
+            var exitCode = await CliApplication.RunIsolatedAsync(args, output, error, TestContext.Current.CancellationToken);
 
             exitCode.Should().Be(expectedExit);
             if (moyai) output.ToString().Should().Contain("[NG] $.provider_authentication");

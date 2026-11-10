@@ -1,4 +1,4 @@
-namespace Githubie.Application.GitHub;
+﻿namespace Githubie.Application.GitHub;
 
 /// <summary>
 /// GitHub REST API操作の結果を表します。
@@ -51,6 +51,14 @@ public enum GitHubError
     BranchAlreadyExists,
     BranchNotAllowed,
     ProtectedBranch,
+    BranchProtectionResultUnknown,
+    BranchProtectionNotFoundOrInaccessible,
+    BranchProtectionInvalidInput,
+    BranchProtectionUnsupportedPolicy,
+    BranchProtectionChanged,
+    BranchProtectionApprovalDenied,
+    BranchProtectionApprovalTimedOut,
+    BranchProtectionApprovalUnavailable,
 
     AuthenticationFailed,
     PermissionDenied,
@@ -73,6 +81,14 @@ public enum GitHubError
     PullRequestStateNotAllowed,
     PullRequestCommentInvalid,
     PullRequestReviewInvalid,
+    PullRequestNumberInvalid,
+    PullRequestMergeMethodInvalid,
+    PullRequestMergeMessageInvalid,
+    ExpectedSourceCommitRequired,
+    ExpectedSourceCommitInvalid,
+    ExpectedSourceCommitMismatch,
+    PullRequestDraft,
+    PullRequestMergeResultUnknown,
 
     IssueNotFound,
 

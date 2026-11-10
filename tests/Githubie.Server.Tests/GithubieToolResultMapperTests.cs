@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
@@ -108,6 +108,14 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.BranchAlreadyExists] = "branch_already_exists",
         [GitHubError.BranchNotAllowed] = "branch_not_allowed",
         [GitHubError.ProtectedBranch] = "protected_branch",
+        [GitHubError.BranchProtectionResultUnknown] = "branch_protection_result_unknown",
+        [GitHubError.BranchProtectionNotFoundOrInaccessible] = "branch_protection_not_found_or_inaccessible",
+        [GitHubError.BranchProtectionInvalidInput] = "branch_protection_invalid_input",
+        [GitHubError.BranchProtectionUnsupportedPolicy] = "branch_protection_unsupported_policy",
+        [GitHubError.BranchProtectionChanged] = "branch_protection_changed",
+        [GitHubError.BranchProtectionApprovalDenied] = "branch_protection_approval_denied",
+        [GitHubError.BranchProtectionApprovalTimedOut] = "branch_protection_approval_timed_out",
+        [GitHubError.BranchProtectionApprovalUnavailable] = "branch_protection_approval_unavailable",
         [GitHubError.AuthenticationFailed] = "authentication_failed",
         [GitHubError.PermissionDenied] = "permission_denied",
         [GitHubError.TokenScopeMissing] = "token_scope_missing",
@@ -126,6 +134,14 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.PullRequestStateNotAllowed] = "pull_request_state_not_allowed",
         [GitHubError.PullRequestCommentInvalid] = "pull_request_comment_invalid",
         [GitHubError.PullRequestReviewInvalid] = "pull_request_review_invalid",
+        [GitHubError.PullRequestNumberInvalid] = "pull_request_number_invalid",
+        [GitHubError.PullRequestMergeMethodInvalid] = "merge_strategy_invalid",
+        [GitHubError.PullRequestMergeMessageInvalid] = "merge_message_invalid",
+        [GitHubError.ExpectedSourceCommitRequired] = "expected_source_commit_required",
+        [GitHubError.ExpectedSourceCommitInvalid] = "expected_source_commit_invalid",
+        [GitHubError.ExpectedSourceCommitMismatch] = "expected_source_commit_mismatch",
+        [GitHubError.PullRequestDraft] = "pull_request_draft",
+        [GitHubError.PullRequestMergeResultUnknown] = "pr_merge_result_unknown",
         [GitHubError.IssueNotFound] = "issue_not_found",
         [GitHubError.TagNotFound] = "tag_not_found",
         [GitHubError.TagInvalid] = "tag_invalid",

@@ -2,21 +2,27 @@
 
 [English](USER_HOST.md) | [日本語](USER_HOST.ja.md)
 
-Githubie 2.0は、ログオンユーザーの1つのプロセスでHTTPホストとトレイを実行します。バイナリは `C:\Githubie\bin`、設定・Repository・資格・ログはユーザー別プロフィールに配置します。旧Serviceへの復旧には、保全した旧データと対応する1.x MSIを使用します。
+`<install-root>` はユーザーが選択した実際のインストール先です（既定は `C:\Githubie`）。設定は実行ファイルの `bin` の親にある `config\githubie.json` 一つだけを使用します。
+
+Githubie 2.0は、ログオンユーザーの1つのプロセスでHTTPホストとトレイを実行します。バイナリは `<install-root>\bin`、本体設定・自動起動・連携モードは `<install-root>\config\githubie.json` だけに保存し、Repository DB・資格・ログはユーザー別プロフィールに配置します。旧Serviceへの復旧には、保全した旧データと対応する1.x MSIを使用します。
 
 ## インストールと更新
 
 対象ユーザーの**非昇格**PowerShellから、配布物のコーディネーターを実行します。
 
 ```powershell
-.\Install-UserHost.ps1 -MsiPath .\Githubie-2.0.0.0-win-x64.msi
+.\Install-UserHost.ps1 -MsiPath .\Githubie-2.1.0.0-win-x64.msi -InstallRoot "D:\Apps With Spaces\Githubie"
 ```
 
-MSI実行だけがUAC昇格します。別の管理者がUACを承認しても、ユーザー設定は元のSID・Windowsセッションで続行します。新規導入ではログオン時自動起動をONにして読戻しを確認し、更新・修復では保存済みOFFを維持します。UAC取消、MSI失敗、導入版不一致、ユーザー変更、読戻し失敗は導入未完了です。MSIによるバイナリ配置だけをユーザー設定の完了とは扱いません。新規MSIはコーディネーターのユーザー設定未完了プロパティを必須にします。
+MSI実行だけがUAC昇格します。別の管理者がUACを承認しても、ユーザー設定は元のSID・Windowsセッションで続行します。正本JSONの自動起動設定（新規正本では既定ON）をHKCUへ反映して読戻しを確認し、更新・修復では正本JSONの user_host.autostart_enabled=false を維持します。UAC取消、MSI失敗、導入版不一致、ユーザー変更、読戻し失敗は導入未完了です。MSIによるバイナリ配置だけをユーザー設定の完了とは扱いません。新規MSIはコーディネーターのユーザー設定未完了プロパティを必須にします。
+
+コーディネーターはCLIの初回起動待機でreadyを確認できなかった場合、最大60秒の追加待機で現在ユーザーのホスト制御応答を確認します。追加待機でも確認できなければ導入工程は未完了です。待機終了だけでホスト停止とは判断せず、再実行前に `githubie host status` とログを確認してください。
 
 管理配布では、管理者が `GITHUBIE_USER_SETUP_PENDING=1 GITHUBIE_TARGET_SID=<対象SID>` でMSIを配置し、同じ配布工程内で対象ユーザーの非昇格セッションから `Install-UserHost.ps1 -UserSetupOnly -Quiet` を実行します。Session 0/Systemから別ユーザーのHKCUを登録しません。ユーザー工程の読戻しが成功するまで配布完了にしないでください。`-Quiet` でも自動起動を登録・確認しますが、現在のホストは起動しません。
 
-更新時は旧 `Githubie` Windows Serviceを削除し、旧 `C:\Githubie\config`・`data`・暗号化Token・ログを保全します。**新規ユーザープロフィールへ旧データを自動取り込みしません。** Repositoryは再登録し、Tokenは専用画面で再入力してください。共有DBやLocalMachine形式のDPAPIデータをユーザープロフィールへコピーしないでください。
+更新時は旧 `Githubie` Windows Serviceを削除し、旧 `<install-root>\config`・`data`・暗号化Token・ログを保全します。**正本JSONは共有しますが、旧共有DB・Tokenは新規ユーザープロフィールへ自動取り込みしません。** Repositoryは再登録し、Tokenは専用画面で再入力してください。共有DBやLocalMachine形式のDPAPIデータをユーザープロフィールへコピーしないでください。
+
+`-InstallRoot` は導入先を指定します。省略時はMSIが記憶した導入先を維持し、新規導入の既定は `C:\Githubie` です。導入先を記録しない旧版を独自の場所に導入していた場合は、その場所を明示してください。MSIは `INSTALLROOT` を受け付け、実際の配置をHKLMへ記録します。ユーザー設定工程は64bitレジストリの記録先からCLIを起動し、指定先と異なる場合は中断します。`-UserSetupOnly` でも同じ記録を使用します。
 
 ## プロフィールと操作
 
@@ -25,14 +31,14 @@ MSI実行だけがUAC昇格します。別の管理者がUACを承認しても�
 | 対象 | 配置・動作 |
 | --- | --- |
 | 識別情報 | `profile.json`：schema・プロフィールUUID・所有者SID |
-| ホスト設定 | `config\host.json`：`moyai_integration`・`direct_unrestricted` |
-| HTTP設定 | `config\githubie.json`：専用port/path、必要なProvider信頼設定 |
-| 自動起動の選択 | `config\startup.json`：`enabled` |
+| ホスト設定 | `<install-root>\config\githubie.json`：`user_host.moyai_integration`・`user_host.direct_unrestricted` |
+| HTTP設定 | 同じ正本JSONの `mcp_port`・`mcp_path`・Provider信頼設定 |
+| 自動起動の選択 | 同じ正本JSONの `user_host.autostart_enabled`（既定true）。現在ユーザーのHKCUへ反映 |
 | Repositoryと保護Token | `data\githubie.db`：登録時に同じSQLiteトランザクションで確定 |
 | 接続情報 | `data\connection.json`：schema 1メタデータと保護済み資格。起動ごとに更新 |
 | ログ・起動状態 | `logs`・`data\host-state.json` |
 
-新規プロフィールは空いているloopbackポートを選んで保存します。その後のbind競合では起動を拒否し、別プロセスのlistenerへ接続しません。1プロフィールのホストは1つのWindowsセッションだけで実行できます。別セッションでは、所有ホストの停止・ログオフまで待ちます。接続情報のSID・プロフィール・session・PID・プロセス開始時刻を照合します。
+すべてのプロフィールで正本JSONのloopbackポートを使用します。その後のbind競合では起動を拒否し、別プロセスのlistenerへ接続しません。1プロフィールのホストは1つのWindowsセッションだけで実行できます。別セッションでは、所有ホストの停止・ログオフまで待ちます。接続情報のSID・プロフィール・session・PID・プロセス開始時刻を照合します。
 
 ```powershell
 githubie profile status
@@ -81,13 +87,13 @@ GitHub Repository作成は外部APIを含むため、ローカルSQLiteだけで
 
 loopbackだけをユーザー認証には使いません。bootstrapを含む全ユーザーホストHTTP要求に、起動ごとの `X-Githubie-Session`、`X-Githubie-Generation`、正しいHost/Originを要求します。資格はCurrentUser DPAPIと非共有ACLで保護し、旧LocalMachine形式を取り込みません。CurrentUserOnly制御Pipeでは、OSが報告する接続元Windows sessionと起動資格も照合します。
 
-Moyaiモードは `config\host.json` で有効化し、`githubie.json` に従来のissuer・trust・replay・project対応を設定します。所有者認証の後もES256署名・replay防止・操作束縛・選択済み直接接続方針を維持します。所有者資格とAssertionは相互に代用できません。
+Moyaiモードは `<install-root>\config\githubie.json` の `user_host` で有効化し、`githubie.json` に従来のissuer・trust・replay・project対応を設定します。所有者認証の後もES256署名・replay防止・操作束縛・選択済み直接接続方針を維持します。所有者資格とAssertionは相互に代用できません。
 
 ユーザーセッションのMoyaiクライアントは、全HTTP要求に同じユーザーの所有者資格と起動世代を付け、保護Provider操作には署名Assertionも付けます。旧共有LocalSystemクライアントの権限を暗黙に引き継ぎません。新プロフィールのendpoint・信頼鍵・project対応を再設定し、通常切替前にConsumerを検証してください。保護接続資格を共有machine設定や標準出力helperへ書かないでください。
 
 ### 版付き接続検出契約（候補・Consumer合意待ち）
 
-対象は現在ユーザーのLocalApplicationData/Akatsukisoft/Githubie配下の既定profileだけです。他profileやportの探索、旧Serviceや版なし`connection.dpapi`へのフォールバックはしません。endpointはuserinfo/query/fragmentのない`http://127.0.0.1:<port>/mcp`だけとします。fresh profileで選択したportを保存し、再起動ごとには選び直しません。
+対象は現在ユーザーのLocalApplicationData/Akatsukisoft/Githubie配下の既定profileだけです。他profileやportの探索、旧Serviceや版なし`connection.dpapi`へのフォールバックはしません。endpointはuserinfo/query/fragmentのない`http://127.0.0.1:<port>/mcp`だけとします。portは正本JSONだけから読み、再起動時も自動選択しません。
 
 UTF-8 JSONの13項目を固定します。`schema_version`=1、`provider_id`=`githubie`、`profile_id`=GUID、`owner_sid`、`session_id`=Int32、`process_id`=Int32、`process_start_utc_ticks`=.NET UTC ticksのInt64、`endpoint`、`generation`=GUIDのN形式32文字、`runtime_path`=実行ファイル絶対path、`runtime_sha256`、`profile_sha256`、`protected_credential`です。SHA-256は選択した実行ファイルと`profile.json`の生byte列の大文字16進値です。Consumerは選択runtime/profileを固定します。hashは署名や任意runtimeを選択する権限ではありません。
 
@@ -108,3 +114,21 @@ native clientはredirectを禁止します。明示的な所有者拒否で、�
 ## 受入条件
 
 新規導入、OFFを保持する更新・修復、別管理者UAC、取消・失敗、ユーザー工程読戻し、削除・再導入・復旧、ログオン・ログオフ、トレイ、同session画面を確認します。承認・Token成功、skip、cancel、launch/timeout/protocol失敗、トランザクションrollback、既存登録保持も対象です。無資格HTTP/IPC、port/session競合、資格更新と、Codex・Claude Code双方および対象Moyai Consumerで代表的なread/write/errorを検証します。MSI作成だけで実機受入済みとはしません。
+
+## 唯一の本体設定（2.1.0.0）
+
+読込・保存先は `<install-root>\config\githubie.json` だけです。`user_host` に `moyai_integration`（省略時false）・`direct_unrestricted`（false）・`autostart_enabled`（true）を保存します。`direct_unrestricted=true` には `moyai_integration=true` が必要です。旧起動モード引数はJSONで有効な値の再指定だけを許可します。旧プロフィール内の `githubie.json`・`host.json`・`startup.json` は読まず、新規作成・自動統合もしません。
+
+共有の自動起動設定は、setup/logon時に現在ユーザーのHKCUへ反映します。ON/OFF変更には正本ファイルの書込権限が必要です。他のJSON設定は保持し、保存・読戻し失敗時はHKCUを元に戻します。他ユーザーは次のsetup/logon時に反映します。MSIは正本がない場合だけ初期JSONを作り、更新・アンインストール時も既存内容を保持します。旧1.x読込処理は新しい `user_host` を認識しないため、実機切替時に確認してください。既存正本をサンプルで上書きしないでください。判断の正本は[ADR0041](docs/adr/0041-single-canonical-configuration.md)です。識別・接続・DBファイルは実行データであり、別の本体設定ではありません。
+
+
+
+## 同一Windowsユーザー認証（候補2.1.0.0）
+
+唯一のJSONの `user_host.authentication_mode` に `windows_owner` を明示すると、所有者認証済みユーザーホスト接続でMoyai/nativeを同じWindowsユーザーとして扱います。省略値 `legacy` は従来動作を保持します。新規MSIの既定JSONは `windows_owner` を明示しますが、既存JSONは上書きしません。このモードは `--user-host` 専用で、旧Serviceでは拒否します。
+
+全HTTP要求にschema1 discoveryの `X-Githubie-Session` と `X-Githubie-Generation` が必要です。ES256 Assertion・Issuer鍵・Project署名scope・legacy tokenは必須にしません。旧Moyai/direct設定とtrust資産は保持しますが、このモードの認可に使用しません。Repository/branch制限・本人承認・外部サービス資格・監査は維持します。監査主体はWindows所有SIDです。
+
+Consumerは版と `github_provider_capabilities.authentication.owner_authentication` の明示契約・対象tool名を確認してから操作します。通常のcapabilityだけでは署名不要と判断できません。ownerモードへAuthorizationを渡すと403/`user_host_auth_mode_mismatch`、所有者資格・世代等の拒否は既存の403/`user_host_owner_rejected`です。別経路fallbackと結果不明mutationの自動再送を行いません。
+
+正確なwire・能力フィールド・対象操作・エラーは[Windows owner認証v1](docs/specifications/windows-owner-authentication-v1.md)、設計判断は[ADR0042](docs/adr/0042-windows-owner-authentication.md)を参照してください。現在は契約提案・候補の段階です。Moyai Consumer合意/相互受入と通常環境切替は別工程で、実装候補を稼働中の設定へ自動適用しません。既存鍵・DB・trustを削除しないでください。

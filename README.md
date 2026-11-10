@@ -1,6 +1,14 @@
-# Githubie
+﻿# Githubie
+
+Candidate 2.1.4.0 adds fixed-SHA PR source branch publication, PR creation and result reconciliation. Live GitHub and Consumer interoperability acceptance are separate gates. See the [contract](docs/specifications/pr-source-publication.md).
+
+The development candidate adds [GitHub branch protection operations](docs/specifications/github-branch-protection.md). Candidate verification, actual deployment and Moyai interoperability remain separate milestones.
+
+Candidate2.1.1.0 adds explicit PR read/merge capabilities and conditional source-SHA merge with unknown-result reconciliation. See the [PR merge contract](docs/specifications/pr-merge-provider.md). Candidate verification, actual Moyai Consumer acceptance and Windows deployment are separate milestones.
 
 [English](README.md) | [日本語](README.ja.md)
+
+`<install-root>` means the actual user-selected installation directory (default `C:\Githubie`). The sole configuration is `config\githubie.json` under the parent of the running executable's `bin` directory.
 
 Githubie is a Windows gateway that lets MCP clients operate allowlisted local Git repositories and GitHub.com without exposing arbitrary Git commands, repository URLs, or credentials. It is the GitHub companion to [Buckettie](https://github.com/katsushoe/Buckettie).
 
@@ -9,13 +17,15 @@ Githubie is a Windows gateway that lets MCP clients operate allowlisted local Gi
 Run `Install-UserHost.ps1` beside the 2.0 MSI from the intended user's non-elevated PowerShell. MSI elevation and current-user startup registration are separate phases of the same setup. Then connect the AI client through the protected stdio bridge:
 
 ```powershell
-.\Install-UserHost.ps1 -MsiPath .\Githubie-2.0.0.0-win-x64.msi
+.\Install-UserHost.ps1 -MsiPath .\Githubie-2.1.0.0-win-x64.msi
 githubie host status
 githubie configure codex
 # Or: githubie configure claude
 ```
 
 Re-register repositories and enter tokens in the dedicated UI. The fresh user profile does not import old Service data. See [User host](USER_HOST.md) for startup, client migration, security and recovery; [MCP setup](MCP_SETUP.md) links the retained tool reference.
+
+`githubiemcp` is a client for an already running Githubie service. Use `githubiemcp --help` for commands; MSI and ZIP include it beside `githubie`. See [commands](COMMANDS.md).
 
 ## Installation
 
@@ -30,7 +40,7 @@ dotnet test Githubie.slnx
 
 ## Configuration
 
-Githubie stores each user's configuration, database, CurrentUser-protected tokens and logs under the Windows LocalApplicationData known folder, `Akatsukisoft/Githubie`. Binaries stay in `C:\Githubie`. Old Service data is retained for recovery and never imported automatically. See [User host configuration](USER_HOST.md#profile-and-host-operations) and the [configuration schema](CONFIG.md).
+Githubie reads its only operational configuration from `<install-root>\config\githubie.json`, including `user_host` startup and integration settings. Repository databases, CurrentUser-protected tokens, identity, discovery and logs remain per user under LocalApplicationData/Akatsukisoft/Githubie. Machine databases and token blobs are not imported. See [User host configuration](USER_HOST.md#profile-and-host-operations) and [configuration schema](CONFIG.md).
 
 ## Usage
 
@@ -68,3 +78,13 @@ The MCP endpoint uses loopback plus per-start user credentials and Host/Origin c
 ## License
 
 Githubie is available under the [MIT License](LICENSE).
+
+## Windows owner authentication (candidate 2.1.0.0)
+
+Explicitly set `user_host.authentication_mode=windows_owner` in the sole JSON to trust Moyai/native callers authenticated as the same Windows owner. Omission selects `legacy` and preserves previous behavior. Fresh MSI default JSON explicitly selects `windows_owner`; existing JSON is never overwritten. This mode requires `--user-host` and is rejected by the legacy Service.
+
+Every HTTP request requires schema1 discovery's `X-Githubie-Session` and `X-Githubie-Generation`. ES256 assertions, Issuer keys, Project signature scopes and legacy tokens are not required. Old Moyai/direct settings and trust assets are preserved but not used for authorization in this mode. Repository/branch policy, owner approval, external-service credentials and audit remain. The audit actor is the Windows owner SID.
+
+Consumers verify the Provider version and explicit `github_provider_capabilities.authentication.owner_authentication` contract and target tool name before dispatch. Ordinary capability flags alone do not establish signature-free support. An Authorization header in owner mode returns403/`user_host_auth_mode_mismatch`; owner/generation rejection retains403/`user_host_owner_rejected`. No alternate-mode fallback or automatic unknown-outcome mutation replay is allowed.
+
+See [Windows owner authentication v1](docs/specifications/windows-owner-authentication-v1.md) for exact fields/operations/errors and [ADR0042](docs/adr/0042-windows-owner-authentication.md) for the decision. This is a proposed contract/candidate; Moyai agreement, interoperability and normal rollout are separate gates. Do not apply it automatically to the installed configuration or delete existing keys, DBs or trust assets.

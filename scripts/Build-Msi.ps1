@@ -1,6 +1,6 @@
-param(
-    [string]$DisplayVersion = '2.0.0.0',
-    [string]$ProductVersion = '2.0.0',
+﻿param(
+    [string]$DisplayVersion = '2.1.5.0',
+    [string]$ProductVersion = '2.1.5',
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$NoRestore
 )
@@ -15,6 +15,7 @@ $installerProject = Join-Path $repositoryRoot 'installer\Githubie.Installer\Gith
 # are not overwritten by the runtime copies of the other self-contained projects.
 $projects = @(
     'src\Githubie.Cli\Githubie.Cli.csproj',
+    'src\Githubie.McpClient\Githubie.McpClient.csproj',
     'src\Githubie.AskPass\Githubie.AskPass.csproj',
     'src\Githubie.ApprovalPrompt\Githubie.ApprovalPrompt.csproj',
     'src\Githubie.Server\Githubie.Server.csproj'

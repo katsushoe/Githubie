@@ -18,3 +18,5 @@
 | [docs/adr/](docs/adr/) | 主要な設計判断の記録（Architecture Decision Records） |
 
 設計思想・仕様の背景（Buckettieとの対比を含む）は、Obsidianの`Githubie 仕様書`（社内ナレッジベース、本リポジトリ外）を正本とする。本リポジトリの文書群はコードに密接な操作手順・リファレンスに限定する。
+
+- [PR元ブランチ限定公開](docs/specifications/pr-source-publication.ja.md)

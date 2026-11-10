@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -99,7 +99,9 @@ public sealed class ServiceReadinessStore(string statePath)
     private async Task<ServiceReadinessState?> ReadAsync(CancellationToken cancellationToken)
     {
         if (!File.Exists(_statePath)) return null;
-        await using var stream = File.OpenRead(_statePath);
+        // ポーリング中の読取が、同じファイルの原子的な置換を妨げないようにします。
+        await using var stream = new FileStream(_statePath, FileMode.Open, FileAccess.Read,
+            FileShare.Read | FileShare.Delete, 4096, FileOptions.Asynchronous);
         return await JsonSerializer.DeserializeAsync<ServiceReadinessState>(stream, SerializerOptions, cancellationToken)
             ?? throw new InvalidDataException("Service state was empty.");
     }

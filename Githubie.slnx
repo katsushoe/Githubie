@@ -1,4 +1,4 @@
-<Solution>
+﻿<Solution>
   <Project Path="src/Githubie.Domain/Githubie.Domain.csproj" />
   <Project Path="src/Githubie.Application/Githubie.Application.csproj" />
   <Project Path="src/Githubie.Infrastructure/Githubie.Infrastructure.csproj" />
@@ -6,6 +6,7 @@
   <Project Path="src/Githubie.ApprovalPrompt/Githubie.ApprovalPrompt.csproj" />
   <Project Path="src/Githubie.Server/Githubie.Server.csproj" />
   <Project Path="src/Githubie.Cli/Githubie.Cli.csproj" />
+  <Project Path="src/Githubie.McpClient/Githubie.McpClient.csproj" />
   <Project Path="tests/Githubie.Domain.Tests/Githubie.Domain.Tests.csproj" />
   <Project Path="tests/Githubie.Application.Tests/Githubie.Application.Tests.csproj" />
   <Project Path="tests/Githubie.Infrastructure.Tests/Githubie.Infrastructure.Tests.csproj" />

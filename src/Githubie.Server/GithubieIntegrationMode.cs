@@ -1,4 +1,4 @@
-using Githubie.Application.Configuration;
+﻿using Githubie.Application.Configuration;
 
 namespace Githubie.Server;
 
@@ -15,7 +15,8 @@ public static class GithubieIntegrationMode
 
     /// <summary>単体動作では`standalone`、`--moyai`では`moyai`です。</summary>
     public static string IntegrationMode(GithubieOptions? options) =>
-        options?.ProviderAuthentication is null ? Standalone : Moyai;
+        options?.WindowsOwnerAuthentication == true ? UserHostAuthenticationMode.WindowsOwner
+            : options?.ProviderAuthentication is null ? Standalone : Moyai;
 
     /// <summary>単体動作または`--direct-unrestricted`では`unrestricted`、`--moyai`だけなら`read_only`です。</summary>
     public static string DirectConnection(GithubieOptions? options) =>

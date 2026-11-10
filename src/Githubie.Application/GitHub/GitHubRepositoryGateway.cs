@@ -1,4 +1,4 @@
-using Githubie.Application.Repositories;
+﻿using Githubie.Application.Repositories;
 using System.Collections.Concurrent;
 
 namespace Githubie.Application.GitHub;
@@ -206,6 +206,7 @@ public sealed class GitHubRepositoryGateway(
 
     public async Task<GitHubResult<GitHubPullRequestInfo>> GetPullRequestAsync(string repository, int number, CancellationToken cancellationToken)
     {
+        if (number <= 0) return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestNumberInvalid);
         var resolved = Resolve(repository);
         if (resolved.Error is not null)
         {
@@ -285,6 +286,24 @@ public sealed class GitHubRepositoryGateway(
 
         var options = resolved.Options!;
 
+        if (request.Number <= 0)
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestNumberInvalid);
+        if (request.MergeMethod is { } method && !Enum.IsDefined(method))
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestMergeMethodInvalid);
+        if (request.MergeMethod is null)
+        {
+            if (!Enum.TryParse<GitHubMergeMethod>(options.MergeMethod, true, out var configuredMethod) || !Enum.IsDefined(configuredMethod))
+                return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestMergeMethodInvalid);
+            request = request with { MergeMethod = configuredMethod };
+        }
+        if (request.CommitMessage is not null && string.IsNullOrWhiteSpace(request.CommitMessage))
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestMergeMessageInvalid);
+        if (request.RequireExpectedSourceCommit && request.ExpectedSourceCommitSha is null)
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.ExpectedSourceCommitRequired);
+        if (request.ExpectedSourceCommitSha is not null && !GitHubCommitSha.IsValid(request.ExpectedSourceCommitSha))
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.ExpectedSourceCommitInvalid);
+        request = request with { ExpectedSourceCommitSha = request.ExpectedSourceCommitSha?.ToLowerInvariant() };
+
         var current = await GetStableMergeabilityAsync(
             repository, options.GitHubOwner, options.GitHubRepo, request.Number, cancellationToken);
         if (!current.IsSuccess)
@@ -292,26 +311,54 @@ public sealed class GitHubRepositoryGateway(
             return current;
         }
 
-        if (current.Value!.State != GitHubPullRequestState.Open)
+        var observed = current.Value!;
+        if (observed.Number != request.Number)
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.InvalidResponse);
+        if (request.ExpectedSourceCommitSha is not null)
+        {
+            if (!GitHubCommitSha.IsValid(observed.SourceCommitSha))
+                return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.InvalidResponse);
+            if (!string.Equals(observed.SourceCommitSha, request.ExpectedSourceCommitSha, StringComparison.OrdinalIgnoreCase))
+                return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.ExpectedSourceCommitMismatch);
+        }
+
+        var policy = options.ToPolicy(repository);
+        if (!policy.ValidatePullRequest(observed.Source, observed.Destination).IsAllowed)
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestRouteNotAllowed);
+
+        // 既マージは現在の観測結果を返し、新しいPUTを送信しません。
+        if (observed.State == GitHubPullRequestState.Merged)
+            return GitHubCommitSha.IsValid(observed.MergeCommitSha) && GitHubCommitSha.IsValid(observed.SourceCommitSha)
+                ? current : GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.InvalidResponse);
+        if (observed.State != GitHubPullRequestState.Open)
         {
             return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestNotOpen);
         }
+        if (observed.Draft == true)
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestDraft);
+        if (request.RequireExpectedSourceCommit && observed.Draft is null)
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.InvalidResponse);
 
-        var mergeabilityError = MapMergeabilityError(current.Value.MergeabilityStatus);
+        var mergeabilityError = MapMergeabilityError(observed.MergeabilityStatus);
         if (mergeabilityError is not null)
         {
             return GitHubResult<GitHubPullRequestInfo>.Failure(mergeabilityError.Value);
         }
 
-        var policy = options.ToPolicy(repository);
-        var routeResult = policy.ValidatePullRequest(current.Value.Source, current.Value.Destination);
-        if (!routeResult.IsAllowed)
-        {
-            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestRouteNotAllowed);
-        }
-
         var merged = await _apiClient.MergePullRequestAsync(
             repository, options.GitHubOwner, options.GitHubRepo, request, cancellationToken);
+        if (merged.IsSuccess)
+        {
+            // PUT後は、実際にmergedとなったPRと完全なmerge SHAを確認できる場合だけ成功です。
+            return merged.Value is { State: GitHubPullRequestState.Merged } final
+                && final.Number == request.Number && GitHubCommitSha.IsValid(final.MergeCommitSha)
+                && GitHubCommitSha.IsValid(final.SourceCommitSha)
+                && (request.ExpectedSourceCommitSha is null || string.Equals(final.SourceCommitSha,
+                    request.ExpectedSourceCommitSha, StringComparison.OrdinalIgnoreCase))
+                ? merged : GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestMergeResultUnknown);
+        }
+        if (merged.Error is GitHubError.NetworkError or GitHubError.Timeout or GitHubError.InvalidResponse)
+            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestMergeResultUnknown, merged.Diagnostic, merged.HttpStatus);
         if (merged.Error != GitHubError.PullRequestNotMergeable)
         {
             return merged;
@@ -345,7 +392,8 @@ public sealed class GitHubRepositoryGateway(
         for (var attempt = 0; attempt < MergeabilityPollAttempts; attempt++)
         {
             current = await _apiClient.GetPullRequestAsync(repository, owner, repo, number, cancellationToken);
-            if (!current.IsSuccess || current.Value!.MergeabilityStatus is not
+            if (!current.IsSuccess || current.Value!.State != GitHubPullRequestState.Open || current.Value.Draft == true
+                || current.Value.MergeabilityStatus is not
                 (GitHubMergeabilityStatus.CalculatingRetryable or GitHubMergeabilityStatus.UnknownRetryable))
             {
                 return current;

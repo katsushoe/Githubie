@@ -17,6 +17,7 @@ public sealed class RepositorySettingsInput
     private string? _commitAuthorName;
     private string? _commitAuthorEmail;
     private IReadOnlyList<PullRequestRoute>? _pullRequestRoutes;
+    private IReadOnlyList<string>? _prPublicationSourceBranches;
 
     [JsonPropertyName("direct_push_branches")] public IReadOnlyList<string>? DirectPushBranches { get => _directPushBranches; init { _directPushBranches = value; HasDirectPushBranches = true; } }
     [JsonPropertyName("protected_branches")] public IReadOnlyList<string>? ProtectedBranches { get => _protectedBranches; init { _protectedBranches = value; HasProtectedBranches = true; } }
@@ -27,6 +28,7 @@ public sealed class RepositorySettingsInput
     [JsonPropertyName("commit_author_name")] public string? CommitAuthorName { get => _commitAuthorName; init { _commitAuthorName = value; HasCommitAuthorName = true; } }
     [JsonPropertyName("commit_author_email")] public string? CommitAuthorEmail { get => _commitAuthorEmail; init { _commitAuthorEmail = value; HasCommitAuthorEmail = true; } }
     [JsonPropertyName("pull_request_routes")] public IReadOnlyList<PullRequestRoute>? PullRequestRoutes { get => _pullRequestRoutes; init { _pullRequestRoutes = value; HasPullRequestRoutes = true; } }
+    [JsonPropertyName("pr_publication_source_branches")] public IReadOnlyList<string>? PrPublicationSourceBranches { get => _prPublicationSourceBranches; init { _prPublicationSourceBranches = value; HasPrPublicationSourceBranches = true; } }
 
     [JsonIgnore] public bool HasDirectPushBranches { get; private init; }
     [JsonIgnore] public bool HasProtectedBranches { get; private init; }
@@ -37,11 +39,12 @@ public sealed class RepositorySettingsInput
     [JsonIgnore] public bool HasCommitAuthorName { get; private init; }
     [JsonIgnore] public bool HasCommitAuthorEmail { get; private init; }
     [JsonIgnore] public bool HasPullRequestRoutes { get; private init; }
+    [JsonIgnore] public bool HasPrPublicationSourceBranches { get; private init; }
 
     public RepositorySettingsChanges? ToChanges()
     {
         if ((!HasDirectPushBranches && !HasProtectedBranches && !HasPullBranches && !HasTagPattern
-                && !HasTagTargetBranch && !HasRequireCleanWorkingTree && !HasCommitAuthorName && !HasCommitAuthorEmail && !HasPullRequestRoutes)
+                && !HasTagTargetBranch && !HasRequireCleanWorkingTree && !HasCommitAuthorName && !HasCommitAuthorEmail && !HasPullRequestRoutes && !HasPrPublicationSourceBranches)
             || (HasDirectPushBranches && DirectPushBranches is null)
             || (HasProtectedBranches && ProtectedBranches is null)
             || (HasPullBranches && PullBranches is null)
@@ -51,12 +54,14 @@ public sealed class RepositorySettingsInput
             || (HasCommitAuthorName && CommitAuthorName is null)
             || (HasCommitAuthorEmail && CommitAuthorEmail is null)
             || (HasPullRequestRoutes && PullRequestRoutes is null)
+            || (HasPrPublicationSourceBranches && PrPublicationSourceBranches is null)
             || HasCommitAuthorName != HasCommitAuthorEmail)
             return null;
 
         return new(DirectPushBranches, HasDirectPushBranches, ProtectedBranches, HasProtectedBranches,
             PullBranches, HasPullBranches, TagPattern, HasTagPattern, TagTargetBranch, HasTagTargetBranch,
             RequireCleanWorkingTree, HasRequireCleanWorkingTree, CommitAuthorName, HasCommitAuthorName,
-            CommitAuthorEmail, HasCommitAuthorEmail, PullRequestRoutes, HasPullRequestRoutes);
+            CommitAuthorEmail, HasCommitAuthorEmail, PullRequestRoutes, HasPullRequestRoutes,
+            PrPublicationSourceBranches, HasPrPublicationSourceBranches);
     }
 }

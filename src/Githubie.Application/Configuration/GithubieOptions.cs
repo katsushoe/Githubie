@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
 using Githubie.Domain;
 
 namespace Githubie.Application.Configuration;
@@ -13,6 +13,15 @@ public sealed record GithubieOptions(
 {
     public const int DefaultMcpPort = 45460;
     public const string DefaultMcpPath = "/mcp";
+
+    public UserHostOptions UserHost { get; init; } = new();
+
+    /// <summary>検証済みユーザーホスト構築時だけ設定する監査主体です。JSONからは設定しません。</summary>
+    [JsonIgnore]
+    public string? WindowsOwnerSid { get; init; }
+
+    [JsonIgnore]
+    public bool WindowsOwnerAuthentication => WindowsOwnerSid is not null;
 
     /// <summary>
     /// MoyaiからのRepository操作を検証するProvider Assertion設定です。
@@ -77,6 +86,9 @@ public sealed record RepositoryOptions(
 
     /// <summary>Allowed pull request routes. The initializer preserves the legacy develop-to-main route for old configuration.</summary>
     public IReadOnlyList<PullRequestRoute> PullRequestRoutes { get; init; } = [new(DevelopBranch, MainBranch)];
+
+    /// <summary>Exact source branches permitted for PR publication, independently of ordinary commit and push.</summary>
+    public IReadOnlyList<string> PrPublicationSourceBranches { get; init; } = [];
 }
 
 public sealed record WorkflowPolicyOptions(

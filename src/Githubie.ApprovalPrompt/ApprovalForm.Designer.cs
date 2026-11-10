@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 namespace Githubie.ApprovalPrompt;
 
@@ -10,7 +10,7 @@ partial class ApprovalForm
     private Label summaryCaptionLabel = null!;
     private Label summaryValueLabel = null!;
     private Label detailsCaptionLabel = null!;
-    private Label detailsValueLabel = null!;
+    private TextBox detailsValueLabel = null!;
     private Label countdownLabel = null!;
     private Button approveButton = null!;
     private Button denyButton = null!;
@@ -30,7 +30,7 @@ partial class ApprovalForm
         summaryCaptionLabel = new Label();
         summaryValueLabel = new Label();
         detailsCaptionLabel = new Label();
-        detailsValueLabel = new Label();
+        detailsValueLabel = new TextBox();
         countdownLabel = new Label();
         approveButton = new Button();
         denyButton = new Button();
@@ -54,7 +54,10 @@ partial class ApprovalForm
         detailsCaptionLabel.Font = new Font(Font, FontStyle.Bold);
         detailsCaptionLabel.Location = new Point(16, 116);
         detailsCaptionLabel.Text = "Details";
-        detailsValueLabel.AutoEllipsis = true;
+        detailsValueLabel.Multiline = true;
+        detailsValueLabel.ReadOnly = true;
+        detailsValueLabel.ScrollBars = ScrollBars.Both;
+        detailsValueLabel.WordWrap = false;
         detailsValueLabel.Location = new Point(16, 134);
         detailsValueLabel.MaximumSize = new Size(608, 240);
         detailsValueLabel.Size = new Size(608, 240);

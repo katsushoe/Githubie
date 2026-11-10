@@ -38,3 +38,5 @@ This is a major-version transition. Legacy service startup and new user-host sta
 ## Validation and documentation
 
 Cover profile isolation, DPAPI scope, unauthorized HTTP/IPC, credential rotation, same-user dialogs and cancellation, startup preference readback, rollback, registration transaction failure, existing registration preservation, logoff shutdown and MSI acceptance. Update English/Japanese installation, configuration, CLI and recovery documentation before deployment.
+
+Configuration update: [ADR0041](0041-single-canonical-configuration.md) supersedes the per-profile application/host/startup settings and automatic port selection decisions as of2026-10-25. Identity, DB, credentials and discovery remain per-user.

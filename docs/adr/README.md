@@ -1,4 +1,4 @@
-# Architecture Decision Records
+﻿# Architecture Decision Records
 
 | ADR | Decision |
 | --- | --- |
@@ -36,6 +36,18 @@
 | [0039](0039-current-branch-local-commits.md) | Current-branch ordinary/selected commits independent of branch policy with atomic ref verification |
 | [0038](0038-pr-create-provider-capability.md) | Explicit provider capability and contract for pull request creation |
 | [0040](0040-user-session-host.md) | Same-process user host/tray, fresh profiles, protected connections and atomic registration |
+| [0041](0041-single-canonical-configuration.md) | Single canonical machine configuration including host modes and autostart |
+| [0042](0042-windows-owner-authentication.md) | Explicit Windows owner authentication and unsigned operation coverage |
+| [0043](0043-pull-request-merge-provider.md) | Conditional PR merge, actual SHA metadata and non-replayed reconciliation |
+| [0044](0044-github-branch-protection.md) | GitHub branch protection with explicit approval and preservation of existing rules |
+
+| [0045](0045-githubiemcp-client.md) | Dedicated MCP client delegates to the existing CLI and never starts the server |
+
+| [0046](0046-pr-source-publication-integration.md) | PR source publication integrated with owner authentication, route policy and the current user host |
 
 ADRs are written in English. Public guides are maintained in English with Japanese translations.
 
+
+
+
+| [0047](0047-pr-publication-source-allowlist.md) | Independent exact publication source permission AND PR route, default deny, explicit migration |

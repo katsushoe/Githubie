@@ -1,10 +1,10 @@
-# インストール
+﻿# インストール
 
 [English](INSTALLATION.md) | [日本語](INSTALLATION.ja.md)
 
 ## 2.0 ユーザーホスト
 
-2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。バイナリは `C:\Githubie`、可変データはユーザー別です。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
+2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。既定のインストール先は `C:\Githubie` ですが、別の場所も選べます。可変データはユーザー別です。MSIとZIPには、稼働中サービスへ接続する `githubiemcp.exe` を `githubie.exe` と同じ場所に収録します。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
 
 ## 1.x の参照・復旧資料
 

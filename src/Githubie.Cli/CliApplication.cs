@@ -17,13 +17,27 @@ public static class CliApplication
     private static readonly TimeSpan McpCallTimeout = Timeout.InfiniteTimeSpan;
 
     public static async Task<int> RunAsync(string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken)
+        => await RunCoreAsync(args, output, error, cancellationToken, true);
+
+    internal static Task<int> RunIsolatedAsync(string[] args, TextWriter output, TextWriter error, CancellationToken cancellationToken)
+        => RunCoreAsync(args, output, error, cancellationToken, false);
+
+    private static async Task<int> RunCoreAsync(string[] args, TextWriter output, TextWriter error,
+        CancellationToken cancellationToken, bool canonicalOnly)
     {
         var (configPath, remaining) = ExtractConfigOption(args);
-        var layout = GithubiePathLayout.FromBinDirectory(AppContext.BaseDirectory);
-        var effectiveConfigPath = configPath ?? Path.Combine(layout.ConfigDirectory, "githubie.json");
+        string effectiveConfigPath;
+        try { effectiveConfigPath = canonicalOnly ? GithubieConfigurationPath.Resolve(configPath)
+            : configPath ?? GithubieConfigurationPath.CanonicalPath; }
+        catch (ArgumentException exception) { error.WriteLine("[NG] " + exception.Message); return 1; }
+        if (remaining is ["config", "check"] or ["config", "check", "--moyai"] or ["config", "show"])
+            return remaining[1] == "show" ? await ConfigShowAsync(effectiveConfigPath, output, cancellationToken)
+                : await ConfigCheckAsync(effectiveConfigPath, remaining.Length == 3, output, cancellationToken);
+        if (canonicalOnly && remaining.Length > 0 && remaining[0] == "pr")
+            return await UserHostCli.RunAsync(remaining, output, error, cancellationToken);
         if (remaining.Length > 0 && remaining[0] is "repo" or "issue" or "auth" or "doctor" or "start" or "stop" or "restart" or "status")
         {
-            if (configPath is not null)
+            if (configPath is not null && !canonicalOnly)
             {
                 error.WriteLine("[NG] Business commands use the current user host; --config cannot select an offline database.");
                 return 1;
@@ -32,7 +46,7 @@ public static class CliApplication
         }
         if (remaining.Length > 0 && remaining[0] is "host" or "autostart" or "profile" or "setup-user" or "configure" or "unconfigure" or "logs")
             return await UserHostCli.RunAsync(remaining, output, error, cancellationToken);
-        if (remaining is ["mcp", "stdio"] || (configPath is null &&
+        if (remaining is ["mcp", "stdio"] || ((configPath is null || canonicalOnly) &&
             File.Exists(Path.Combine(Path.GetDirectoryName(GithubiePathLayout.ForCurrentUser(AppContext.BaseDirectory).ConfigDirectory)!, "profile.json")) &&
             remaining.Length > 0 && remaining[0] is "mcp" or "config"))
             return await UserHostCli.RunAsync(remaining, output, error, cancellationToken);
@@ -52,6 +66,12 @@ public static class CliApplication
             ["mcp", "call", var tool, "--file", var path] => await McpCallFileAsync(effectiveConfigPath, tool, path, output, error, cancellationToken),
             ["service", "status"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).StatusAsync(cancellationToken),
             ["service", "uninstall"] => await new WindowsServiceManager(new ScServiceCommandExecutor(), output).UninstallAsync(cancellationToken),
+            ["pr", "publish-create", "--file", var inputPath] => await McpCallFileAsync(
+                effectiveConfigPath, "github_pr_publish_create", inputPath, output, error, cancellationToken),
+            ["pr", "publish-status", var repo, var operationId] => await McpCallAsync(
+                effectiveConfigPath, "github_pr_publish_status", JsonSerializer.Serialize(new { repository = repo, operation_id = operationId }),
+                output, error, cancellationToken),
+
             _ => PrintUnknown(remaining, error),
         };
     }
@@ -81,8 +101,12 @@ public static class CliApplication
               autostart on|off|status
               configure codex|claude [--replace-legacy]
               unconfigure codex|claude
+              pr publish-create --file <arguments-json-path>
+              pr publish-status <repository> <operation-id>
               config check [--moyai] | config show
               repo list | repo status <repository>
+              repo settings get <repository>
+              repo settings update --file <arguments.json>
               repo description get <repository>
               repo description update <repository> <description>
               repo rename <old-repository> <new-repository>
@@ -159,7 +183,8 @@ public static class CliApplication
         }
 
         // 既定は単体動作モードの検査。--moyai指定時だけMoyai連携に必要な設定も検査する。
-        if (moyaiIntegration)
+        if (options.UserHost.AuthenticationMode != UserHostAuthenticationMode.WindowsOwner
+            && (moyaiIntegration || options.UserHost.MoyaiIntegration))
         {
             var moyaiErrors = JsonGithubieOptionsLoader.ValidateMoyaiIntegration(options);
             foreach (var moyaiError in moyaiErrors)
@@ -189,6 +214,10 @@ public static class CliApplication
 
         output.WriteLine($"mcp_port: {options.McpPort}");
         output.WriteLine($"mcp_path: {options.McpPath}");
+        output.WriteLine($"user_host.authentication_mode: {options.UserHost.AuthenticationMode}");
+        output.WriteLine($"user_host.moyai_integration: {options.UserHost.MoyaiIntegration.ToString().ToLowerInvariant()}");
+        output.WriteLine($"user_host.direct_unrestricted: {options.UserHost.DirectUnrestricted.ToString().ToLowerInvariant()}");
+        output.WriteLine($"user_host.autostart_enabled: {options.UserHost.AutostartEnabled.ToString().ToLowerInvariant()}");
         foreach (var (repositoryId, repository) in options.Repositories)
         {
             output.WriteLine($"- {repositoryId}: {repository.GitHubOwner}/{repository.GitHubRepo} ({repository.LocalRoot})");

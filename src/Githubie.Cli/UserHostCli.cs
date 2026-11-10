@@ -48,12 +48,12 @@ internal static class UserHostCli
                 return await CodexMcpAuthStatusCommand.RunAsync(output, cancellationToken);
             if (args is ["config", "show"])
             {
-                output.WriteLine(await File.ReadAllTextAsync(Path.Combine(layout.ConfigDirectory, "githubie.json"), cancellationToken));
+                output.WriteLine(await File.ReadAllTextAsync(GithubieConfigurationPath.CanonicalPath, cancellationToken));
                 return 0;
             }
             if (args is ["config", "check"] or ["config", "check", "--moyai"])
             {
-                await using var file = File.OpenRead(Path.Combine(layout.ConfigDirectory, "githubie.json"));
+                await using var file = File.OpenRead(GithubieConfigurationPath.CanonicalPath);
                 var loaded = await new JsonGithubieOptionsLoader().LoadAsync(file, cancellationToken);
                 output.WriteLine(loaded.IsSuccess ? "configuration_valid" : "configuration_invalid");
                 return loaded.IsSuccess ? 0 : 1;
@@ -162,9 +162,13 @@ internal static class UserHostCli
     {
         ["repo", "list"] => Call("list_projects", new { }),
         ["repo", "status", var repository] => Call("github_repository_status", new { repository }),
+        ["repo", "settings", "get", var repository] => Call("github_repository_settings_get", new { repository }),
+        ["repo", "settings", "update", "--file", var path] => Call("github_repository_settings_update", ParseArguments(File.ReadAllText(path))),
         ["repo", "description", "get", var repository] => Call("github_repository_description_get", new { repository }),
         ["repo", "description", "update", var repository, var description] => Call("github_repository_description_update", new { repository, description }),
         ["repo", "rename", var old_repository, var new_repository] => Call("github_repository_rename", new { old_repository, new_repository }),
+        ["pr", "publish-create", "--file", var path] => Call("github_pr_publish_create", ParseArguments(File.ReadAllText(path))),
+        ["pr", "publish-status", var repository, var operation_id] => Call("github_pr_publish_status", new { repository, operation_id }),
         ["issue", "list", var repository] => Call("github_issue_list", new { repository, state = (string?)null }),
         ["issue", "list", var repository, "--state", var state] when state is "open" or "closed" => Call("github_issue_list", new { repository, state }),
         ["issue", "get", var repository, var number] when int.TryParse(number, out var issue_number) => Call("github_issue_get", new { repository, issue_number }),

@@ -31,13 +31,15 @@ public interface IGithubieAuditLogger
     void Write(GithubieAuditEvent auditEvent);
 }
 
-public sealed class GithubieAuditLogger(ILogger<GithubieAuditLogger> logger) : IGithubieAuditLogger
+public sealed class GithubieAuditLogger(ILogger<GithubieAuditLogger> logger,
+    Githubie.Application.Configuration.GithubieOptions? options = null) : IGithubieAuditLogger
 {
     private readonly ILogger<GithubieAuditLogger> _logger = logger;
 
     public void Write(GithubieAuditEvent auditEvent) => _logger.LogInformation(
-        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId} git_exit_code={GitExitCode} diagnostic={Diagnostic} source={Source}",
-        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId, auditEvent.ExitCode, auditEvent.Diagnostic, auditEvent.Source);
+        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId} git_exit_code={GitExitCode} diagnostic={Diagnostic} source={Source} actor_windows_sid={OwnerSid} authentication_mode={AuthenticationMode}",
+        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId, auditEvent.ExitCode, auditEvent.Diagnostic, auditEvent.Source,
+        options?.WindowsOwnerSid, GithubieIntegrationMode.IntegrationMode(options));
 }
 
 /// <summary>

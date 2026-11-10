@@ -20,23 +20,44 @@
       "remote": "origin",
       "develop_branch": "develop",
       "main_branch": "main",
-      "direct_push_branches": ["develop"],
-      "pull_branches": ["develop", "main"],
-      "protected_branches": ["main"],
+      "direct_push_branches": [
+        "develop"
+      ],
+      "pull_branches": [
+        "develop",
+        "main"
+      ],
+      "protected_branches": [
+        "main"
+      ],
       "tag_target_branch": "main",
       "tag_pattern": "^v[0-9]+\\.[0-9]+\\.[0-9]+.*$",
       "merge_method": "merge",
       "require_clean_working_tree": true,
+      "pr_publication_source_branches": [],
       "workflows": {
         "release.yml": {
-          "allowed_refs": ["main"],
+          "allowed_refs": [
+            "main"
+          ],
           "inputs": {
-            "version": { "type": "string", "required": true, "max_length": 32, "secret": false }
+            "version": {
+              "type": "string",
+              "required": true,
+              "max_length": 32,
+              "secret": false
+            }
           },
           "max_concurrent": 1,
           "correlation_timeout_seconds": 15
         }
       }
     }
+  },
+  "user_host": {
+    "moyai_integration": false,
+    "direct_unrestricted": false,
+    "autostart_enabled": true,
+    "authentication_mode": "windows_owner"
   }
 }

@@ -67,18 +67,6 @@ public sealed class UserProfileStore(GithubiePathLayout layout)
             Directory.CreateDirectory(directory);
             RestrictDirectory(directory, sid);
         }
-        var config = Path.Combine(layout.ConfigDirectory, "githubie.json");
-        var hostOptions = Path.Combine(layout.ConfigDirectory, "host.json");
-        if (!File.Exists(hostOptions)) await WriteJsonAsync(hostOptions, new UserHostOptions(), cancellationToken);
-        if (!File.Exists(config))
-        {
-            // Each fresh profile selects its own port. A later bind race fails closed; no foreign listener is adopted.
-            using var portReservation = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
-            portReservation.Start();
-            var port = ((System.Net.IPEndPoint)portReservation.LocalEndpoint).Port;
-            await WriteJsonAsync(config, new { mcp_port = port, mcp_path = GithubieOptions.DefaultMcpPath,
-                repositories = new Dictionary<string, RepositoryOptions>() }, cancellationToken);
-        }
         return identity;
     }
 
