@@ -167,6 +167,7 @@ internal static class UserHostCli
         ["repo", "description", "get", var repository] => Call("github_repository_description_get", new { repository }),
         ["repo", "description", "update", var repository, var description] => Call("github_repository_description_update", new { repository, description }),
         ["repo", "rename", var old_repository, var new_repository] => Call("github_repository_rename", new { old_repository, new_repository }),
+        ["repo", "relocate", var repository, var local_root] => Call("github_repository_relocate", new { repository, local_root }),
         ["pr", "publish-create", "--file", var path] => Call("github_pr_publish_create", ParseArguments(File.ReadAllText(path))),
         ["pr", "publish-status", var repository, var operation_id] => Call("github_pr_publish_status", new { repository, operation_id }),
         ["issue", "list", var repository] => Call("github_issue_list", new { repository, state = (string?)null }),

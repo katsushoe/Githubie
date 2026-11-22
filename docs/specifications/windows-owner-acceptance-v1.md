@@ -85,6 +85,7 @@ The companion `owner-operation-capabilities.json` and the table below enumerate 
 | `github_repository_diff` | `repository_diff` |
 | `github_repository_moyai_project_set` | none |
 | `github_repository_register` | none |
+| `github_repository_relocate` | none |
 | `github_repository_rename` | none |
 | `github_repository_settings_get` | `repository_settings_read` |
 | `github_repository_settings_update` | `repository_settings_update` |

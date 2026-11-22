@@ -110,6 +110,7 @@ public static class CliApplication
               repo description get <repository>
               repo description update <repository> <description>
               repo rename <old-repository> <new-repository>
+              repo relocate <repository> <local-root>
               issue list <repository> [--state open|closed]
               issue get <repository> <number>
               auth set <repository>

@@ -159,6 +159,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_repository_update` | `repository`、Branch Policy項目、`commit_author_name?`、`commit_author_email?` | 対話Desktop承認後にBranch PolicyとCommit作成者を更新する。GitHub識別情報とPathは変更しない |
 | `github_repository_settings_update` | `repository`、`changes` | 指定されたallowlist項目だけをDesktop承認後に更新する。`pull_request_routes`は`source_branch`と`destination_branch`の組の配列で、空配列は全経路を無効化する。成功時は`data.settings`、実際に変わった`data.changed_fields`、`data.approved: true`を返し、失敗時は部分更新しない |
 | `github_repository_unregister` | `repository` | Githubie設定と実行中Allowlistから登録解除。GitHub／Localのデータは削除しない |
+| `github_repository_relocate` | `repository`、`local_root` | 対話Desktop承認後に登録済みLocal Rootだけを変更し、Service再起動なしで反映する。新しい場所は実在し、Git管理下で、パスにjunction・symlinkを含まず、登録remote（保存値が空なら一致するHTTPS remote）が登録済みGitHub Repositoryを指す必要がある。満たさない場合は`reparse_point_detected`、`remote_mismatch`、`remote_https_required`、`repository_not_registered`を返す。Token・Branch Policy・Commit作成者・Moyai対応付けは保持する。CLIは`githubie repo relocate <repository> <local-root>` |
 | `github_repository_rename` | `old_repository`、`new_repository` | 設定と暗号化Tokenを一括移行し、失敗時は旧IDを維持する |
 | `github_repository_description_update` | `repository`, `description` | Descriptionだけを更新。空文字列で削除、最大350文字 |
 | `github_workflow_dispatch` | `repository`, `workflow`, `ref`, `inputs` | 許可済みworkflowだけを起動し、新規runを一意に関連付ける |

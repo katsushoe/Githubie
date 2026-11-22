@@ -549,6 +549,106 @@ public sealed class RepositoryRegistrationServiceTests
         await _store.DidNotReceiveWithAnyArgs().SaveRepositoryAsync(default!, default!, TestContext.Current.CancellationToken);
     }
 
+    private const string MovedRoot = "C:\\repos\\moved";
+
+    private void GivenMovedRoot(bool reparse = false, string remoteUrl = "https://github.com/owner/repo.git")
+    {
+        _environment.GetFullPath(MovedRoot).Returns(MovedRoot);
+        _environment.DirectoryExists(MovedRoot).Returns(true);
+        _environment.GitMetadataExists(MovedRoot).Returns(true);
+        _environment.ContainsReparsePoint(MovedRoot).Returns(reparse);
+        _git.GetRemoteUrlAsync(MovedRoot, "origin", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(remoteUrl));
+    }
+
+    [Fact]
+    public async Task RelocateAsync_Approved_ChangesOnlyLocalRootAndAppliesImmediately()
+    {
+        var original = CreateOptions() with { CommitAuthorName = "Writer", CommitAuthorEmail = "writer@example.com", MoyaiProjectId = Guid.NewGuid() };
+        _allowlist.TryAdd("sample", original);
+        GivenMovedRoot();
+        var service = CreateService();
+
+        var result = await service.RelocateAsync("SAMPLE", MovedRoot, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.PreviousLocalRoot.Should().Be(LocalRoot);
+        result.Value.LocalRoot.Should().Be(MovedRoot);
+        _allowlist.TryGet("sample", out var updated).Should().BeTrue();
+        updated.Should().Be(original with { LocalRoot = MovedRoot });
+        await _store.Received(1).SaveRepositoryAsync("sample", original with { LocalRoot = MovedRoot }, Arg.Any<CancellationToken>());
+        await _approval.Received(1).RequestApprovalAsync(
+            Arg.Is<ApprovalPromptRequest>(x => x.Details.Any(d => d.Contains(LocalRoot) && d.Contains(MovedRoot))),
+            Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+        _tokenStore.Repository.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task RelocateAsync_ReparsePoint_IsRejectedBeforeApproval()
+    {
+        _allowlist.TryAdd("sample", CreateOptions());
+        GivenMovedRoot(reparse: true);
+
+        var result = await CreateService().RelocateAsync("sample", MovedRoot, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.ReparsePointDetected);
+        await _approval.DidNotReceive().RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>());
+        _allowlist.TryGet("sample", out var unchanged).Should().BeTrue();
+        unchanged.LocalRoot.Should().Be(LocalRoot);
+    }
+
+    [Theory]
+    [InlineData("https://github.com/owner/other.git", RepositoryRegistrationError.RemoteMismatch)]
+    [InlineData("git@github.com:owner/repo.git", RepositoryRegistrationError.RemoteHttpsRequired)]
+    public async Task RelocateAsync_RemoteNotPointingToRegisteredRepository_IsRejected(string remoteUrl, RepositoryRegistrationError expected)
+    {
+        _allowlist.TryAdd("sample", CreateOptions());
+        GivenMovedRoot(remoteUrl: remoteUrl);
+
+        var result = await CreateService().RelocateAsync("sample", MovedRoot, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(expected);
+        await _store.DidNotReceive().SaveRepositoryAsync(Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RelocateAsync_EmptyStoredRemote_UsesMatchingHttpsRemote()
+    {
+        _allowlist.TryAdd("sample", CreateOptions() with { Remote = string.Empty });
+        GivenMovedRoot();
+        _git.ListRemoteUrlsAsync(MovedRoot, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success("remote.fork.url https://github.com/someone/repo.git\nremote.github-origin-https.url https://github.com/owner/repo.git\n"));
+
+        var result = await CreateService().RelocateAsync("sample", MovedRoot, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task RelocateAsync_UnregisteredRepository_IsRejected()
+    {
+        GivenMovedRoot();
+
+        var result = await CreateService().RelocateAsync("missing", MovedRoot, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.RepositoryNotRegistered);
+    }
+
+    [Fact]
+    public async Task RelocateAsync_ApprovalDenied_KeepsExistingRoot()
+    {
+        _allowlist.TryAdd("sample", CreateOptions());
+        GivenMovedRoot();
+        _approval.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(ApprovalPromptOutcome.Denied());
+
+        var result = await CreateService().RelocateAsync("sample", MovedRoot, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(RepositoryRegistrationError.ApprovalDenied);
+        _allowlist.TryGet("sample", out var unchanged).Should().BeTrue();
+        unchanged.LocalRoot.Should().Be(LocalRoot);
+        await _store.DidNotReceive().SaveRepositoryAsync(Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<CancellationToken>());
+    }
+
     private RepositoryRegistrationService CreateService(IAtomicRepositoryRegistrationStore? atomic = null) => new(
         _allowlist,
         new LocalPathValidator(_environment),

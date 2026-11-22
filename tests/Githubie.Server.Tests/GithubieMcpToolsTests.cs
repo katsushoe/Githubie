@@ -470,6 +470,7 @@ public sealed class GithubieMcpToolsTests
         "github_repository_settings_get",
         "github_repository_settings_update",
             "github_repository_rename",
+            "github_repository_relocate",
         "github_fetch",
         "github_pull",
         "github_branch_switch",

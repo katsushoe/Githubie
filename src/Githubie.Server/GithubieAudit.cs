@@ -170,6 +170,23 @@ public sealed class AuditedRepositoryRegistrationService(
 
         return result;
     }
+
+    public async Task<RepositoryRelocateResult> RelocateAsync(
+        string repository, string localRoot, CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = await inner.RelocateAsync(repository, localRoot, cancellationToken);
+        stopwatch.Stop();
+
+        audit.Write(new GithubieAuditEvent(
+            Client: "mcp", Tool: "github_repository_relocate", Repository: repository,
+            Branch: null, PullRequestNumber: null, Tag: null,
+            Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
+            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(),
+            Source: result.IsSuccess ? $"{result.Value!.PreviousLocalRoot} -> {result.Value.LocalRoot}" : null));
+
+        return result;
+    }
 }
 
 /// <summary>Repository設定変更・登録解除を監査ログへ記録します。</summary>

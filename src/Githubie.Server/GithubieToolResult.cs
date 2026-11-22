@@ -153,6 +153,15 @@ public static class GithubieToolResultMapper
             : GithubieToolResult<RepositoryRegistrationInfo>.Failure(
                 operation, repository, MapRegistrationError(result.Error!.Value));
 
+    public static GithubieToolResult<RepositoryRelocateInfo> Map(
+        string operation,
+        string repository,
+        RepositoryRelocateResult result) =>
+        result.IsSuccess
+            ? GithubieToolResult<RepositoryRelocateInfo>.Success(operation, repository, result.Value!)
+            : GithubieToolResult<RepositoryRelocateInfo>.Failure(
+                operation, repository, MapRegistrationError(result.Error!.Value));
+
     public static GithubieToolResult<RepositoryMutationInfo> Map(
         string operation,
         string repository,
@@ -235,6 +244,9 @@ public static class GithubieToolResultMapper
             CommonCode = GithubieCommonErrorCode.Conflict,
         },
         RepositoryRegistrationError.GitHubFailed => new("github_api_error", "GitHub API returned an error."),
+        RepositoryRegistrationError.RepositoryNotRegistered => new("repository_not_registered", "Repository is not registered."),
+        RepositoryRegistrationError.RemoteMismatch => new("remote_mismatch", "The Git remote at the new local root does not point to the registered GitHub repository.", false,
+            "Choose the local clone of the registered repository, or fix its remote URL before relocating."),
         _ => new("internal", "Repository registration failed."),
     };
 

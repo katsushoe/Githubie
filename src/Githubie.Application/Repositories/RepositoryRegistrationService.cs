@@ -424,6 +424,102 @@ public sealed partial class RepositoryRegistrationService(
         !string.IsNullOrWhiteSpace(value) && value[0] != '-' &&
         value.IndexOfAny([' ', '\t', '\r', '\n']) < 0;
 
+    public async Task<RepositoryRelocateResult> RelocateAsync(
+        string repository,
+        string localRoot,
+        CancellationToken cancellationToken)
+    {
+        if (!RepositoryId.TryNormalize(repository, out var repositoryId))
+            return RepositoryRelocateResult.Failure(RepositoryRegistrationError.InvalidRepositoryId);
+        if (string.IsNullOrWhiteSpace(localRoot))
+            return RepositoryRelocateResult.Failure(RepositoryRegistrationError.InvalidLocalRoot);
+
+        await _registrationLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (!allowlist.TryGet(repositoryId, out var existing))
+                return RepositoryRelocateResult.Failure(RepositoryRegistrationError.RepositoryNotRegistered);
+
+            RepositoryValidationResult pathResult;
+            string newRoot;
+            try
+            {
+                pathResult = pathValidator.Validate(existing with { LocalRoot = localRoot });
+                newRoot = Path.TrimEndingDirectorySeparator(Path.GetFullPath(localRoot));
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return RepositoryRelocateResult.Failure(RepositoryRegistrationError.InvalidLocalRoot);
+            }
+            if (!pathResult.IsAllowed)
+                return RepositoryRelocateResult.Failure(MapPathError(pathResult.Error!.Value));
+
+            var remoteError = await VerifyRelocatedRemoteAsync(existing, newRoot, cancellationToken);
+            if (remoteError is not null) return RepositoryRelocateResult.Failure(remoteError.Value);
+
+            var previousRoot = existing.LocalRoot;
+            if (string.Equals(previousRoot, newRoot, StringComparison.Ordinal))
+                return RepositoryRelocateResult.Success(new(true, repositoryId, previousRoot, newRoot, existing.Remote));
+
+            var approval = await approvalPrompt.RequestApprovalAsync(
+                new ApprovalPromptRequest(
+                    "Githubie repository relocation",
+                    $"Change the local root of '{repositoryId}' ({existing.GitHubOwner}/{existing.GitHubRepo})",
+                    [$"Local root: {previousRoot} -> {newRoot}",
+                     $"Remote: {(string.IsNullOrWhiteSpace(existing.Remote) ? "resolved by repository URL" : existing.Remote)}",
+                     "Token, branch policy, commit author and Moyai mapping are kept."]),
+                ApprovalTimeout,
+                cancellationToken);
+            var approvalError = MapApprovalError(approval.Outcome);
+            if (approvalError is not null) return RepositoryRelocateResult.Failure(approvalError.Value);
+
+            var updated = existing with { LocalRoot = newRoot };
+            try { await configurationStore.SaveRepositoryAsync(repositoryId, updated, cancellationToken); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            { return RepositoryRelocateResult.Failure(RepositoryRegistrationError.PersistenceFailed); }
+            if (!allowlist.TryUpdate(repositoryId, updated))
+                return RepositoryRelocateResult.Failure(RepositoryRegistrationError.RepositoryNotRegistered);
+            return RepositoryRelocateResult.Success(new(true, repositoryId, previousRoot, newRoot, existing.Remote));
+        }
+        finally
+        {
+            _registrationLock.Release();
+        }
+    }
+
+    /// <summary>新しいLocal Rootのremoteが登録済みのGitHub Repositoryを指すことを確認します。</summary>
+    private async Task<RepositoryRegistrationError?> VerifyRelocatedRemoteAsync(
+        RepositoryOptions existing, string newRoot, CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrWhiteSpace(existing.Remote))
+        {
+            if (!IsValidGitName(existing.Remote)) return RepositoryRegistrationError.InvalidRemote;
+            var remoteResult = await gitCommandClient.GetRemoteUrlAsync(newRoot, existing.Remote, cancellationToken);
+            if (!remoteResult.IsSuccess)
+                return remoteResult.Failure == GitCommandFailure.Failed
+                    ? RepositoryRegistrationError.InvalidRemote
+                    : RepositoryRegistrationError.GitFailed;
+            var url = remoteResult.StandardOutput.Trim();
+            if (GitHubRemoteUrlValidator.IsSshRemote(url)) return RepositoryRegistrationError.RemoteHttpsRequired;
+            return GitHubRemoteUrlValidator.IsExpectedRemote(url, existing.GitHubOwner, existing.GitHubRepo)
+                ? null
+                : RepositoryRegistrationError.RemoteMismatch;
+        }
+
+        var listed = await gitCommandClient.ListRemoteUrlsAsync(newRoot, cancellationToken);
+        if (!listed.IsSuccess) return RepositoryRegistrationError.GitFailed;
+        foreach (var line in listed.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var separator = line.IndexOf(' ');
+            if (separator <= 0) continue;
+            var url = line[(separator + 1)..].Trim();
+            if (url.Length > 0 && !GitHubRemoteUrlValidator.IsSshRemote(url)
+                && GitHubRemoteUrlValidator.IsExpectedRemote(url, existing.GitHubOwner, existing.GitHubRepo))
+                return null;
+        }
+        return RepositoryRegistrationError.RemoteMismatch;
+    }
+
     private static RepositoryRegistrationError MapPathError(RepositoryValidationError error) => error switch
     {
         RepositoryValidationError.LocalRootNotFound => RepositoryRegistrationError.InvalidLocalRoot,

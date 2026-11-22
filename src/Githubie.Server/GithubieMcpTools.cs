@@ -153,6 +153,17 @@ public sealed class GithubieMcpTools(
     private static GithubieToolResult<RepositoryMutationInfo> SettingsError(string repository, string code, string message) =>
         GithubieToolResult<RepositoryMutationInfo>.Failure("repository_settings_update", repository, new(code, message));
 
+    [McpServerTool(Name = "github_repository_relocate", Destructive = true, UseStructuredContent = true)]
+    [Description("登録済みRepositoryのLocal Rootだけを対話承認後に変更します。新しい場所は実在するGit Repositoryでjunction等を含まず、remoteが登録済みGitHub Repositoryと一致する必要があります。Token・Policy・作者設定・Moyai対応付けは保持し、サービス再起動なしで反映します。")]
+    public async Task<GithubieToolResult<RepositoryRelocateInfo>> RelocateRepositoryAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("新しいLocal Rootの絶対パス（junction・symlinkを含まない実パス）")] string local_root,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await registrationService.RelocateAsync(repository, local_root, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_relocate", repository, result);
+    }
+
     [McpServerTool(Name = "github_repository_rename", Destructive = true, UseStructuredContent = true)]
     [Description("Repository設定と暗号化Tokenを旧IDから新IDへ一括移行します。")]
     public async Task<GithubieToolResult<RepositoryMutationInfo>> RenameRepositoryAsync(

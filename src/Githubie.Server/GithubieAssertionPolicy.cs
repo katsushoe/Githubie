@@ -11,7 +11,8 @@ public static class GithubieAssertionPolicy
     /// <summary>所有ユーザー認証で扱う既存Repository操作の正確なTool名です。</summary>
     public static IReadOnlyList<string> OperationNames => ToolScopes.Keys.Concat(
         ["github_repository_register", "github_repository_create", "github_repository_unregister",
-            "github_repository_moyai_project_set", "github_repository_update", "github_repository_rename"])
+            "github_repository_moyai_project_set", "github_repository_update", "github_repository_rename",
+            "github_repository_relocate"])
         .Order(StringComparer.Ordinal).ToArray();
 
     private static readonly IReadOnlyDictionary<string, string[]> ToolScopes =
