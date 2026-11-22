@@ -6,13 +6,18 @@ namespace Githubie.Infrastructure.Git;
 /// <see cref="IGitCommandClient"/>の実装です。許可された固定引数配列だけをGitへ渡します。
 /// Agent入力をGit Argumentへ直接連結せず、remote名/branch名の前に`--`を置いてoption injectionを防ぎます。
 /// </summary>
-public sealed class GitCommandClient(IProcessExecutor processExecutor, string askPassExecutablePath) : IGitCommandClient, Githubie.Application.Publishing.IPrPublicationGit
+public sealed class GitCommandClient(
+    IProcessExecutor processExecutor, string askPassExecutablePath, string? userCredentialDatabasePath = null) : IGitCommandClient, Githubie.Application.Publishing.IPrPublicationGit
 {
     private static readonly TimeSpan LocalTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan NetworkTimeout = TimeSpan.FromSeconds(120);
 
     private readonly IProcessExecutor _processExecutor = processExecutor;
     private readonly string _askPassExecutablePath = askPassExecutablePath;
+    private readonly string? _userCredentialDatabasePath = userCredentialDatabasePath;
+
+    /// <summary>AskPassへ渡すユーザーホスト資格DBの絶対パスです。旧Service配置ではnullです。</summary>
+    public string? UserCredentialDatabasePath => _userCredentialDatabasePath;
 
     public async Task<GitCommandResult> GetCurrentBranchAsync(string repositoryRoot, CancellationToken cancellationToken)
     {
@@ -213,7 +218,7 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
         arguments.AddRange(gitArguments);
 
         var environment = GitEnvironmentSanitizer.BuildBaseEnvironment();
-        foreach (var (key, value) in GitAskPassProtocol.CreateEnvironment(_askPassExecutablePath, repositoryId))
+        foreach (var (key, value) in GitAskPassProtocol.CreateEnvironment(_askPassExecutablePath, repositoryId, _userCredentialDatabasePath))
         {
             environment[key] = value;
         }

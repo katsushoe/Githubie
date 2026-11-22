@@ -151,7 +151,8 @@ public static class GithubieCompositionRoot
         services.AddSingleton<IProviderExecutionGuard>(sp => sp.GetRequiredService<GithubieAssertionExecutionContext>());
         services.AddSingleton<IProcessExecutor, ProcessExecutor>();
         services.AddSingleton<IGitCommandClient>(sp =>
-            new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath));
+            new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath,
+                userLayout is null ? null : layout.RepositoryDatabasePath));
 #pragma warning disable CA1416
         if (userLayout is not null)
         {

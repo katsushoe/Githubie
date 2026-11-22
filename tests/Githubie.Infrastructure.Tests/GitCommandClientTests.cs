@@ -74,6 +74,53 @@ public sealed class GitCommandClientTests
         executor.CapturedEnvironment.Should().Contain(GitAskPassProtocol.AskPassRequireVariable, "force");
     }
 
+    [Fact]
+    public async Task PushAsync_ServiceLayout_DoesNotPassUserCredentialDatabase()
+    {
+        var executor = new RecordingProcessExecutor();
+
+        await new GitCommandClient(executor, AskPassPath).PushAsync(RepositoryRoot, "sample-repo", "origin", "develop", CancellationToken.None);
+
+        executor.CapturedEnvironment.Should().NotContainKey(GitAskPassProtocol.UserCredentialDatabaseVariable);
+    }
+
+    [Fact]
+    public async Task NetworkCommands_UserHost_PassUserCredentialDatabaseToAskPass()
+    {
+        const string database = @"C:\Users\someone\AppData\Local\Akatsukisoft\Githubie\data\githubie.db";
+        var executor = new RecordingProcessExecutor();
+        var client = new GitCommandClient(executor, AskPassPath, database);
+
+        await client.PushAsync(RepositoryRoot, "sample-repo", "origin", "develop", CancellationToken.None);
+
+        executor.CapturedEnvironment.Should().Contain(GitAskPassProtocol.UserCredentialDatabaseVariable, database);
+        executor.CapturedEnvironment.Should().Contain(GitAskPassProtocol.RepositoryIdVariable, "sample-repo");
+    }
+
+    [Fact]
+    public async Task PushAsync_ServiceLayout_DropsInheritedUserCredentialDatabase()
+    {
+        var previous = Environment.GetEnvironmentVariable(GitAskPassProtocol.UserCredentialDatabaseVariable);
+        Environment.SetEnvironmentVariable(GitAskPassProtocol.UserCredentialDatabaseVariable, @"C:\elsewhere\githubie.db");
+        try
+        {
+            var executor = new RecordingProcessExecutor();
+
+            await new GitCommandClient(executor, AskPassPath).PushAsync(RepositoryRoot, "sample-repo", "origin", "develop", CancellationToken.None);
+
+            executor.CapturedEnvironment.Should().NotContainKey(GitAskPassProtocol.UserCredentialDatabaseVariable);
+        }
+        finally { Environment.SetEnvironmentVariable(GitAskPassProtocol.UserCredentialDatabaseVariable, previous); }
+    }
+
+    [Fact]
+    public void CreateEnvironment_RelativeUserCredentialDatabase_IsRejected()
+    {
+        var create = () => GitAskPassProtocol.CreateEnvironment(AskPassPath, "sample-repo", @"data\githubie.db");
+
+        create.Should().Throw<ArgumentException>();
+    }
+
     [Theory]
     [InlineData("v1.2.3")]
     [InlineData("v1.2.3-annotated")]

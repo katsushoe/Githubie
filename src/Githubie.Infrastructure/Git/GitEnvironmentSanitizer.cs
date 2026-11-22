@@ -9,7 +9,7 @@ namespace Githubie.Infrastructure.Git;
 /// </summary>
 public static class GitEnvironmentSanitizer
 {
-    private static readonly string[] DangerousPrefixes = ["GIT_", "SSH_ASKPASS"];
+    private static readonly string[] DangerousPrefixes = ["GIT_", "SSH_ASKPASS", "GITHUBIE_ASKPASS_"];
 
     public static Dictionary<string, string> BuildBaseEnvironment()
     {
