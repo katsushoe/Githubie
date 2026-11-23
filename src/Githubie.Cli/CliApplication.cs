@@ -46,7 +46,8 @@ public static class CliApplication
         }
         if (remaining.Length > 0 && remaining[0] is "host" or "autostart" or "profile" or "setup-user" or "configure" or "unconfigure" or "logs")
             return await UserHostCli.RunAsync(remaining, output, error, cancellationToken);
-        if (remaining is ["mcp", "stdio"] || ((configPath is null || canonicalOnly) &&
+        // 隔離実行（テスト）では実行ユーザーの実プロフィールの有無で経路を変えない。
+        if (remaining is ["mcp", "stdio"] || (canonicalOnly &&
             File.Exists(Path.Combine(Path.GetDirectoryName(GithubiePathLayout.ForCurrentUser(AppContext.BaseDirectory).ConfigDirectory)!, "profile.json")) &&
             remaining.Length > 0 && remaining[0] is "mcp" or "config"))
             return await UserHostCli.RunAsync(remaining, output, error, cancellationToken);
