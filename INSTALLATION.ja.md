@@ -109,7 +109,7 @@ Set-Location "$InstallRoot\bin"
 
 `auth set`は既定で画面中央の最前面Token入力ダイアログを表示する。端末でマスク入力する場合は`auth set <repository-id> --console`を使用する。
 
-ZIP/手動配置のためWindows Serviceとしての自動起動は`service install`を実行するまで有効にならない。フォアグラウンド確認だけなら`.\Githubie.Server.exe`を直接実行してもよい（Ctrl+Cで停止）。
+ZIP/手動配置のためWindows Serviceとしての自動起動は`service install`を実行するまで有効にならない。動作確認だけなら`.\Githubie.Server.exe`を直接実行してもよい。コンソールウィンドウは表示されず、タスクトレイに常駐する。停止はトレイアイコンのメニュー「ホストを停止」で行い、ログは`githubie.exe logs`が表示するディレクトリに出力される。
 
 ### 5. MCPクライアント登録
 

@@ -118,7 +118,7 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 
 | 症状 | 原因 | 対処 |
 | --- | --- | --- |
-| `Githubie.Server.exe`が起動直後に終了する | `githubie.json`が存在しない/不正、または非Windows環境（DPAPI要件） | 標準エラー出力に表示される内容を確認する。`config check`で事前検証する |
+| `Githubie.Server.exe`が起動直後に終了する | `githubie.json`が存在しない/不正、または非Windows環境（DPAPI要件） | 表示されたエラーダイアログと、`githubie.exe logs`が表示するディレクトリのログを確認する（`Githubie.Server.exe`はコンソールを持たないため標準エラー出力は表示されない）。`config check`で事前検証する |
 | `githubie.exe mcp status`が`[NG] MCP endpoint unreachable` | Serverが未起動、または`mcp_port`/`mcp_path`が設定と不一致 | `githubie.exe status`でService状態、`config show`でPort/Pathを確認する |
 | CLIのヘルプ等で日本語が文字化けする | ターミナルの codepage がUTF-8以外 | `githubie.exe`はConsole出力をUTF-8に固定しているため、通常は発生しない。発生する場合はターミナル側のフォント/codepage設定を確認する |
 | `auth set`が`[NG] IoError`で失敗する | MSIでインストールした直後の環境で、`data\secrets`ディレクトリのACLに管理者でも変更できない制限が残っている場合がある（[docs/adr/0013](docs/adr/0013-msi-directory-acl-grants.md)で修正済み） | v1.0.0.0以降のMSIを使用しているか確認する。旧バージョンの場合は管理者で`icacls "<install-root>\data\secrets" /inheritance:r /grant:r Administrators:F /grant:r SYSTEM:F`を実行してから再試行する |
