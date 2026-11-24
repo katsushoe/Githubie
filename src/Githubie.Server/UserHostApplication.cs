@@ -10,7 +10,7 @@ namespace Githubie.Server;
 internal static class UserHostApplication
 {
     private static readonly ResourceManager Strings = new("Githubie.Server.UserHostStrings", typeof(UserHostApplication).Assembly);
-    private static string Text(string name) => Strings.GetString(name, CultureInfo.CurrentUICulture) ?? name;
+    internal static string Text(string name) => Strings.GetString(name, CultureInfo.CurrentUICulture) ?? name;
 
     public static Task<int> RunAsync(string[] args)
     {
@@ -30,12 +30,17 @@ internal static class UserHostApplication
             System.Windows.Forms.Application.EnableVisualStyles();
             System.Windows.Forms.Application.SetCompatibleTextRenderingDefault(false);
             SynchronizationContext.SetSynchronizationContext(new WindowsFormsSynchronizationContext());
+            var ui = SynchronizationContext.Current!;
             using var cancellation = new CancellationTokenSource();
             var executable = Path.Combine(AppContext.BaseDirectory, "Githubie.Server.exe");
             var startup = new UserAutostart(executable);
             var restart = 0;
             using var context = new UserHostTrayContext(startup, cancellation.Cancel,
                 () => { Interlocked.Exchange(ref restart, 1); cancellation.Cancel(); });
+            var updater = new StartupUpdater(executable, args);
+            var previousUpdate = Environment.GetEnvironmentVariable(StartupUpdater.SkipEnvironmentVariable);
+            Environment.SetEnvironmentVariable(StartupUpdater.SkipEnvironmentVariable, null);
+            context.ConfigureUpdates(updater, previousUpdate, cancellation.Token);
             SessionEndingEventHandler ending = (_, _) => { Interlocked.Exchange(ref restart, 0); cancellation.Cancel(); };
             SystemEvents.SessionEnding += ending;
             var result = 1;
@@ -45,13 +50,15 @@ internal static class UserHostApplication
                 System.Windows.Forms.Application.Idle -= start;
                 try
                 {
-                    result = await HostRuntime.RunAsync(args, cancellation.Token);
+                    result = await HostRuntime.RunAsync(args, cancellation.Token,
+                        onReady: () => ui.Post(_ => context.HostReady(), null));
                     if (result != 0) ShowError("HostFailed", new InvalidOperationException("Host startup failed."));
                 }
                 catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { result = 0; }
                 catch (Exception exception) { ShowError("HostFailed", exception); }
                 finally
                 {
+                    cancellation.Cancel();
                     context.HideTray();
                     SystemEvents.SessionEnding -= ending;
                     context.ExitThread();

@@ -72,6 +72,10 @@ Release Toolは一覧・詳細取得・更新・成果物の再試行可能な�
 
 MCP Endpointはloopbackに加えて、起動ごとのユーザー資格とHost/Originを検証します。ホストとトレイは同じ非昇格ユーザープロセスで実行します。Personal Access Tokenを設定やMCP Clientへ保存せず、Repository登録承認後の最前面画面または`githubie.exe auth set`で登録してください。どちらのGUI経路でも、Token画面には入力前に登録元Project名と登録対象Repository URLを表示します。対象Repositoryだけに限定したFine-grained PATへ`Contents: Read and write`と`Pull requests: Read and write`を付与する方法を推奨します。詳細は[セキュリティ](SECURITY.ja.md)を参照してください。
 
+タスクトレイのGithubieアイコンを右クリックして **設定…** を選ぶと、Windowsへのサインイン時の起動と起動時の自動更新を変更できます。手動で公開状況を確認するには **更新を確認** を選びます。自動更新はMSIでインストールした場合に既定で有効です。Akatsukisoftの署名が付いた新しい安定版MSIを適用し、必要に応じてWindowsが管理者承認を求めます。
+
+同じメニューの **バージョン情報…** では、製品名、概要、実行中のバージョンと発行元を確認できます。
+
 ## ライセンス
 
 Githubieは[MIT License](LICENSE)で提供します。

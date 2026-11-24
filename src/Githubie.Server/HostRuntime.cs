@@ -21,7 +21,8 @@ namespace Githubie.Server;
 [SupportedOSPlatform("windows")]
 internal static class HostRuntime
 {
-    public static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken, GithubiePathLayout? isolatedUserLayout = null)
+    public static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken,
+        GithubiePathLayout? isolatedUserLayout = null, Action? onReady = null)
     {
         var binDirectory = AppContext.BaseDirectory;
         // 既定は単体動作モード。`--moyai`を指定した場合だけMoyai連携モード（Provider Assertion検証）で起動する。
@@ -217,6 +218,7 @@ internal static class HostRuntime
                     string.Join(", ", unmappedRepositories));
             }
             await readinessStore.WriteReadyAsync(CancellationToken.None);
+            onReady?.Invoke();
         }
         catch (Exception ex) when (ex is IOException or InvalidOperationException)
         {

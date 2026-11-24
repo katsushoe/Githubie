@@ -42,6 +42,10 @@ dotnet test Githubie.slnx
 
 Githubie reads its only operational configuration from `<install-root>\config\githubie.json`, including `user_host` startup and integration settings. Repository databases, CurrentUser-protected tokens, identity, discovery and logs remain per user under LocalApplicationData/Akatsukisoft/Githubie. Machine databases and token blobs are not imported. See [User host configuration](USER_HOST.md#profile-and-host-operations) and [configuration schema](CONFIG.md).
 
+Right-click the Githubie notification icon and select **Settings…** to manage Windows sign-in startup and startup updates, or select **Check for updates** to check manually. Automatic installation is enabled by default for MSI installations and applies only newer stable MSI releases signed by Akatsukisoft. Windows may prompt for administrator approval.
+
+Select **About Githubie…** from the same menu to see the product name, description, running version, and publisher.
+
 ## Usage
 
 Use `githubie.exe` for configuration, credentials, diagnostics, and user-host management. MCP clients receive 57 typed tools for repository discovery, approval-backed repository registration, repository status/description, GitHub Actions workflow dispatch/run inspection, fetch/pull/push, approval-backed history rewrite, branches, issues, pull requests, tags, releases, and version information. See [Commands](COMMANDS.md).

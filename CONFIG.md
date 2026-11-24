@@ -109,6 +109,8 @@ Never place tokens in JSON. `githubie.exe auth set <repository-id>` encrypts a t
 
 Only `<install-root>\config\githubie.json` is read and written. The `user_host` object contains `moyai_integration` (false), `direct_unrestricted` (false) and `autostart_enabled` (true); parentheses show omitted-field defaults. `direct_unrestricted=true` requires `moyai_integration=true`. Legacy mode flags may only repeat enabled JSON values. Old per-profile `githubie.json`, `host.json` and `startup.json` are ignored and never recreated or automatically merged.
 
+`user_host.startup_update_enabled` (true) enables automatic installation of newer signed stable releases when the interactive MSI host starts. The tray settings window can change this value.
+
 The shared startup preference applies to the current user's HKCU during setup/logon. Toggling it requires write permission to the canonical file and preserves other JSON settings; write/readback failure restores the previous HKCU entry. Other users apply the preference on their next setup/logon. MSI installs default JSON only when absent and preserves existing settings on upgrade/uninstall. Inspect the canonical file before cutover: old 1.x readers do not understand the new `user_host` property. Do not overwrite an existing operational file with the example. See [ADR0041](docs/adr/0041-single-canonical-configuration.md). Profile identity, connection and database files are runtime data, not alternate configuration.
 
 ## Windows owner authentication (candidate 2.1.0.0)

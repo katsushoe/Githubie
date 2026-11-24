@@ -5,7 +5,8 @@ public sealed record UserHostOptions(
     bool MoyaiIntegration = false,
     bool DirectUnrestricted = false,
     bool AutostartEnabled = true,
-    string AuthenticationMode = UserHostAuthenticationMode.Legacy);
+    string AuthenticationMode = UserHostAuthenticationMode.Legacy,
+    bool StartupUpdateEnabled = true);
 
 /// <summary>旧動作と所有ユーザー認証を明示的に区別します。</summary>
 public static class UserHostAuthenticationMode

@@ -35,17 +35,24 @@ public sealed class UserAutostart
     }
 
     public bool SetEnabled(bool enabled)
+        => SaveSettings(enabled, null);
+
+    public UserHostOptions ReadSettings() => new UserHostSettingsStore(_preferencePath).Read();
+
+    public string ConfigurationPath => _preferencePath;
+
+    public bool SaveSettings(bool enabled, bool? startupUpdateEnabled)
     {
         using var preferenceLock = new FileStream(_preferencePath + ".lock", FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        return SetEnabledCore(enabled);
+        return SetEnabledCore(enabled, startupUpdateEnabled);
     }
 
-    private bool SetEnabledCore(bool enabled)
+    private bool SetEnabledCore(bool enabled, bool? startupUpdateEnabled)
     {
         var existing = _registration.Read();
         if (existing is not null && !string.Equals(existing, _command, StringComparison.Ordinal))
             throw new IOException("A different installation owns the Githubie startup entry.");
-        var temporary = new UserHostSettingsStore(_preferencePath).PrepareAutostart(enabled);
+        var temporary = new UserHostSettingsStore(_preferencePath).PrepareDesktopSettings(enabled, startupUpdateEnabled);
         try
         {
             _registration.Write(enabled ? _command : null);

@@ -4,6 +4,7 @@
     <!-- ログオン時の自動起動でコンソールウィンドウを出さないため、GUIサブシステムでビルドする。ログはDailyFileLoggerProviderでlogsへ出力する。 -->
     <OutputType>WinExe</OutputType>
     <UseWindowsForms>true</UseWindowsForms>
+    <Product>Githubie MCP Server</Product>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Moyai.ProviderAuthentication" Version="1.0.2" />
@@ -16,6 +17,7 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Githubie.Server.Tests" />
+    <EmbeddedResource Include="ApplyStartupUpdate.ps1" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 </Project>

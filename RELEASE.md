@@ -2,6 +2,20 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
+## 2.2.2.0
+
+- This release ships an unsigned MSI. Install it manually to upgrade, since startup updates require a valid signature.
+- `githubie repo relocate <repository> <local-root>` changes a registered local root after interactive Desktop approval. Junctions and symbolic links are rejected.
+- Git AskPass reads the tokens stored by the user host, so push and other authenticated Git operations work through the user host.
+- The user host no longer opens a console window when it starts at Windows sign-in.
+
+## 2.2.1.0
+
+- This release ships an unsigned MSI. Install it manually to upgrade, since startup updates require a valid signature.
+- **About Githubie…** in the Windows notification area shows the product name, description, running version, and publisher.
+- The interactive host runs in the Windows notification area. **Settings…** controls sign-in startup and startup updates. Automatic installation requires a newer stable MSI with a valid Akatsukisoft signature.
+- Settings are stored in `<install-root>\config\githubie.json`. An in-place upgrade from 2.2.0.0 preserved the configuration, user profile, registered repositories, and sign-in startup setting on Windows.
+
 ## 2.0 user host
 
 Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `C:\Githubie`; mutable data is per user. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.

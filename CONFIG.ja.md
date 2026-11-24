@@ -105,6 +105,8 @@ Tokenは`githubie.json`に含めない。`githubie.exe auth set <repository-id>`
 
 読込・保存先は `<install-root>\config\githubie.json` だけです。`user_host` に `moyai_integration`（省略時false）・`direct_unrestricted`（false）・`autostart_enabled`（true）を保存します。`direct_unrestricted=true` には `moyai_integration=true` が必要です。旧起動モード引数はJSONで有効な値の再指定だけを許可します。旧プロフィール内の `githubie.json`・`host.json`・`startup.json` は読まず、新規作成・自動統合もしません。
 
+`user_host.startup_update_enabled`（省略時true）は、MSIで導入した対話型ホストの起動時に、署名付きの新しい安定版を自動で適用する設定です。タスクトレイの設定画面で変更できます。
+
 共有の自動起動設定は、setup/logon時に現在ユーザーのHKCUへ反映します。ON/OFF変更には正本ファイルの書込権限が必要です。他のJSON設定は保持し、保存・読戻し失敗時はHKCUを元に戻します。他ユーザーは次のsetup/logon時に反映します。MSIは正本がない場合だけ初期JSONを作り、更新・アンインストール時も既存内容を保持します。旧1.x読込処理は新しい `user_host` を認識しないため、実機切替時に確認してください。既存正本をサンプルで上書きしないでください。判断の正本は[ADR0041](docs/adr/0041-single-canonical-configuration.md)です。識別・接続・DBファイルは実行データであり、別の本体設定ではありません。
 
 ## 同一Windowsユーザー認証（候補2.1.0.0）

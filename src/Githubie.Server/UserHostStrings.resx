@@ -9,4 +9,26 @@
   <data name="Stop" xml:space="preserve"><value>Stop host</value></data>
   <data name="StartupFailed" xml:space="preserve"><value>The startup setting could not be saved. Check the current user's permissions.</value></data>
   <data name="HostFailed" xml:space="preserve"><value>Githubie could not run. Check the user profile log and ensure another host is not using this profile or port.</value></data>
+  <data name="SettingsTitle" xml:space="preserve"><value>Githubie Settings</value></data>
+  <data name="SettingsVersion" xml:space="preserve"><value>Version {0}</value></data>
+  <data name="SettingsAutostart" xml:space="preserve"><value>Start Githubie when I sign in to Windows</value></data>
+  <data name="SettingsAutoUpdate" xml:space="preserve"><value>Automatically install updates at startup (MSI installations)</value></data>
+  <data name="SettingsPath" xml:space="preserve"><value>Configuration file</value></data>
+  <data name="SettingsUpdateStatus" xml:space="preserve"><value>Update status</value></data>
+  <data name="SettingsCheck" xml:space="preserve"><value>Check for updates</value></data>
+  <data name="SettingsSave" xml:space="preserve"><value>Save</value></data>
+  <data name="SettingsCancel" xml:space="preserve"><value>Cancel</value></data>
+  <data name="SettingsFailed" xml:space="preserve"><value>Githubie could not read or save the settings.</value></data>
+  <data name="UpdateIdle" xml:space="preserve"><value></value></data>
+  <data name="UpdateChecking" xml:space="preserve"><value>Checking for updates…</value></data>
+  <data name="UpdateNone" xml:space="preserve"><value>No newer supported release is available.</value></data>
+  <data name="UpdateSourceUnavailable" xml:space="preserve"><value>No public stable Githubie release is accessible.</value></data>
+  <data name="UpdateAvailable" xml:space="preserve"><value>A newer MSI release is available.</value></data>
+  <data name="UpdateRequiresMsi" xml:space="preserve"><value>Automatic installation requires the Githubie MSI installation.</value></data>
+  <data name="UpdateApplying" xml:space="preserve"><value>Applying the verified update…</value></data>
+  <data name="UpdateInstalled" xml:space="preserve"><value>Githubie was updated and restarted.</value></data>
+  <data name="UpdateRebootRequired" xml:space="preserve"><value>The update requires a Windows restart.</value></data>
+  <data name="UpdateCancelled" xml:space="preserve"><value>The update was cancelled.</value></data>
+  <data name="UpdateRejected" xml:space="preserve"><value>The update package could not be verified.</value></data>
+  <data name="UpdateFailed" xml:space="preserve"><value>The update could not be completed.</value></data>
 </root>

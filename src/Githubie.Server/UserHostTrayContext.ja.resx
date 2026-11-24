@@ -8,4 +8,6 @@
   <data name="restartMenu.Text" xml:space="preserve"><value>ホストを再起動</value></data>
   <data name="stopMenu.Text" xml:space="preserve"><value>ホストを停止</value></data>
   <data name="trayIcon.Text" xml:space="preserve"><value>Githubie</value></data>
+  <data name="settingsMenu.Text" xml:space="preserve"><value>設定…</value></data>
+  <data name="aboutMenu.Text" xml:space="preserve"><value>バージョン情報…</value></data>
 </root>

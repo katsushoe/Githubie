@@ -9,4 +9,26 @@
   <data name="Stop" xml:space="preserve"><value>ホストを停止</value></data>
   <data name="StartupFailed" xml:space="preserve"><value>自動起動設定を保存できませんでした。現在ユーザーの権限を確認してください。</value></data>
   <data name="HostFailed" xml:space="preserve"><value>Githubieを実行できませんでした。ユーザープロフィールのログと、同じプロフィールやポートを使用している別ホストの有無を確認してください。</value></data>
+  <data name="SettingsTitle" xml:space="preserve"><value>Githubie 設定</value></data>
+  <data name="SettingsVersion" xml:space="preserve"><value>バージョン {0}</value></data>
+  <data name="SettingsAutostart" xml:space="preserve"><value>Windowsへのサインイン時にGithubieを起動する</value></data>
+  <data name="SettingsAutoUpdate" xml:space="preserve"><value>起動時に自動更新する（MSIでインストールした場合）</value></data>
+  <data name="SettingsPath" xml:space="preserve"><value>設定ファイル</value></data>
+  <data name="SettingsUpdateStatus" xml:space="preserve"><value>更新状況</value></data>
+  <data name="SettingsCheck" xml:space="preserve"><value>更新を確認</value></data>
+  <data name="SettingsSave" xml:space="preserve"><value>保存</value></data>
+  <data name="SettingsCancel" xml:space="preserve"><value>キャンセル</value></data>
+  <data name="SettingsFailed" xml:space="preserve"><value>Githubieの設定を読み込むか保存する操作に失敗しました。</value></data>
+  <data name="UpdateIdle" xml:space="preserve"><value></value></data>
+  <data name="UpdateChecking" xml:space="preserve"><value>更新を確認しています…</value></data>
+  <data name="UpdateNone" xml:space="preserve"><value>対象となる新しいバージョンはありません。</value></data>
+  <data name="UpdateSourceUnavailable" xml:space="preserve"><value>公開されているGithubieの安定版を取得できませんでした。</value></data>
+  <data name="UpdateAvailable" xml:space="preserve"><value>新しいMSIが公開されています。</value></data>
+  <data name="UpdateRequiresMsi" xml:space="preserve"><value>自動インストールにはGithubieのMSIインストールが必要です。</value></data>
+  <data name="UpdateApplying" xml:space="preserve"><value>検証済みの更新を適用しています…</value></data>
+  <data name="UpdateInstalled" xml:space="preserve"><value>Githubieを更新し、再起動しました。</value></data>
+  <data name="UpdateRebootRequired" xml:space="preserve"><value>更新を完了するにはWindowsの再起動が必要です。</value></data>
+  <data name="UpdateCancelled" xml:space="preserve"><value>更新はキャンセルされました。</value></data>
+  <data name="UpdateRejected" xml:space="preserve"><value>更新パッケージを検証できませんでした。</value></data>
+  <data name="UpdateFailed" xml:space="preserve"><value>更新を完了できませんでした。</value></data>
 </root>

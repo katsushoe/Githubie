@@ -31,10 +31,12 @@ public sealed class UserHostSettingsStore(string configPath)
         return settings;
     }
 
-    internal string PrepareAutostart(bool enabled)
+    internal string PrepareDesktopSettings(bool enabled, bool? startupUpdateEnabled)
     {
         var document = ReadDocument();
         var settings = ReadSettings(document) with { AutostartEnabled = enabled };
+        if (startupUpdateEnabled.HasValue)
+            settings = settings with { StartupUpdateEnabled = startupUpdateEnabled.Value };
         document["user_host"] = JsonSerializer.SerializeToNode(settings, Options);
         var temporary = configPath + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
