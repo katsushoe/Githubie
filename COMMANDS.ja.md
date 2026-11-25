@@ -1,4 +1,4 @@
-﻿# コマンド
+# コマンド
 
 [English](COMMANDS.md) | [日本語](COMMANDS.ja.md)
 
@@ -128,6 +128,7 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_repository_settings_get` | `repository` | 登録済みの非秘密設定allowlistだけを返す。実行中のメモリ登録値を使い、Git/GitHubアクセスを行わない |
 | `github_repository_commit` | `repository`, `message` | 登録済みまたはRepositoryローカルの作者で現在branchへ全変更をcommitし、`branch`/`commit_sha`を返す。作者がなければStage前に拒否する |
 | `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | 現在branchで指定patchだけをcommitし、`branch`/`commit_sha`を返す。staged変更とbranch/HEAD競合を拒否し、未選択差分を残す |
+| `github_repository_merge` | `repository`, `branch`, `expected_head`, `source_kind`, `source`, `expected_source_sha`, `fast_forward`, `message?`, `resolutions?` | 明示した取り込み元（`source_kind`は`branch`、`remote_branch`（例: `origin/main`）、`tag`、`commit`（40桁SHA））を、checkout中のローカルbranchへmergeする。作業ツリーがclean（未追跡fileを含む）で、`branch`がdetachedでなく`expected_head`と一致し、取り込み元が`expected_source_sha`を指す場合だけ実行する。`fast_forward`は`allow`・`never`・`only`。pushは行わない。衝突時の既定は中止で、作業ツリー・index・HEADを変更せず`merge_conflict`と衝突path一覧（`error.candidates`）を返す。`resolutions`で全衝突pathに`choice`（`current`・`source`・`content`＋解消済み全文）を指定した場合だけcommitする。`protected_branches`のbranchへの取り込みは拒否する。結果は`branch`、`commit_sha`、`parents`、`fast_forward`、`previous_head`、`source_sha`、`resolved_paths`。エラーは`merge_request_invalid`、`merge_source_not_found`、`expected_source_mismatch`、`expected_head_mismatch`、`current_branch_changed`、`detached_head`、`working_tree_dirty`、`nothing_to_merge`、`fast_forward_not_possible`、`merge_conflict`、`merge_resolution_invalid`、`protected_branch`。Git 2.38以降が必要 |
 | `github_repository_description_get` | `repository` | Repository Descriptionを取得 |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run状態を取得。log本文は返さない |
 | `github_workflow_run_list` | `repository`、任意filter、`limit` | Workflow runを最大100件取得。log本文は返さない |

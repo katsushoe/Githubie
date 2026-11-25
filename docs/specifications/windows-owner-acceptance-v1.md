@@ -79,6 +79,7 @@ The companion `owner-operation-capabilities.json` and the table below enumerate 
 | `github_release_withdraw` | none |
 | `github_repository_commit` | `repository_commit` |
 | `github_repository_commit_selected` | `repository_commit_selected` |
+| `github_repository_merge` | `repository_merge` |
 | `github_repository_create` | `repository_create` |
 | `github_repository_description_get` | none |
 | `github_repository_description_update` | none |

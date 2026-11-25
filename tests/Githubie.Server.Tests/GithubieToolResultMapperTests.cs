@@ -89,7 +89,45 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.ApprovalTimedOut] = "approval_timed_out",
         [GitGatewayError.ApprovalUnavailable] = "approval_unavailable",
         [GitGatewayError.PermissionDenied] = "permission_denied",
+        [GitGatewayError.InvalidMergeRequest] = "merge_request_invalid",
+        [GitGatewayError.MergeSourceNotFound] = "merge_source_not_found",
+        [GitGatewayError.ExpectedSourceMismatch] = "expected_source_mismatch",
+        [GitGatewayError.NothingToMerge] = "nothing_to_merge",
+        [GitGatewayError.FastForwardNotPossible] = "fast_forward_not_possible",
+        [GitGatewayError.MergeConflict] = "merge_conflict",
+        [GitGatewayError.MergeResolutionInvalid] = "merge_resolution_invalid",
     };
+
+    [Fact]
+    public void Merge_Conflict_ExposesConflictedPathsAsCandidates_AndIsNotExecuted()
+    {
+        var result = GithubieToolResultMapper.Map("repository_merge", "fixture",
+            GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.MergeConflict) with { Candidates = ["README.ja.md", "README.md"] });
+        result.Ok.Should().BeFalse();
+        result.Error!.Code.Should().Be("merge_conflict");
+        result.Error.Candidates.Should().Equal("README.ja.md", "README.md");
+        result.Error.Outcome.Should().Be("not_executed");
+        result.Error.CommonCode.Should().Be("CONFLICT");
+        var json = System.Text.Json.JsonSerializer.Serialize(result,
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+        json.Should().Contain("\"candidates\":[\"README.ja.md\",\"README.md\"]");
+    }
+
+    [Fact]
+    public void Merge_Success_ExposesBranchCommitAndParentsInWireJson()
+    {
+        var result = GithubieToolResultMapper.Map("repository_merge", "fixture",
+            GitGatewayResult<GitRepositoryMergeInfo>.Success(new("develop", new string('c', 40), [new string('a', 40), new string('b', 40)],
+                false, new string('a', 40), new string('b', 40), [])));
+        var json = System.Text.Json.JsonSerializer.Serialize(result,
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+        using var parsed = System.Text.Json.JsonDocument.Parse(json);
+        var data = parsed.RootElement.GetProperty("data");
+        data.GetProperty("branch").GetString().Should().Be("develop");
+        data.GetProperty("commit_sha").GetString().Should().Be(new string('c', 40));
+        data.GetProperty("parents").GetArrayLength().Should().Be(2);
+        data.GetProperty("fast_forward").GetBoolean().Should().BeFalse();
+    }
 
     private static readonly IReadOnlyDictionary<GitHubError, string> ExpectedGitHubCodes = new Dictionary<GitHubError, string>
     {

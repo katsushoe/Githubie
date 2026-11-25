@@ -1,4 +1,4 @@
-﻿# Commands
+# Commands
 
 [English](COMMANDS.md) | [日本語](COMMANDS.ja.md)
 
@@ -95,6 +95,7 @@ The error object also contains `common_code`, `outcome`, `retryable`, `suggested
 | `github_repository_settings_get` | `repository` | Only the registered non-secret settings allowlist; reads the live in-memory registration and requires no Git or GitHub access |
 | `github_repository_commit` | `repository`, `message` | Commit all changes on the current attached branch using the registered or repository-local author; return `branch`/`commit_sha`, or `author_identity_missing` before staging |
 | `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | Commit only the supplied patch on the current attached branch; reject staged changes or branch/HEAD races, preserve unselected edits and return `branch`/`commit_sha` |
+| `github_repository_merge` | `repository`, `branch`, `expected_head`, `source_kind`, `source`, `expected_source_sha`, `fast_forward`, `message?`, `resolutions?` | Merge an explicit source (`source_kind` = `branch`, `remote_branch` such as `origin/main`, `tag` or `commit` with a 40-character SHA) into the checked-out local branch. Requires a clean working tree (including untracked files), an attached `branch` with `expected_head`, and a source resolving to `expected_source_sha`. `fast_forward` is `allow`, `never` or `only`. Never pushes. A conflict aborts by default without changing the working tree, index or HEAD and returns `merge_conflict` with the conflicted paths in `error.candidates`; it commits only when `resolutions` gives every conflicted path a `choice` of `current`, `source` or `content` (with the resolved full text). Branches in `protected_branches` are rejected. Returns `branch`, `commit_sha`, `parents`, `fast_forward`, `previous_head`, `source_sha` and `resolved_paths`. Errors: `merge_request_invalid`, `merge_source_not_found`, `expected_source_mismatch`, `expected_head_mismatch`, `current_branch_changed`, `detached_head`, `working_tree_dirty`, `nothing_to_merge`, `fast_forward_not_possible`, `merge_conflict`, `merge_resolution_invalid`, `protected_branch`. Requires Git 2.38 or later |
 | `github_repository_description_get` | `repository` | Repository description from GitHub |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run status and metadata without logs |
 | `github_workflow_run_list` | `repository`, optional filters, `limit` | Up to 100 workflow runs without logs |

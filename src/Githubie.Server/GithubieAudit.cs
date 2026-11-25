@@ -62,6 +62,13 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
         await RunAsync("github_repository_commit_selected", repository, null,
             () => inner.CommitSelectedAsync(repository, message, expectedHead, patch, cancellationToken));
 
+    public async Task<GitGatewayResult<GitRepositoryMergeInfo>> MergeAsync(
+        string repository, string branch, string expectedHead, string sourceKind, string source, string expectedSourceSha,
+        string fastForward, string? message, IReadOnlyList<GitMergeResolution>? resolutions, CancellationToken cancellationToken) =>
+        await RunAsync("github_repository_merge", repository, branch,
+            () => inner.MergeAsync(repository, branch, expectedHead, sourceKind, source, expectedSourceSha,
+                fastForward, message, resolutions, cancellationToken));
+
     public async Task<GitGatewayResult<GitStashEntry>> PushStashAsync(
         string repository, string message, IReadOnlyList<string>? paths, CancellationToken cancellationToken) =>
         await RunAsync("github_repository_stash_push", repository, null,

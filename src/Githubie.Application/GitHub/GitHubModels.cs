@@ -58,6 +58,9 @@ public sealed record GitHubProviderCapabilities(
     public GitHubProviderAuthentication? Authentication { get; init; }
 
     /// <summary>Repository Provider Contract「Gitリモートの解決」への対応表明です。</summary>
+    /// <summary>`github_repository_merge`（現在branchへのローカルmerge、pushなし）への対応表明です。</summary>
+    public bool RepositoryMerge { get; init; }
+
     public bool PullRequestPublishCreate { get; init; }
     public bool PullRequestPublishStatus { get; init; }
 

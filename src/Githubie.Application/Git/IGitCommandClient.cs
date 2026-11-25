@@ -34,6 +34,10 @@ public interface IGitCommandClient
     /// <summary>検証済みの現在branch/HEADだけへ、専用indexで通常または選択commitを作成します。</summary>
     Task<GitCommandResult> CommitCurrentBranchAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedBranch, string expectedHead, string? patch, CancellationToken cancellationToken);
 
+    /// <summary>検証済みの現在branch/HEADへ取り込み元をmergeします。衝突・不一致は作業ツリーとHEADを変更せずに拒否します。</summary>
+    Task<GitMergeCommandOutcome> MergeIntoCurrentBranchAsync(string repositoryRoot, GitMergeRequest request, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
+
     Task<GitCommandResult> PushStashAsync(string repositoryRoot, string message, IReadOnlyList<string> paths, CancellationToken cancellationToken);
 
     Task<GitCommandResult> ListStashesAsync(string repositoryRoot, CancellationToken cancellationToken);

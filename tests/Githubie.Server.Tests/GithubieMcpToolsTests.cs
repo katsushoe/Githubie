@@ -283,6 +283,8 @@ public sealed class GithubieMcpToolsTests
         result.Data.LocalBranchCreate.Should().BeTrue();
         result.Data.PrCreate.Should().BeTrue();
         result.Data.RepositoryCommitSelected.Should().BeTrue();
+        result.Data.RepositoryMerge.Should().BeTrue();
+        GithubieAssertionPolicy.OperationNames.Should().Contain("github_repository_merge");
         System.Text.Json.JsonSerializer.Serialize(result.Data, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower })
             .Should().Contain("\"remote_resolution\":{\"version\":1,\"mode\":\"repository_url\"}")
             .And.Contain("\"branch_switch\":true")
@@ -453,6 +455,7 @@ public sealed class GithubieMcpToolsTests
         "github_repository_diff",
         "github_repository_commit",
         "github_repository_commit_selected",
+        "github_repository_merge",
         "github_repository_stash_push",
         "github_repository_stash_list",
         "github_repository_stash_apply",

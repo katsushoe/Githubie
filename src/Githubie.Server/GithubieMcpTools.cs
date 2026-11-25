@@ -227,6 +227,25 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("repository_commit_selected", repository, result);
     }
 
+    [McpServerTool(Name = "github_repository_merge", Destructive = true, UseStructuredContent = true)]
+    [Description("現在checkout中のローカルbranchへ、明示した取り込み元（ローカルbranch・remote追跡branch・tag・40桁SHA）をmergeします。作業ツリーがclean、branch名とHEAD、取り込み元SHAが指定と一致する場合だけ実行し、pushは行いません。衝突時の既定は中止で、作業ツリーとHEADを変更せずに衝突ファイル一覧（error.candidates）を返します。resolutionsで全衝突fileの解消方法を明示した場合だけcommitします。protected_branchesへの取り込みは拒否します。")]
+    public async Task<GithubieToolResult<GitRepositoryMergeInfo>> MergeRepositoryAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("取り込み先として期待する現在branch名")] string branch,
+        [Description("取り込み先branchの期待HEAD（40桁SHA）")] string expected_head,
+        [Description("取り込み元の種類: branch（ローカルbranch）、remote_branch（例: origin/main）、tag、commit（40桁SHA）")] string source_kind,
+        [Description("取り込み元。source_kindに対応する名前または40桁SHA。暗黙補完しません")] string source,
+        [Description("取り込み元の期待commit SHA（40桁）")] string expected_source_sha,
+        [Description("fast-forwardの扱い: allow（可能ならfast-forward）、never（常にmerge commit）、only（fast-forwardのみ）")] string fast_forward,
+        [Description("merge commitのメッセージ。省略時は取り込み元とbranchから生成")] string? message = null,
+        [Description("衝突の明示的な解消。各要素はpath、choice（current/source/content）、choice=contentのときcontent（解消済み全文）。指定のない衝突が残る場合はcommitしません")] IReadOnlyList<GitMergeResolution>? resolutions = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await gitGateway.MergeAsync(repository, branch, expected_head, source_kind, source, expected_source_sha,
+            fast_forward, message, resolutions, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_merge", repository, result);
+    }
+
     [McpServerTool(Name = "github_repository_stash_push", Destructive = true, UseStructuredContent = true)]
     [Description("指定したRepository相対pathだけの変更を、untracked fileも含めてstashします。paths省略時は全変更が対象です。")]
     public async Task<GithubieToolResult<GitStashEntry>> PushStashAsync(
@@ -433,6 +452,7 @@ public sealed class GithubieMcpTools(
                 true, true, true, true, true, true, true, true, true, true, true, true,
                 branchProtectionGateway is not null, branchProtectionGateway is not null)
             {
+                RepositoryMerge = true,
                 PullRequestPublishCreate = publicationService is not null,
                 PullRequestPublishStatus = publicationService is not null,
                 Authentication = new(

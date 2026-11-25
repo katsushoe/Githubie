@@ -53,3 +53,4 @@ ADRs are written in English. Public guides are maintained in English with Japane
 | [0047](0047-pr-publication-source-allowlist.md) | Independent exact publication source permission AND PR route, default deny, explicit migration |
 | [0048](0048-approved-repository-relocation.md) | Approved local-root relocation keeping token, policy and Moyai mapping |
 | [0049](0049-desktop-settings-and-startup-updates.md) | Desktop settings and signed MSI startup updates |
+| [0050](0050-local-branch-merge.md) | Explicit local merge into the current branch without push; conflicts abort unchanged unless every path is resolved |

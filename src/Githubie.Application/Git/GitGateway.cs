@@ -273,6 +273,109 @@ public sealed class GitGateway(
         return GitGatewayResult<GitRepositoryCommit>.Success(new(committed.StandardOutput.Trim(), branchName));
     }
 
+    private const int MaximumMergeResolutionCount = 256;
+    private const int MaximumMergeResolutionBytes = 4 * 1024 * 1024;
+
+    public async Task<GitGatewayResult<GitRepositoryMergeInfo>> MergeAsync(
+        string repository, string branch, string expectedHead, string sourceKind, string source, string expectedSourceSha,
+        string fastForward, string? message, IReadOnlyList<GitMergeResolution>? resolutions, CancellationToken cancellationToken)
+    {
+        // 副作用前の入力検証。取り込み元の種類は呼出側の明示だけを使い、推測・補完しません。
+        resolutions ??= [];
+        if (string.IsNullOrWhiteSpace(branch) || !IsFullSha(expectedHead ?? string.Empty) || !IsFullSha(expectedSourceSha ?? string.Empty)
+            || string.IsNullOrWhiteSpace(source) || source.Any(char.IsControl)
+            || fastForward is not (GitMergeFastForwardMode.Allow or GitMergeFastForwardMode.Never or GitMergeFastForwardMode.Only)
+            || (message is not null && (message.Length is 0 or > 4096 || message.Contains('\0')))
+            || !TryValidateMergeResolutions(resolutions))
+            return GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.InvalidMergeRequest);
+        if (sourceKind is not (GitMergeSourceKind.Branch or GitMergeSourceKind.RemoteBranch or GitMergeSourceKind.Tag or GitMergeSourceKind.Commit))
+            return GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.InvalidMergeRequest);
+
+        var resolved = Resolve(repository);
+        if (resolved.Error is not null) return GitGatewayResult<GitRepositoryMergeInfo>.Failure(resolved.Error.Value);
+        var options = resolved.Options!;
+        if (options.ProtectedBranches.Contains(branch, StringComparer.Ordinal))
+            return GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.ProtectedBranch);
+        var root = options.LocalRoot;
+
+        string sourceRef;
+        if (sourceKind == GitMergeSourceKind.Commit)
+        {
+            if (!IsFullSha(source)) return GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.InvalidMergeRequest);
+            sourceRef = source;
+        }
+        else
+        {
+            if (source.StartsWith('-') || source.StartsWith("refs/", StringComparison.Ordinal))
+                return GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.InvalidRef);
+            if (sourceKind == GitMergeSourceKind.RemoteBranch && (source.IndexOf('/') is <= 0 || source.EndsWith('/')))
+                return GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.InvalidRef);
+            var validName = await _commandClient.CheckBranchNameAsync(root, source, cancellationToken);
+            if (!validName.IsSuccess)
+                return validName.Failure == GitCommandFailure.Failed
+                    ? GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.InvalidRef)
+                    : CreateCommandFailure<GitRepositoryMergeInfo>(validName);
+            sourceRef = sourceKind switch
+            {
+                GitMergeSourceKind.Branch => $"refs/heads/{source}",
+                GitMergeSourceKind.RemoteBranch => $"refs/remotes/{source}",
+                _ => $"refs/tags/{source}",
+            };
+        }
+
+        var authorName = options.CommitAuthorName;
+        var authorEmail = options.CommitAuthorEmail;
+        if (!CommitAuthorIdentity.IsValid(authorName, authorEmail))
+        {
+            var localName = await _commandClient.GetLocalConfigAsync(root, "user.name", cancellationToken);
+            var localEmail = await _commandClient.GetLocalConfigAsync(root, "user.email", cancellationToken);
+            authorName = localName.IsSuccess ? localName.StandardOutput.Trim() : null;
+            authorEmail = localEmail.IsSuccess ? localEmail.StandardOutput.Trim() : null;
+            if (!CommitAuthorIdentity.IsValid(authorName, authorEmail))
+                return GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.AuthorIdentityMissing);
+        }
+
+        var request = new GitMergeRequest(branch, expectedHead!.ToLowerInvariant(), sourceRef, expectedSourceSha!.ToLowerInvariant(),
+            fastForward, message ?? $"Merge {sourceKind} '{source}' into {branch}", authorName!, authorEmail!, resolutions);
+        var outcome = await _commandClient.MergeIntoCurrentBranchAsync(root, request, cancellationToken);
+        if (outcome.Info is not null) return GitGatewayResult<GitRepositoryMergeInfo>.Success(outcome.Info);
+        if (outcome.Rejection is { } rejection)
+            return GitGatewayResult<GitRepositoryMergeInfo>.Failure(rejection switch
+            {
+                GitMergeRejection.WorkingTreeDirty => GitGatewayError.WorkingTreeDirty,
+                GitMergeRejection.SourceNotFound => GitGatewayError.MergeSourceNotFound,
+                GitMergeRejection.ExpectedSourceMismatch => GitGatewayError.ExpectedSourceMismatch,
+                GitMergeRejection.NothingToMerge => GitGatewayError.NothingToMerge,
+                GitMergeRejection.FastForwardNotPossible => GitGatewayError.FastForwardNotPossible,
+                GitMergeRejection.Conflict => GitGatewayError.MergeConflict,
+                _ => GitGatewayError.MergeResolutionInvalid,
+            }) with { Candidates = outcome.Conflicts };
+        return CreateCommandFailure<GitRepositoryMergeInfo>(outcome.Command);
+    }
+
+    private static bool TryValidateMergeResolutions(IReadOnlyList<GitMergeResolution> resolutions)
+    {
+        if (resolutions.Count > MaximumMergeResolutionCount) return false;
+        var paths = new HashSet<string>(StringComparer.Ordinal);
+        long bytes = 0;
+        foreach (var item in resolutions)
+        {
+            if (item is null || string.IsNullOrEmpty(item.Path) || item.Path.Any(char.IsControl) || !paths.Add(item.Path)) return false;
+            switch (item.Choice)
+            {
+                case GitMergeResolution.Current or GitMergeResolution.Source when item.Content is null:
+                    break;
+                case GitMergeResolution.FullContent when item.Content is not null:
+                    bytes += System.Text.Encoding.UTF8.GetByteCount(item.Content);
+                    if (bytes > MaximumMergeResolutionBytes) return false;
+                    break;
+                default:
+                    return false;
+            }
+        }
+        return true;
+    }
+
     public async Task<GitGatewayResult<GitStashEntry>> PushStashAsync(
         string repository, string message, IReadOnlyList<string>? paths, CancellationToken cancellationToken)
     {

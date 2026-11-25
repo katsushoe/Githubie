@@ -22,6 +22,7 @@ public static class GithubieAssertionPolicy
             ["github_repository_diff"] = ["repository.read"],
             ["github_repository_commit"] = ["repository.commit"],
             ["github_repository_commit_selected"] = ["repository.commit"],
+            ["github_repository_merge"] = ["repository.commit"],
             ["github_repository_stash_list"] = ["repository.read"],
             ["github_repository_stash_push"] = ["repository.stash.write"],
             ["github_repository_stash_apply"] = ["repository.stash.write"],

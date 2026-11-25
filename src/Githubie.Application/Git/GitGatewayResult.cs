@@ -52,6 +52,9 @@ public sealed record GitGatewayResult<T>(bool IsSuccess, T? Value, GitGatewayErr
 
     public int? ExitCode { get; init; }
 
+    /// <summary>エラーの対象を示す一覧です（例: merge衝突ファイル）。</summary>
+    public IReadOnlyList<string>? Candidates { get; init; }
+
     public static GitGatewayResult<T> Success(T value) => new(true, value, null);
 
     public static GitGatewayResult<T> Failure(
@@ -125,4 +128,12 @@ public enum GitGatewayError
     ApprovalTimedOut,
     ApprovalUnavailable,
     PermissionDenied,
+
+    InvalidMergeRequest,
+    MergeSourceNotFound,
+    ExpectedSourceMismatch,
+    NothingToMerge,
+    FastForwardNotPossible,
+    MergeConflict,
+    MergeResolutionInvalid,
 }

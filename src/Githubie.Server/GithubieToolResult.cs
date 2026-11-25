@@ -101,6 +101,7 @@ public static class GithubieToolResultMapper
                     CorrelationId = result.CorrelationId ?? Guid.NewGuid().ToString("N"),
                     Diagnostic = result.Diagnostic,
                     ExitCode = result.ExitCode,
+                    Candidates = result.Candidates,
                 });
 
     private static GithubieToolError ApplyGitContract(string operation, GitGatewayError source, GithubieToolError error)
@@ -119,6 +120,11 @@ public static class GithubieToolResultMapper
             GitGatewayError.NetworkError or GitGatewayError.RemoteUnavailable when isPush => error with { CommonCode = GithubieCommonErrorCode.ResultUnknown, Outcome = GithubieOperationOutcome.Unknown, Retryable = false, SuggestedAction = GithubieSuggestedAction.CheckStatus },
             GitGatewayError.GitTimedOut or GitGatewayError.GitCancelled or GitGatewayError.GitFailed when isPush => error with { CommonCode = GithubieCommonErrorCode.ResultUnknown, Outcome = GithubieOperationOutcome.Unknown, Retryable = false, SuggestedAction = GithubieSuggestedAction.CheckStatus },
             GitGatewayError.NetworkError => error with { CommonCode = GithubieCommonErrorCode.NetworkError, SuggestedAction = GithubieSuggestedAction.Retry },
+            GitGatewayError.MergeConflict or GitGatewayError.ExpectedSourceMismatch or GitGatewayError.FastForwardNotPossible
+                or GitGatewayError.NothingToMerge
+                => error with { CommonCode = GithubieCommonErrorCode.Conflict, Outcome = GithubieOperationOutcome.NotExecuted, SuggestedAction = GithubieSuggestedAction.CheckStatus },
+            GitGatewayError.InvalidMergeRequest or GitGatewayError.MergeResolutionInvalid or GitGatewayError.MergeSourceNotFound
+                => error with { Outcome = GithubieOperationOutcome.NotExecuted },
             _ => error,
         };
     }
@@ -310,6 +316,14 @@ public static class GithubieToolResultMapper
         GitGatewayError.PermissionDenied => new("permission_denied", "GitHub denied the Git operation.", false, "Verify repository and token permissions before retrying."),
         GitGatewayError.NothingToPush => new("nothing_to_push", "There is nothing to push."),
         GitGatewayError.NonFastForward => new("non_fast_forward", "The remote contains changes that prevent a fast-forward operation.", false, "Fetch and reconcile the remote changes before retrying."),
+        GitGatewayError.InvalidMergeRequest => new("merge_request_invalid", "The merge request is invalid. Specify branch, 40-character expected_head and expected_source_sha, source_kind, source and fast_forward explicitly."),
+        GitGatewayError.MergeSourceNotFound => new("merge_source_not_found", "The specified merge source does not exist locally.", false, "Fetch or create the source ref, then retry with its exact SHA."),
+        GitGatewayError.ExpectedSourceMismatch => new("expected_source_mismatch", "The merge source does not point to expected_source_sha. Nothing was changed."),
+        GitGatewayError.NothingToMerge => new("nothing_to_merge", "The source is already contained in the current branch. Nothing was changed."),
+        GitGatewayError.FastForwardNotPossible => new("fast_forward_not_possible", "fast_forward=only was requested, but the current branch cannot be fast-forwarded to the source. Nothing was changed."),
+        GitGatewayError.MergeConflict => new("merge_conflict", "The merge has conflicts. Nothing was changed; error.candidates lists the conflicted paths that need an explicit resolution.", false,
+            "Specify a resolution (current, source or content) for every listed path, or resolve the conflict another way."),
+        GitGatewayError.MergeResolutionInvalid => new("merge_resolution_invalid", "A resolution names a path that is not conflicted, is duplicated, or is malformed. Nothing was changed."),
         _ => new("git_failed", "Git operation failed for an unclassified safe diagnostic category."),
     };
 

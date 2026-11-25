@@ -95,6 +95,11 @@ public sealed class GitCommandClient(
         new CurrentBranchCommit((arguments, token, environment) => ExecuteLocalAsync(repositoryRoot, arguments, token, environment))
             .ExecuteAsync(message, authorName, authorEmail, expectedBranch, expectedHead, patch, cancellationToken);
 
+    /// <inheritdoc />
+    public Task<GitMergeCommandOutcome> MergeIntoCurrentBranchAsync(string repositoryRoot, GitMergeRequest request, CancellationToken cancellationToken) =>
+        new CurrentBranchMerge((arguments, token, environment) => ExecuteLocalAsync(repositoryRoot, arguments, token, environment))
+            .ExecuteAsync(request, cancellationToken);
+
     public Task<GitCommandResult> PushStashAsync(
         string repositoryRoot, string message, IReadOnlyList<string> paths, CancellationToken cancellationToken)
     {
