@@ -2,6 +2,11 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
+## 2.2.3.0
+
+- This release ships an unsigned MSI. Install it manually to upgrade, since startup updates require a valid signature.
+- `github_repository_merge` merges an explicitly specified local branch, remote-tracking branch, tag or commit into the checked-out branch without pushing. A conflict aborts without changing the working tree, index or HEAD and lists the conflicted paths; the merge is committed only when every conflicted path has an explicit resolution.
+
 ## 2.2.2.0
 
 - This release ships an unsigned MSI. Install it manually to upgrade, since startup updates require a valid signature.

@@ -2,6 +2,11 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
+## 2.2.3.0
+
+- この版のMSIは未署名です。起動時の自動更新では適用されないため、更新するにはMSIを手動で導入してください。
+- `github_repository_merge` で、明示したローカルbranch・remote追跡branch・tag・commitを、checkout中のbranchへpushせずにmergeできます。衝突時は作業ツリー・index・HEADを変更せずに中止して衝突path一覧を返し、全衝突pathの解消を明示した場合だけcommitします。
+
 ## 2.2.2.0
 
 - この版のMSIは未署名です。起動時の自動更新では適用されないため、更新するにはMSIを手動で導入してください。
