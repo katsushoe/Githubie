@@ -1,4 +1,4 @@
-namespace Githubie.Server;
+﻿namespace Githubie.Server;
 
 /// <summary>
 /// Githubie.Serverの起動引数です。既定は単体動作モードで、`--moyai`指定時だけMoyai連携モードになります。
@@ -20,7 +20,12 @@ public sealed record GithubieServerArguments(string? ConfigPath, bool MoyaiInteg
         var hostArguments = new List<string>();
         foreach (var argument in args)
         {
-            if (string.Equals(argument, MoyaiOption, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(argument, "--user-host", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(argument, "--autostart", StringComparison.OrdinalIgnoreCase))
+            {
+                // Consumed by the user-session entry point, never passed to ASP.NET configuration.
+            }
+            else if (string.Equals(argument, MoyaiOption, StringComparison.OrdinalIgnoreCase))
             {
                 moyai = true;
             }

@@ -1,6 +1,6 @@
-param(
-    [string]$DisplayVersion = '1.8.10.0',
-    [string]$ProductVersion = '1.8.10',
+﻿param(
+    [string]$DisplayVersion = '2.2.4.0',
+    [string]$ProductVersion = '2.2.4',
     [string]$RuntimeIdentifier = 'win-x64',
     [switch]$NoRestore
 )
@@ -15,6 +15,7 @@ $installerProject = Join-Path $repositoryRoot 'installer\Githubie.Installer\Gith
 # are not overwritten by the runtime copies of the other self-contained projects.
 $projects = @(
     'src\Githubie.Cli\Githubie.Cli.csproj',
+    'src\Githubie.McpClient\Githubie.McpClient.csproj',
     'src\Githubie.AskPass\Githubie.AskPass.csproj',
     'src\Githubie.ApprovalPrompt\Githubie.ApprovalPrompt.csproj',
     'src\Githubie.Server\Githubie.Server.csproj'
@@ -83,6 +84,7 @@ if ($LASTEXITCODE -ne 0) { throw 'MSI build failed.' }
 
 $msiPath = Join-Path $outputDirectory "Githubie-$DisplayVersion-win-x64.msi"
 if (-not (Test-Path -LiteralPath $msiPath)) { throw "MSI was not created: $msiPath" }
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Install-UserHost.ps1') -Destination $outputDirectory
 $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $msiPath
 $hashLine = "$($hash.Hash)  $([IO.Path]::GetFileName($msiPath))"
 [IO.File]::WriteAllText("$msiPath.sha256", "$hashLine`r`n", [Text.Encoding]::ASCII)

@@ -30,6 +30,49 @@ public sealed class GithubieMcpToolsTests
     }
 
     [Fact]
+    public void LocalBranchCreate_CapabilityMatchesToolSchemaAndAssertionScope()
+    {
+        var instance = CreateTools(Substitute.For<IGitHubRepositoryGateway>());
+        var method = typeof(GithubieMcpTools).GetMethod(nameof(GithubieMcpTools.CreateLocalBranchAsync))!;
+        var tool = McpServerTool.Create(method, instance);
+
+        tool.ProtocolTool.Name.Should().Be("github_local_branch_create");
+        tool.ProtocolTool.InputSchema.GetProperty("required").EnumerateArray()
+            .Select(item => item.GetString()).Should().Contain(["repository", "branch", "source"]);
+        GithubieAssertionPolicy.TryGetScopes(tool.ProtocolTool.Name, out string[] scopes).Should().BeTrue();
+        scopes.Should().Equal("repository.branch.write");
+    }
+
+    [Fact]
+    public void PullRequestCreateSchemaExposesOptionalRouteFields()
+    {
+        var instance = CreateTools(Substitute.For<IGitHubRepositoryGateway>());
+        var tool = McpServerTool.Create(typeof(GithubieMcpTools).GetMethod(nameof(GithubieMcpTools.CreatePullRequestAsync))!, instance);
+        var schema = tool.ProtocolTool.InputSchema;
+
+        schema.GetProperty("properties").TryGetProperty("source_branch", out _).Should().BeTrue();
+        schema.GetProperty("properties").TryGetProperty("destination_branch", out _).Should().BeTrue();
+        schema.GetProperty("required").EnumerateArray().Select(item => item.GetString())
+            .Should().NotContain(["source_branch", "destination_branch"]);
+    }
+
+    [Fact]
+    public void PullRequestCreateSchemaAndAssertionScopeMatchProviderContract()
+    {
+        var instance = CreateTools(Substitute.For<IGitHubRepositoryGateway>());
+        var method = typeof(GithubieMcpTools).GetMethod(nameof(GithubieMcpTools.CreatePullRequestAsync))!;
+        var tool = McpServerTool.Create(method, instance);
+
+        tool.ProtocolTool.Name.Should().Be("github_pr_create");
+        tool.ProtocolTool.InputSchema.GetProperty("required").EnumerateArray()
+            .Select(item => item.GetString()).Should().Contain(["repository", "title", "description", "draft"]);
+        tool.ProtocolTool.InputSchema.GetProperty("properties").EnumerateObject().Select(property => property.Name)
+            .Should().Contain(["source_branch", "destination_branch"]);
+        GithubieAssertionPolicy.TryGetScopes(tool.ProtocolTool.Name, out string[] scopes).Should().BeTrue();
+        scopes.Should().Equal("provider.githubie.pull_request.write");
+    }
+
+    [Fact]
     public void RepositorySettingsUpdateSchemaRequiresRepositoryAndChanges()
     {
         var instance = CreateTools(Substitute.For<IGitHubRepositoryGateway>());
@@ -39,7 +82,24 @@ public sealed class GithubieMcpToolsTests
         var changesSchema = tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("changes");
         changesSchema.GetProperty("type").GetString().Should().Be("object");
         changesSchema.GetProperty("properties").EnumerateObject().Select(p => p.Name)
-            .Should().Contain(["commit_author_name", "commit_author_email", "require_clean_working_tree", "direct_push_branches"]);
+            .Should().Contain(["commit_author_name", "commit_author_email", "require_clean_working_tree", "direct_push_branches", "pr_publication_source_branches"]);
+    }
+
+    [Theory]
+    [InlineData("{\"pr_publication_source_branches\":[]}", true)]
+    [InlineData("{\"pr_publication_source_branches\":[\"docs/topic\"]}", true)]
+    [InlineData("{\"pr_publication_source_branches\":null}", false)]
+    public void RepositorySettingsInput_PublicationList_PreservesPresenceAndRejectsNull(string json, bool valid)
+    {
+        var input = JsonSerializer.Deserialize<RepositorySettingsInput>(json)!;
+        input.HasPrPublicationSourceBranches.Should().BeTrue();
+        var changes = input.ToChanges();
+        (changes is not null).Should().Be(valid);
+        if (valid)
+        {
+            changes!.HasPrPublicationSourceBranches.Should().BeTrue();
+            changes.PrPublicationSourceBranches.Should().Equal(input.PrPublicationSourceBranches!);
+        }
     }
 
     [Fact]
@@ -59,7 +119,7 @@ public sealed class GithubieMcpToolsTests
     [Fact]
     public void RepositorySettingsGet_ReturnsAllowlistedRegisteredValuesWithoutGitHubAccess()
     {
-        var expected = new RepositorySettings(["develop"], ["main"], ["develop", "main"], "^v[0-9]+$", "main", true, null, null);
+        var expected = new RepositorySettings(["develop"], ["main"], ["develop", "main"], "^v[0-9]+$", "main", true, null, null, [new("develop", "main")]);
         var management = Substitute.For<IRepositoryManagementService>();
         management.TryGetSettings("sample", out Arg.Any<RepositorySettings>())
             .Returns(callInfo => { callInfo[1] = expected; return true; });
@@ -71,8 +131,13 @@ public sealed class GithubieMcpToolsTests
         var result = tools.GetRepositorySettings("sample");
 
         result.Ok.Should().BeTrue();
-        result.Data.Should().BeEquivalentTo(expected);
-        result.Data!.CommitAuthorName.Should().BeNull();
+        result.Data!.Settings.Should().BeEquivalentTo(expected);
+        result.Data.Settings.CommitAuthorName.Should().BeNull();
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        json.RootElement.GetProperty("data").GetProperty("settings").GetProperty("direct_push_branches")
+            .EnumerateArray().Select(value => value.GetString()).Should().Equal("develop");
+        json.RootElement.GetProperty("data").GetProperty("settings").GetProperty("commit_author_name").ValueKind
+            .Should().Be(JsonValueKind.Null);
         _ = gitHub.DidNotReceive().GetRepositoryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
         _ = git.DidNotReceive().GetStatusAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
@@ -81,7 +146,7 @@ public sealed class GithubieMcpToolsTests
     public async Task RepositorySettingsUpdate_ReturnsApprovalAndActualChangedFields()
     {
         var settings = new RepositorySettings(["develop"], ["main"], ["develop"], "^v[0-9]+$", "main", true,
-            "Registered Writer", "writer@example.com");
+            "Registered Writer", "writer@example.com", [new("develop", "main")]);
         var management = Substitute.For<IRepositoryManagementService>();
         management.UpdateSettingsAsync("sample", Arg.Any<RepositorySettingsChanges>(), Arg.Any<CancellationToken>())
             .Returns(RepositoryMutationResult.Success(new RepositoryMutationInfo(true, "sample")
@@ -118,6 +183,13 @@ public sealed class GithubieMcpToolsTests
     public void BranchSwitchToolUsesRepositoryBranchWriteScope()
     {
         GithubieAssertionPolicy.TryGetScopes("github_branch_switch", out string[] scopes).Should().BeTrue();
+        scopes.Should().Equal("repository.branch.write");
+    }
+
+    [Fact]
+    public void LocalBranchCreateToolUsesRepositoryBranchWriteScope()
+    {
+        GithubieAssertionPolicy.TryGetScopes("github_local_branch_create", out string[] scopes).Should().BeTrue();
         scopes.Should().Equal("repository.branch.write");
     }
 
@@ -196,17 +268,42 @@ public sealed class GithubieMcpToolsTests
     {
         var gitHubGateway = Substitute.For<IGitHubRepositoryGateway>();
         gitHubGateway.GetRepositoryAsync("sample", Arg.Any<CancellationToken>())
-            .Returns(GitHubResult<GitHubRepositoryInfo>.Success(new("owner", "repo", "main", null)));
-        var tools = new GithubieMcpTools(Substitute.For<IGitGateway>(), gitHubGateway, Substitute.For<IRepositoryRegistrationService>(), Substitute.For<IRepositoryManagementService>(), new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+            .Returns(GitHubResult<GitHubRepositoryInfo>.Failure(GitHubError.AuthenticationFailed));
+        var allowlist = new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>
+        {
+            ["sample"] = new("owner", "repo", "C:\\repo", "origin", "develop", "main", ["develop"], ["develop"], ["main"], "main", "^v", "merge", true),
+        });
+        var tools = new GithubieMcpTools(Substitute.For<IGitGateway>(), gitHubGateway, Substitute.For<IRepositoryRegistrationService>(), Substitute.For<IRepositoryManagementService>(), allowlist);
 
         var result = await tools.GetProviderCapabilitiesAsync("sample", TestContext.Current.CancellationToken);
 
+        result.Ok.Should().BeTrue();
         result.Data!.RemoteResolution.Should().Be(new GitHubRemoteResolution(1, "repository_url"));
         result.Data.BranchSwitch.Should().BeTrue();
+        result.Data.LocalBranchCreate.Should().BeTrue();
+        result.Data.PrCreate.Should().BeTrue();
         result.Data.RepositoryCommitSelected.Should().BeTrue();
+        result.Data.RepositoryMerge.Should().BeTrue();
+        GithubieAssertionPolicy.OperationNames.Should().Contain("github_repository_merge");
         System.Text.Json.JsonSerializer.Serialize(result.Data, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower })
             .Should().Contain("\"remote_resolution\":{\"version\":1,\"mode\":\"repository_url\"}")
-            .And.Contain("\"branch_switch\":true");
+            .And.Contain("\"branch_switch\":true")
+            .And.Contain("\"local_branch_create\":true")
+            .And.Contain("\"pr_create\":true");
+        await gitHubGateway.DidNotReceive().GetRepositoryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ProviderCapabilities_UnregisteredRepositoryFailsWithoutGitHubRequest()
+    {
+        var gitHubGateway = Substitute.For<IGitHubRepositoryGateway>();
+        var tools = new GithubieMcpTools(Substitute.For<IGitGateway>(), gitHubGateway, Substitute.For<IRepositoryRegistrationService>(), Substitute.For<IRepositoryManagementService>(), new RepositoryAllowlist(new Dictionary<string, Githubie.Application.Configuration.RepositoryOptions>()));
+
+        var result = await tools.GetProviderCapabilitiesAsync("unknown", TestContext.Current.CancellationToken);
+
+        result.Ok.Should().BeFalse();
+        result.Error!.Code.Should().Be("repository_not_found");
+        await gitHubGateway.DidNotReceive().GetRepositoryAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -351,11 +448,14 @@ public sealed class GithubieMcpToolsTests
 
     private static readonly string[] ExpectedToolNames =
     [
+        "github_pr_publish_create",
+        "github_pr_publish_status",
         "list_projects",
         "github_repository_status",
         "github_repository_diff",
         "github_repository_commit",
         "github_repository_commit_selected",
+        "github_repository_merge",
         "github_repository_stash_push",
         "github_repository_stash_list",
         "github_repository_stash_apply",
@@ -373,13 +473,18 @@ public sealed class GithubieMcpToolsTests
         "github_repository_settings_get",
         "github_repository_settings_update",
             "github_repository_rename",
+            "github_repository_relocate",
         "github_fetch",
         "github_pull",
         "github_branch_switch",
+        "github_local_branch_create",
         "github_push",
         "github_history_rewrite",
         "github_branch_list",
         "github_branch_get",
+        "github_branch_protection_get",
+        "github_branch_protection_update",
+        "github_branch_protection_delete",
         "github_provider_capabilities",
         "github_branch_create",
         "github_branch_delete",
@@ -414,6 +519,7 @@ public sealed class GithubieMcpToolsTests
 
     private static readonly string[] ExpectedReadOnlyTools =
     [
+        "github_pr_publish_status",
         "list_projects",
         "github_repository_status",
         "github_repository_settings_get",
@@ -424,6 +530,7 @@ public sealed class GithubieMcpToolsTests
         "github_workflow_run_list",
         "github_branch_list",
         "github_branch_get",
+        "github_branch_protection_get",
         "github_provider_capabilities",
         "github_pr_list",
         "github_pr_get",

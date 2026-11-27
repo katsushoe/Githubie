@@ -2,13 +2,23 @@
 
 [English](CONFIG.md) | [日本語](CONFIG.ja.md)
 
+`<install-root>` means the actual user-selected installation directory (default `C:\Githubie`). The sole configuration is `config\githubie.json` under the parent of the running executable's `bin` directory.
+
+## 2.0 user host
+
+Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `<install-root>`; mutable data is per user. The canonical machine JSON is shared; old machine databases/tokens are not imported. Re-register credentials. `configure codex|claude` registers a credential-free stdio command.
+
+## 1.x reference and recovery
+
+The following Service paths, direct token input and installation procedures describe 1.x. The 2.0 guide above takes precedence. Unchanged typed MCP tool argument/result schemas still apply to 2.0. Historical acceptance statements apply only to their stated versions.
+
 Githubie reads strict `snake_case` JSON. Unknown properties, comments, and trailing commas are rejected. See [githubie.example.json](githubie.example.json).
 
 The MCP repository settings tools operate on the registered values loaded from the configuration store. Their response is an explicit allowlist and does not expose credentials, local paths, GitHub identity, workflow inputs, or Moyai mappings.
 
 ## File Location
 
-The default path is `<install-root>\config\githubie.json`. Pass another path as the server's first argument or with the CLI `--config <path>` option.
+The only production configuration is `<install-root>\config\githubie.json`. Omission selects this file; another explicit path is rejected. The root is derived from the running executable's bin directory, independently of the current working directory; there is no profile or working-directory fallback.
 
 ## Root Properties
 
@@ -50,7 +60,10 @@ During upgrade, legacy IDs matching the former `^[A-Za-z0-9._-]+$` rule are migr
 
 Each workflow policy requires `allowed_refs`; inputs may use `string`, `boolean`, or `integer`, with `required`, `max_length` (1–4096), and `secret`. `max_concurrent` is 1–10 and `correlation_timeout_seconds` is 1–120. Policy changes through `github_repository_update` require desktop approval.
 
-The pull-request route is always `develop_branch` to `main_branch`; clients cannot supply another route.
+The initial pull-request route is `develop_branch` to `main_branch`. Registered routes can be changed through the approved `github_repository_settings_update` operation; clients may create pull requests only on a registered route.
+
+Ordinary and selected local commits record changes only on the currently checked-out branch, including protected or arbitrary feature branches. No local-commit allowlist, direct-push permission or pull-request route is required. Repository/path validation, authentication, author identity and audit still apply. Detached HEAD, changed branch/HEAD and foreign index/ref locks reject the operation without redirecting it to another branch. Success returns `data.branch` and `data.commit_sha`; it never pushes. `github_push`, pull, PR merge and history rewriting retain their existing policies. See [ADR 0039](docs/adr/0039-current-branch-local-commits.md).
+
 
 The repository source of truth is `<install-root>\data\githubie.db`. `github_repository_register` adds an existing local GitHub repository to that database at runtime. It derives `github_owner` and `github_repo` from the selected local remote, requires desktop approval, and applies safe branch-policy defaults. The selected remote must use `https://github.com/OWNER/REPOSITORY.git`; SSH remotes are rejected. A service restart is not required.
 
@@ -87,3 +100,29 @@ At the first startup after upgrading, validated entries under `repositories` are
 ## Personal Access Token
 
 Never place tokens in JSON. `githubie.exe auth set <repository-id>` encrypts a token with DPAPI LocalMachine and stores it under `<install-root>\data\secrets`. See [Security](SECURITY.md).
+
+## `local_commit_branches` (retired compatibility input)
+
+`local_commit_branches` is retired. Legacy JSON arrays (for example `"local_commit_branches": ["develop"]`, or `[]`) are accepted for compatibility, discarded and omitted when saving. They grant no permission and are not exposed in Repository Settings. Existing unused SQLite columns are retained. New configurations must omit this key.
+
+## Single operational configuration (2.1.0.0)
+
+Only `<install-root>\config\githubie.json` is read and written. The `user_host` object contains `moyai_integration` (false), `direct_unrestricted` (false) and `autostart_enabled` (true); parentheses show omitted-field defaults. `direct_unrestricted=true` requires `moyai_integration=true`. Legacy mode flags may only repeat enabled JSON values. Old per-profile `githubie.json`, `host.json` and `startup.json` are ignored and never recreated or automatically merged.
+
+`user_host.startup_update_enabled` (true) enables automatic installation of newer signed stable releases when the interactive MSI host starts. The tray settings window can change this value.
+
+The shared startup preference applies to the current user's HKCU during setup/logon. Toggling it requires write permission to the canonical file and preserves other JSON settings; write/readback failure restores the previous HKCU entry. Other users apply the preference on their next setup/logon. MSI installs default JSON only when absent and preserves existing settings on upgrade/uninstall. Inspect the canonical file before cutover: old 1.x readers do not understand the new `user_host` property. Do not overwrite an existing operational file with the example. See [ADR0041](docs/adr/0041-single-canonical-configuration.md). Profile identity, connection and database files are runtime data, not alternate configuration.
+
+## Windows owner authentication (candidate 2.1.0.0)
+
+Explicitly set `user_host.authentication_mode=windows_owner` in the sole JSON to trust Moyai/native callers authenticated as the same Windows owner. Omission selects `legacy` and preserves previous behavior. Fresh MSI default JSON explicitly selects `windows_owner`; existing JSON is never overwritten. This mode requires `--user-host` and is rejected by the legacy Service.
+
+Every HTTP request requires schema1 discovery's `X-Githubie-Session` and `X-Githubie-Generation`. ES256 assertions, Issuer keys, Project signature scopes and legacy tokens are not required. Old Moyai/direct settings and trust assets are preserved but not used for authorization in this mode. Repository/branch policy, owner approval, external-service credentials and audit remain. The audit actor is the Windows owner SID.
+
+Consumers verify the Provider version and explicit `github_provider_capabilities.authentication.owner_authentication` contract and target tool name before dispatch. Ordinary capability flags alone do not establish signature-free support. An Authorization header in owner mode returns403/`user_host_auth_mode_mismatch`; owner/generation rejection retains403/`user_host_owner_rejected`. No alternate-mode fallback or automatic unknown-outcome mutation replay is allowed.
+
+See [Windows owner authentication v1](docs/specifications/windows-owner-authentication-v1.md) for exact fields/operations/errors and [ADR0042](docs/adr/0042-windows-owner-authentication.md) for the decision. This is a proposed contract/candidate; Moyai agreement, interoperability and normal rollout are separate gates. Do not apply it automatically to the installed configuration or delete existing keys, DBs or trust assets.
+
+## PR publication source permission
+
+`pr_publication_source_branches` is an optional repository string array, defaulting to empty (publication denied). Names must be unique valid exact local branches and the PR route must also match. It never changes ordinary commit or direct-push permission and never imports legacy `local_commit_branches`. See the [publication contract](docs/specifications/pr-source-publication.md) for registered settings updates and downgrade requirements.

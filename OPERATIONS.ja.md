@@ -2,6 +2,14 @@
 
 [English](OPERATIONS.md) | [日本語](OPERATIONS.ja.md)
 
+## 2.0 ユーザーホスト
+
+2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。バイナリは `C:\Githubie`、可変データはユーザー別です。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
+
+## 1.x の参照・復旧資料
+
+以下のService配置・直接Token入力・導入手順は1.x向けです。2.0では上記正本を優先してください。変更していない型付きMCP Toolの引数・結果schemaは2.0でも使用します。過去の受入記録は、その記載版の結果です。
+
 ## Repository登録
 
 未使用のRepository IDと既存Local Repositoryの絶対Pathを`github_repository_register`へ渡す。GithubieはLocal remoteからGitHub接続先を導出し、Owner／Repository、Local Root、remote、Branch経路を対話Desktopへ表示する。承認後、別の最前面画面でTokenを任意登録する。スキップまたは保存失敗でもRepository登録は維持され、後から`githubie auth set <repository>`を実行できる。`github_repository_status`と`github_fetch`で確認する。
@@ -106,3 +114,9 @@ githubie.exe restart
 - `data\secrets\`（DPAPI暗号化済みだが、LocalMachineスコープのため同一マシン以外へ復元しても復号できない。移設時は各RepositoryでToken再登録が必要）
 
 `logs\`はバックアップ対象外（監査証跡として必要な期間だけ別途保全する）。
+
+## PR元ブランチ限定公開
+
+`github_pr_publish_create`は明示経路・固定SHA・UUID・対話承認で新規公開とPR作成を行います。`github_pr_publish_status`は同じUUIDの結果を読み取り照合します。結果不明時は再送せず先にstatusを呼び、失敗時もdata内の両副作用の状態を確認してください。通常push許可は拡張しません。
+
+[回復手順](docs/specifications/pr-source-publication.ja.md#エラーと回復)に従い、公開済みbranchを自動削除しないでください。

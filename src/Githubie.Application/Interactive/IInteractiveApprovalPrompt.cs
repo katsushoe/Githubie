@@ -1,4 +1,4 @@
-namespace Githubie.Application.Interactive;
+﻿namespace Githubie.Application.Interactive;
 
 /// <summary>対話セッションの人間へ危険な操作の承認を要求します。</summary>
 public interface IInteractiveApprovalPrompt
@@ -31,12 +31,15 @@ public sealed record TokenPromptRequest
     public string ProjectName { get; }
 
     public string RepositoryUrl { get; }
+
+    public bool AllowSkip { get; init; }
 }
 
 public enum InteractiveTokenPromptOutcome
 {
     Accepted,
     Skipped,
+    Cancelled,
     NoInteractiveSession,
     LaunchFailed,
     ProtocolError,

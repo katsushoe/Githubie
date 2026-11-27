@@ -31,13 +31,15 @@ public interface IGithubieAuditLogger
     void Write(GithubieAuditEvent auditEvent);
 }
 
-public sealed class GithubieAuditLogger(ILogger<GithubieAuditLogger> logger) : IGithubieAuditLogger
+public sealed class GithubieAuditLogger(ILogger<GithubieAuditLogger> logger,
+    Githubie.Application.Configuration.GithubieOptions? options = null) : IGithubieAuditLogger
 {
     private readonly ILogger<GithubieAuditLogger> _logger = logger;
 
     public void Write(GithubieAuditEvent auditEvent) => _logger.LogInformation(
-        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId} git_exit_code={GitExitCode} diagnostic={Diagnostic} source={Source}",
-        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId, auditEvent.ExitCode, auditEvent.Diagnostic, auditEvent.Source);
+        "client={Client} tool={Tool} repository={Repository} branch={Branch} pull_request_number={PullRequestNumber} tag={Tag} result={Result} duration_ms={DurationMs} error_code={ErrorCode} correlation_id={CorrelationId} git_exit_code={GitExitCode} diagnostic={Diagnostic} source={Source} actor_windows_sid={OwnerSid} authentication_mode={AuthenticationMode}",
+        auditEvent.Client, auditEvent.Tool, auditEvent.Repository, auditEvent.Branch, auditEvent.PullRequestNumber, auditEvent.Tag, auditEvent.Result, auditEvent.DurationMs, auditEvent.ErrorCode, auditEvent.CorrelationId, auditEvent.ExitCode, auditEvent.Diagnostic, auditEvent.Source,
+        options?.WindowsOwnerSid, GithubieIntegrationMode.IntegrationMode(options));
 }
 
 /// <summary>
@@ -59,6 +61,13 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
         string repository, string message, string expectedHead, string patch, CancellationToken cancellationToken) =>
         await RunAsync("github_repository_commit_selected", repository, null,
             () => inner.CommitSelectedAsync(repository, message, expectedHead, patch, cancellationToken));
+
+    public async Task<GitGatewayResult<GitRepositoryMergeInfo>> MergeAsync(
+        string repository, string branch, string expectedHead, string sourceKind, string source, string expectedSourceSha,
+        string fastForward, string? message, IReadOnlyList<GitMergeResolution>? resolutions, CancellationToken cancellationToken) =>
+        await RunAsync("github_repository_merge", repository, branch,
+            () => inner.MergeAsync(repository, branch, expectedHead, sourceKind, source, expectedSourceSha,
+                fastForward, message, resolutions, cancellationToken));
 
     public async Task<GitGatewayResult<GitStashEntry>> PushStashAsync(
         string repository, string message, IReadOnlyList<string>? paths, CancellationToken cancellationToken) =>
@@ -89,6 +98,9 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
     public async Task<GitGatewayResult<GitBranchSwitchInfo>> SwitchBranchAsync(string repository, string branch, CancellationToken cancellationToken) =>
         await RunAsync("github_branch_switch", repository, branch, () => inner.SwitchBranchAsync(repository, branch, cancellationToken));
 
+    public async Task<GitGatewayResult<GitLocalBranchCreateInfo>> CreateLocalBranchAsync(string repository, string branch, string source, CancellationToken cancellationToken) =>
+        await RunAsync("github_local_branch_create", repository, branch, () => inner.CreateLocalBranchAsync(repository, branch, source, cancellationToken), source: source);
+
     public async Task<GitGatewayResult<Unit>> PushAsync(string repository, CancellationToken cancellationToken) =>
         await RunAsync("github_push", repository, null, () => inner.PushAsync(repository, cancellationToken));
 
@@ -103,7 +115,7 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
         await RunAsync("github_history_rewrite", repository, null, () => inner.RewriteHistoryAsync(repository, refs, dryRun, cancellationToken));
 
     private async Task<GitGatewayResult<T>> RunAsync<T>(
-        string tool, string repository, string? branch, Func<Task<GitGatewayResult<T>>> action, string? tag = null)
+        string tool, string repository, string? branch, Func<Task<GitGatewayResult<T>>> action, string? tag = null, string? source = null)
     {
         var stopwatch = Stopwatch.StartNew();
         var result = await action();
@@ -116,7 +128,8 @@ public sealed class AuditedGitGateway(IGitGateway inner, IGithubieAuditLogger au
             ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(),
             CorrelationId: correlationId,
             Diagnostic: result.Diagnostic,
-            ExitCode: result.ExitCode));
+            ExitCode: result.ExitCode,
+            Source: source));
 
         return result with { CorrelationId = correlationId };
     }
@@ -161,6 +174,23 @@ public sealed class AuditedRepositoryRegistrationService(
             ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(),
             Diagnostic: result.Diagnostic,
             Source: $"{request.Owner}/{request.Name}"));
+
+        return result;
+    }
+
+    public async Task<RepositoryRelocateResult> RelocateAsync(
+        string repository, string localRoot, CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var result = await inner.RelocateAsync(repository, localRoot, cancellationToken);
+        stopwatch.Stop();
+
+        audit.Write(new GithubieAuditEvent(
+            Client: "mcp", Tool: "github_repository_relocate", Repository: repository,
+            Branch: null, PullRequestNumber: null, Tag: null,
+            Result: result.IsSuccess ? "success" : "failure", DurationMs: stopwatch.ElapsedMilliseconds,
+            ErrorCode: result.IsSuccess ? null : result.Error!.Value.ToString(),
+            Source: result.IsSuccess ? $"{result.Value!.PreviousLocalRoot} -> {result.Value.LocalRoot}" : null));
 
         return result;
     }

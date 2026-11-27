@@ -2,6 +2,16 @@
 
 [English](CONFIG.md) | [日本語](CONFIG.ja.md)
 
+`<install-root>` はユーザーが選択した実際のインストール先です（既定は `C:\Githubie`）。設定は実行ファイルの `bin` の親にある `config\githubie.json` 一つだけを使用します。
+
+## 2.0 ユーザーホスト
+
+2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。バイナリは `<install-root>`、可変データはユーザー別です。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
+
+## 1.x の参照・復旧資料
+
+以下のService配置・直接Token入力・導入手順は1.x向けです。2.0では上記正本を優先してください。変更していない型付きMCP Toolの引数・結果schemaは2.0でも使用します。過去の受入記録は、その記載版の結果です。
+
 `githubie.json`の全項目と検証ルールを記載する。読み込みは`Githubie.Infrastructure.Configuration.JsonGithubieOptionsLoader`が行い、プロパティ名はすべてsnake_caseで統一する。JSON中の未知プロパティ・コメント・末尾カンマは拒否する。
 
 サンプルは[githubie.example.json](githubie.example.json)を参照する。
@@ -10,11 +20,11 @@ MCPのRepository設定Toolは設定ストアに登録済みの値を扱う。応
 
 ## ファイル配置
 
-既定では`<install-root>\config\githubie.json`を読み込む。`githubie.exe` / `Githubie.Server.exe`のいずれも第1引数、または`githubie.exe`は`--config <path>`で明示指定できる。
+唯一の本体設定は `<install-root>\config\githubie.json` です。省略時もこのファイルを読み、別の明示パスは拒否します。実行中のバイナリのbinディレクトリの親から解決し、カレントディレクトリには依存しません。ユーザープロファイルやカレントディレクトリへのフォールバックはありません。
 
 ```powershell
-Githubie.Server.exe C:\path\to\githubie.json
-githubie.exe --config C:\path\to\githubie.json config check
+& "D:\Apps\Githubie\bin\Githubie.Server.exe" "D:\Apps\Githubie\config\githubie.json"
+& "D:\Apps\Githubie\bin\githubie.exe" --config "D:\Apps\Githubie\config\githubie.json" config check
 ```
 
 ## ルート項目
@@ -57,7 +67,9 @@ Upgrade時は旧規則`^[A-Za-z0-9._-]+$`のIDから`.`、`_`、`-`を除去し�
 
 Workflow Policyは`allowed_refs`を必須とし、input型は`string`／`boolean`／`integer`、`max_length`は1～4096とする。`max_concurrent`は1～10、`correlation_timeout_seconds`は1～120。`github_repository_update`による変更は対話承認を必要とする。
 
-Pull Request経路（source→destination）は`develop_branch → main_branch`固定で、設定ファイルに個別項目はない。Agentや設定ファイルに自由な経路を指定させない設計上の判断による。
+初期Pull Request経路は`develop_branch → main_branch`です。登録済み経路は承認付きの`github_repository_settings_update`で変更でき、PR作成時は登録された経路だけを指定できます。
+
+通常・選択差分のローカルcommitは、保護ブランチや任意のfeatureブランチを含む現在チェックアウト中のブランチだけへ記録します。ローカルcommit許可リスト、直接push許可、PR経路への登録は要求しません。Repository/Path検証・認証・作者・監査は維持します。detached HEAD、branch/HEAD変更、他操作のindex/ref lockでは別ブランチへ切り替えず拒否します。成功時は`data.branch`と`data.commit_sha`を返し、pushしません。push・pull・PR merge・履歴書き換えの既存制限は維持します。[ADR 0039](docs/adr/0039-current-branch-local-commits.md)を参照してください。
 
 Repository登録とPolicyの正本は`<install-root>\data\githubie.db`とする。`github_repository_register`は既存Local Git Repositoryを実行中にSQLiteへ追加する。`github_owner`と`github_repo`は指定remote URLから導出し、対話Desktop承認を必要とする。指定remoteは`https://github.com/OWNER/REPOSITORY.git`形式に限定し、SSH形式は拒否する。Service再起動は不要である。
 
@@ -84,3 +96,29 @@ Repository登録とPolicyの正本は`<install-root>\data\githubie.db`とする�
 ## Personal Access Token
 
 Tokenは`githubie.json`に含めない。`githubie.exe auth set <repository-id>`でDPAPI（LocalMachineスコープ）暗号化のうえ`<install-root>\data\secrets\<repository-id>.token`へ1ファイル/Repositoryで保存する。詳細は[SECURITY.md](SECURITY.md)を参照する。
+
+## `local_commit_branches`（廃止済み互換入力）
+
+`local_commit_branches`は廃止済みです。旧JSONの配列（例：`"local_commit_branches": ["develop"]`または`[]`）は互換読込のみ受け付け、破棄して保存時は出力しません。許可判定にもRepository Settingsにも使いません。SQLiteの未使用旧列は保持します。新規設定では省略してください。
+
+## 唯一の本体設定（2.1.0.0）
+
+読込・保存先は `<install-root>\config\githubie.json` だけです。`user_host` に `moyai_integration`（省略時false）・`direct_unrestricted`（false）・`autostart_enabled`（true）を保存します。`direct_unrestricted=true` には `moyai_integration=true` が必要です。旧起動モード引数はJSONで有効な値の再指定だけを許可します。旧プロフィール内の `githubie.json`・`host.json`・`startup.json` は読まず、新規作成・自動統合もしません。
+
+`user_host.startup_update_enabled`（省略時true）は、MSIで導入した対話型ホストの起動時に、署名付きの新しい安定版を自動で適用する設定です。タスクトレイの設定画面で変更できます。
+
+共有の自動起動設定は、setup/logon時に現在ユーザーのHKCUへ反映します。ON/OFF変更には正本ファイルの書込権限が必要です。他のJSON設定は保持し、保存・読戻し失敗時はHKCUを元に戻します。他ユーザーは次のsetup/logon時に反映します。MSIは正本がない場合だけ初期JSONを作り、更新・アンインストール時も既存内容を保持します。旧1.x読込処理は新しい `user_host` を認識しないため、実機切替時に確認してください。既存正本をサンプルで上書きしないでください。判断の正本は[ADR0041](docs/adr/0041-single-canonical-configuration.md)です。識別・接続・DBファイルは実行データであり、別の本体設定ではありません。
+
+## 同一Windowsユーザー認証（候補2.1.0.0）
+
+唯一のJSONの `user_host.authentication_mode` に `windows_owner` を明示すると、所有者認証済みユーザーホスト接続でMoyai/nativeを同じWindowsユーザーとして扱います。省略値 `legacy` は従来動作を保持します。新規MSIの既定JSONは `windows_owner` を明示しますが、既存JSONは上書きしません。このモードは `--user-host` 専用で、旧Serviceでは拒否します。
+
+全HTTP要求にschema1 discoveryの `X-Githubie-Session` と `X-Githubie-Generation` が必要です。ES256 Assertion・Issuer鍵・Project署名scope・legacy tokenは必須にしません。旧Moyai/direct設定とtrust資産は保持しますが、このモードの認可に使用しません。Repository/branch制限・本人承認・外部サービス資格・監査は維持します。監査主体はWindows所有SIDです。
+
+Consumerは版と `github_provider_capabilities.authentication.owner_authentication` の明示契約・対象tool名を確認してから操作します。通常のcapabilityだけでは署名不要と判断できません。ownerモードへAuthorizationを渡すと403/`user_host_auth_mode_mismatch`、所有者資格・世代等の拒否は既存の403/`user_host_owner_rejected`です。別経路fallbackと結果不明mutationの自動再送を行いません。
+
+正確なwire・能力フィールド・対象操作・エラーは[Windows owner認証v1](docs/specifications/windows-owner-authentication-v1.md)、設計判断は[ADR0042](docs/adr/0042-windows-owner-authentication.md)を参照してください。現在は契約提案・候補の段階です。Moyai Consumer合意/相互受入と通常環境切替は別工程で、実装候補を稼働中の設定へ自動適用しません。既存鍵・DB・trustを削除しないでください。
+
+## PR公開元の専用許可
+
+`pr_publication_source_branches`はRepository単位の任意string配列で、既定値は空（公開拒否）です。有効で重複しないlocal branch名に完全一致し、`pull_request_routes`も満たす場合だけPR公開できます。通常commit/直接pushは変わらず、旧`local_commit_branches`は自動移行しません。登録済み設定の更新・旧版復元条件は[公開契約](docs/specifications/pr-source-publication.ja.md)を参照してください。

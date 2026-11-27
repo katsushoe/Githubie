@@ -111,131 +111,201 @@ public sealed class GitGatewayTests
     }
 
     [Fact]
-    public async Task CommitAsync_StoredAuthor_CommitsWithoutServiceGlobalConfiguration()
+    public async Task CreateLocalBranchAsync_FromLocalTag_CreatesOnlyLocalRefAndPreservesCheckout()
     {
-        var allowlist = new RepositoryAllowlist(new Dictionary<string, RepositoryOptions>
-        {
-            [RepositoryId] = CreateOptions() with
-            {
-                CommitAuthorName = "Registered Writer",
-                CommitAuthorEmail = "writer@example.com",
-            },
-        });
-        var gateway = new GitGateway(allowlist, new LocalPathValidator(_environment), _commandClient, _approvalPrompt);
+        _commandClient.CheckBranchNameAsync(LocalRoot, "release/test", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.CheckBranchNameAsync(LocalRoot, "v1.0.1.0", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetLocalRefAsync(LocalRoot, "refs/heads/release/test", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, exitCode: 1), GitCommandResult.Success(NewSha));
+        _commandClient.GetLocalRefAsync(LocalRoot, "refs/heads/v1.0.1.0", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, exitCode: 1));
+        _commandClient.GetLocalCommitAsync(LocalRoot, "refs/tags/v1.0.1.0", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
         _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
-        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(" M file.txt"));
-        _commandClient.AddAllAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
-        _commandClient.CommitAsync(LocalRoot, "message", "Registered Writer", "writer@example.com", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success(string.Empty));
-        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(OldSha));
+        _commandClient.CreateLocalBranchAsync(LocalRoot, "release/test", NewSha, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
 
-        var result = await gateway.CommitAsync(RepositoryId, "message", TestContext.Current.CancellationToken);
+        var result = await _gateway.CreateLocalBranchAsync(RepositoryId, "release/test", "v1.0.1.0", TestContext.Current.CancellationToken);
 
         result.IsSuccess.Should().BeTrue();
-        await _commandClient.Received(1).CommitAsync(LocalRoot, "message", "Registered Writer", "writer@example.com", Arg.Any<CancellationToken>());
-        await _commandClient.DidNotReceive().GetLocalConfigAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+        result.Value.Should().Be(new GitLocalBranchCreateInfo("release/test", "v1.0.1.0", "develop", OldSha));
+        await _commandClient.Received(1).CreateLocalBranchAsync(LocalRoot, "release/test", NewSha, Arg.Any<CancellationToken>());
+        await _commandClient.DidNotReceive().FetchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
-    public async Task CommitSelectedAsync_ExpectedHeadMismatchRejectsBeforeReadingStatusOrCommitting()
+    public async Task CreateLocalBranchAsync_FromFullCommitSha_CreatesLocalBranch()
     {
-        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success("develop"));
-        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success(NewSha));
-
-        var result = await _gateway.CommitSelectedAsync(RepositoryId, "message", OldSha, "patch", CancellationToken.None);
-
-        result.Error.Should().Be(GitGatewayError.ExpectedHeadMismatch);
-        await _commandClient.DidNotReceive().GetStatusAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
-        await _commandClient.DidNotReceive().CommitSelectedAsync(
-            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task CommitSelectedAsync_StagedChangesRejectBeforeSelectedCommit()
-    {
-        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success("develop"));
-        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success(NewSha));
-        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success("M  file.txt"));
-
-        var result = await _gateway.CommitSelectedAsync(RepositoryId, "message", NewSha, "patch", CancellationToken.None);
-
-        result.Error.Should().Be(GitGatewayError.StagedChangesPresent);
-        await _commandClient.DidNotReceive().CommitSelectedAsync(
-            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
-    }
-
-    [Fact]
-    public async Task CommitSelectedAsync_UnapplicablePatchReturnsTypedError()
-    {
-        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success("develop"));
-        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success(NewSha));
-        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success(" M file.txt"));
-        _commandClient.GetLocalConfigAsync(LocalRoot, "user.name", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success("Test"));
-        _commandClient.GetLocalConfigAsync(LocalRoot, "user.email", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success("test@example.com"));
-        _commandClient.CommitSelectedAsync(LocalRoot, "message", "Test", "test@example.com", NewSha, "patch", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "error: patch does not apply"));
-
-        var result = await _gateway.CommitSelectedAsync(RepositoryId, "message", NewSha, "patch", CancellationToken.None);
-
-        result.Error.Should().Be(GitGatewayError.InvalidSelectedCommitPatch);
-    }
-
-    [Fact]
-    public async Task CommitAsync_NoAuthor_ReturnsIdentityErrorBeforeStaging()
-    {
+        _commandClient.CheckBranchNameAsync(LocalRoot, "from-sha", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetLocalRefAsync(LocalRoot, "refs/heads/from-sha", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed, exitCode: 1), GitCommandResult.Success(NewSha));
+        _commandClient.GetLocalCommitAsync(LocalRoot, NewSha, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(NewSha));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
         _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(OldSha));
+        _commandClient.CreateLocalBranchAsync(LocalRoot, "from-sha", NewSha, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await _gateway.CreateLocalBranchAsync(RepositoryId, "from-sha", NewSha, TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be(new GitLocalBranchCreateInfo("from-sha", NewSha, "develop", OldSha));
+        await _commandClient.Received(1).CreateLocalBranchAsync(LocalRoot, "from-sha", NewSha, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateLocalBranchAsync_ExistingTarget_ReturnsDuplicateWithoutCreating()
+    {
+        _commandClient.CheckBranchNameAsync(LocalRoot, "existing", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetLocalRefAsync(LocalRoot, "refs/heads/existing", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(NewSha));
+
+        var result = await _gateway.CreateLocalBranchAsync(RepositoryId, "existing", OldSha, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.LocalBranchAlreadyExists);
+        await _commandClient.DidNotReceive().CreateLocalBranchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateLocalBranchAsync_DirtyTree_ReturnsDirtyWithoutCreating()
+    {
+        _commandClient.CheckBranchNameAsync(LocalRoot, "new", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetLocalRefAsync(LocalRoot, "refs/heads/new", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Failed(GitCommandFailure.Failed, exitCode: 1));
         _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(" M file.txt"));
-        _commandClient.GetLocalConfigAsync(LocalRoot, Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Failed(GitCommandFailure.Failed));
 
-        var result = await _gateway.CommitAsync(RepositoryId, "message", TestContext.Current.CancellationToken);
+        var result = await _gateway.CreateLocalBranchAsync(RepositoryId, "new", OldSha, TestContext.Current.CancellationToken);
 
-        result.Error.Should().Be(GitGatewayError.AuthorIdentityMissing);
+        result.Error.Should().Be(GitGatewayError.WorkingTreeDirty);
+        await _commandClient.DidNotReceive().CreateLocalBranchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateLocalBranchAsync_UnmergedPaths_ReturnsConflictErrorWithoutCreating()
+    {
+        _commandClient.CheckBranchNameAsync(LocalRoot, "new", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetLocalRefAsync(LocalRoot, "refs/heads/new", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Failed(GitCommandFailure.Failed, exitCode: 1));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("UU conflicted.txt"));
+
+        var result = await _gateway.CreateLocalBranchAsync(RepositoryId, "new", OldSha, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.UnresolvedConflicts);
+        await _commandClient.DidNotReceive().CreateLocalBranchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("origin/main", GitGatewayError.BranchSourceNotFound)]
+    [InlineData("2222", GitGatewayError.BranchSourceNotFound)]
+    [InlineData("refs/remotes/origin/main", GitGatewayError.InvalidRef)]
+    public async Task CreateLocalBranchAsync_RejectsNonLocalOrIncompleteSource(string source, GitGatewayError expectedError)
+    {
+        _commandClient.CheckBranchNameAsync(LocalRoot, "new", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetLocalRefAsync(LocalRoot, "refs/heads/new", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Failed(GitCommandFailure.Failed, exitCode: 1));
+        _commandClient.CheckBranchNameAsync(LocalRoot, source, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+        _commandClient.GetLocalRefAsync(LocalRoot, $"refs/heads/{source}", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Failed(GitCommandFailure.Failed, exitCode: 1));
+        _commandClient.GetLocalRefAsync(LocalRoot, $"refs/tags/{source}", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Failed(GitCommandFailure.Failed, exitCode: 1));
+        _commandClient.GetLocalCommitAsync(LocalRoot, $"refs/tags/{source}", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Failed(GitCommandFailure.Failed, exitCode: 1));
+
+        var result = await _gateway.CreateLocalBranchAsync(RepositoryId, "new", source, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(expectedError);
+        await _commandClient.DidNotReceive().CreateLocalBranchAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("develop", false)]
+    [InlineData("main", false)]
+    [InlineData("feature/arbitrary", false)]
+    [InlineData("develop", true)]
+    [InlineData("main", true)]
+    [InlineData("feature/arbitrary", true)]
+    public async Task LocalCommit_CurrentBranch_IgnoresPushRouteAndProtectedPolicies(string branch, bool selected)
+    {
+        var options = CreateOptions() with
+        {
+            DirectPushBranches = [], PullBranches = [], PullRequestRoutes = [], ProtectedBranches = ["main"],
+            CommitAuthorName = "Writer", CommitAuthorEmail = "writer@example.com",
+        };
+        var gateway = new GitGateway(new RepositoryAllowlist(new Dictionary<string, RepositoryOptions> { [RepositoryId] = options }),
+            new LocalPathValidator(_environment), _commandClient, _approvalPrompt);
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(branch));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(" M file.txt"));
+        var patch = selected ? "patch" : null;
+        _commandClient.CommitCurrentBranchAsync(LocalRoot, "message", "Writer", "writer@example.com", branch, OldSha, patch, Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Success(NewSha));
+
+        var result = selected
+            ? await gateway.CommitSelectedAsync(RepositoryId, "message", OldSha, "patch", TestContext.Current.CancellationToken)
+            : await gateway.CommitAsync(RepositoryId, "message", TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.CommitSha.Should().Be(NewSha);
+        result.Value.Branch.Should().Be(branch);
+        await _commandClient.DidNotReceive().GetLocalConfigAsync(LocalRoot, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await _commandClient.DidNotReceive().AddAllAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
-    public async Task SettingsAuthorUpdate_IsUsedByRegularAndSelectedCommitPaths()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LocalCommit_DetachedHead_RejectsBeforeReadingIndex(bool selected)
     {
-        _approvalPrompt.RequestApprovalAsync(Arg.Any<ApprovalPromptRequest>(), Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
-            .Returns(ApprovalPromptOutcome.Approved());
-        var allowlist = new RepositoryAllowlist(new Dictionary<string, RepositoryOptions> { [RepositoryId] = CreateOptions() });
-        var management = new RepositoryManagementService(allowlist, _approvalPrompt,
-            Substitute.For<IRepositoryConfigurationStore>(), Substitute.For<IApiTokenStore>());
-        var update = await management.UpdateSettingsAsync(RepositoryId,
-            new RepositorySettingsChanges(CommitAuthorName: "Registered Writer", HasCommitAuthorName: true,
-                CommitAuthorEmail: "writer@example.com", HasCommitAuthorEmail: true), TestContext.Current.CancellationToken);
-        update.IsSuccess.Should().BeTrue();
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("HEAD"));
+        var result = selected
+            ? await _gateway.CommitSelectedAsync(RepositoryId, "message", OldSha, "patch", CancellationToken.None)
+            : await _gateway.CommitAsync(RepositoryId, "message", CancellationToken.None);
+        result.Error.Should().Be(GitGatewayError.DetachedHead);
+        await _commandClient.DidNotReceive().GetStatusAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
 
-        var gateway = new GitGateway(allowlist, new LocalPathValidator(_environment), _commandClient, _approvalPrompt);
+    [Fact]
+    public async Task CommitSelectedAsync_ExpectedHeadMismatch_RejectsBeforeReadingIndex()
+    {
         _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(NewSha));
+        var result = await _gateway.CommitSelectedAsync(RepositoryId, "message", OldSha, "patch", CancellationToken.None);
+        result.Error.Should().Be(GitGatewayError.ExpectedHeadMismatch);
+        await _commandClient.DidNotReceive().GetStatusAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CommitSelectedAsync_StagedChanges_RejectsWithoutExecutingCommit()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("M  file.txt"));
+        var result = await _gateway.CommitSelectedAsync(RepositoryId, "message", OldSha, "patch", CancellationToken.None);
+        result.Error.Should().Be(GitGatewayError.StagedChangesPresent);
+    }
+
+    [Theory]
+    [InlineData(GitCommandFailure.BranchChanged, GitGatewayError.CurrentBranchChanged)]
+    [InlineData(GitCommandFailure.HeadChanged, GitGatewayError.ExpectedHeadMismatch)]
+    [InlineData(GitCommandFailure.RepositoryBusy, GitGatewayError.RepositoryBusy)]
+    [InlineData(GitCommandFailure.CommitResultUnknown, GitGatewayError.CommitResultUnknown)]
+    [InlineData(GitCommandFailure.Failed, GitGatewayError.InvalidSelectedCommitPatch)]
+    public async Task CommitSelectedAsync_ExecutionFailure_PreservesTypedOutcome(GitCommandFailure failure, GitGatewayError expected)
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(OldSha));
         _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(" M file.txt"));
-        _commandClient.AddAllAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
-        _commandClient.CommitAsync(LocalRoot, "regular", "Registered Writer", "writer@example.com", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success(string.Empty));
-        _commandClient.CommitSelectedAsync(LocalRoot, "selected", "Registered Writer", "writer@example.com", OldSha, "patch", Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success(string.Empty));
-        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>())
-            .Returns(GitCommandResult.Success(OldSha), GitCommandResult.Success(OldSha), GitCommandResult.Success(NewSha));
+        _commandClient.GetLocalConfigAsync(LocalRoot, "user.name", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("Writer"));
+        _commandClient.GetLocalConfigAsync(LocalRoot, "user.email", Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("writer@example.com"));
+        _commandClient.CommitCurrentBranchAsync(LocalRoot, "message", "Writer", "writer@example.com", "develop", OldSha, "patch", Arg.Any<CancellationToken>())
+            .Returns(GitCommandResult.Failed(failure));
+        var result = await _gateway.CommitSelectedAsync(RepositoryId, "message", OldSha, "patch", CancellationToken.None);
+        result.Error.Should().Be(expected);
+    }
 
-        var regular = await gateway.CommitAsync(RepositoryId, "regular", TestContext.Current.CancellationToken);
-        var selected = await gateway.CommitSelectedAsync(RepositoryId, "selected", OldSha, "patch", TestContext.Current.CancellationToken);
-
-        regular.IsSuccess.Should().BeTrue();
-        selected.IsSuccess.Should().BeTrue();
-        await _commandClient.Received(1).CommitAsync(LocalRoot, "regular", "Registered Writer", "writer@example.com", Arg.Any<CancellationToken>());
-        await _commandClient.Received(1).CommitSelectedAsync(LocalRoot, "selected", "Registered Writer", "writer@example.com", OldSha, "patch", Arg.Any<CancellationToken>());
-        await _commandClient.DidNotReceive().GetLocalConfigAsync(LocalRoot, "user.name", Arg.Any<CancellationToken>());
+    [Fact]
+    public async Task CommitAsync_NoAuthor_RejectsBeforeStaging()
+    {
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("develop"));
+        _commandClient.GetHeadAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(OldSha));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(" M file.txt"));
+        _commandClient.GetLocalConfigAsync(LocalRoot, Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(GitCommandResult.Failed(GitCommandFailure.Failed));
+        var result = await _gateway.CommitAsync(RepositoryId, "message", CancellationToken.None);
+        result.Error.Should().Be(GitGatewayError.AuthorIdentityMissing);
+        await _commandClient.DidNotReceive().AddAllAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -606,6 +676,23 @@ public sealed class GitGatewayTests
 
         result.IsSuccess.Should().BeFalse();
         result.Error.Should().Be(GitGatewayError.BranchNotAllowed);
+    }
+
+    [Fact]
+    public async Task PushAsync_DeniesPullRequestSourceBranchWithoutDirectPushPermission()
+    {
+        var options = CreateOptions() with { PullRequestRoutes = [new("codex/docs-main-v1010", "main")] };
+        var gateway = new GitGateway(
+            new RepositoryAllowlist(new Dictionary<string, RepositoryOptions> { [RepositoryId] = options }),
+            new LocalPathValidator(_environment), _commandClient, _approvalPrompt);
+        _commandClient.GetCurrentBranchAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success("codex/docs-main-v1010"));
+        _commandClient.GetStatusAsync(LocalRoot, Arg.Any<CancellationToken>()).Returns(GitCommandResult.Success(string.Empty));
+
+        var result = await gateway.PushAsync(RepositoryId, TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitGatewayError.BranchNotAllowed);
+        await _commandClient.DidNotReceive().PushAsync(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]

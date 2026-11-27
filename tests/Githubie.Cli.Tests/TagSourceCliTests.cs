@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -34,7 +34,7 @@ public sealed class TagSourceCliTests
             var incoming = listener.GetContextAsync();
             using var output = new StringWriter();
             using var error = new StringWriter();
-            var execution = CliApplication.RunAsync(
+            var execution = CliApplication.RunIsolatedAsync(
                 ["--config", config, "mcp", "call", "github_tag_create", JsonSerializer.Serialize(arguments)], output, error, timeout.Token);
             var context = await incoming.WaitAsync(timeout.Token);
             using var reader = new StreamReader(context.Request.InputStream);

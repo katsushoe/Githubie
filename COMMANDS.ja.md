@@ -2,11 +2,23 @@
 
 [English](COMMANDS.md) | [日本語](COMMANDS.ja.md)
 
+`<install-root>` はユーザーが選択した実際のインストール先です（既定は `C:\Githubie`）。設定は実行ファイルの `bin` の親にある `config\githubie.json` 一つだけを使用します。
+
+## 2.0 ユーザーホスト
+
+2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。バイナリは `<install-root>`、可変データはユーザー別です。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
+
+## 1.x の参照・復旧資料
+
+以下のService配置・直接Token入力・導入手順は1.x向けです。2.0では上記正本を優先してください。変更していない型付きMCP Toolの引数・結果schemaは2.0でも使用します。過去の受入記録は、その記載版の結果です。
+
 ## Repository設定MCP Tool
 
-`github_repository_settings_get`は登録済みの`direct_push_branches`、`protected_branches`、`pull_branches`、`tag_pattern`、`tag_target_branch`、`require_clean_working_tree`、`commit_author_name`、`commit_author_email`だけを返す。作者のnullは登録作者なしを示し、ローカルGit設定から解決しない。`repository.read`を要求し、GitやGitHubへアクセスしない。
+`github_repository_settings_get`は登録済みの10設定項目を`data.settings`内に返す。項目は`direct_push_branches`、`protected_branches`、`pull_branches`、`tag_pattern`、`tag_target_branch`、`require_clean_working_tree`、`commit_author_name`、`commit_author_email`、`pull_request_routes`、`pr_publication_source_branches`。経路は`source_branch`と`destination_branch`の組を返す。作者のnullは登録作者なしを示し、ローカルGit設定から解決しない。`repository.read`を要求し、GitやGitHubへアクセスしない。
 
-`github_repository_settings_update`は`{ "repository": "id", "changes": { ... } }`を受け取り、`repository.settings.write`と人の対話承認を要求する。省略項目は保持し、明示的なnull、未知項目、型不正、空のchanges objectは拒否する。空配列はBranch Policyの空配列への置換、falseは明示値として扱う。作者名とメールは必ず同時に指定する。従来の`github_repository_update`は元の全Policy引数を維持する。
+`github_repository_settings_update`は`{ "repository": "id", "changes": { ... } }`を受け取り、`repository.settings.write`と人の対話承認を要求する。省略項目は保持し、明示的なnull、未知項目、型不正、空のchanges objectは拒否する。空配列はBranch Policyや`pull_request_routes`の空配列への置換、falseは明示値として扱う。`pull_request_routes`は`source_branch`と`destination_branch`の組の配列です。作者名とメールは必ず同時に指定する。従来の`github_repository_update`は元の全Policy引数を維持する。
+
+通常・選択差分のローカルcommitは、保護ブランチや任意のfeatureブランチを含む現在チェックアウト中のブランチだけへ記録します。ローカルcommit許可リスト、直接push許可、PR経路への登録は要求しません。Repository/Path検証・認証・作者・監査は維持します。detached HEAD、branch/HEAD変更、他操作のindex/ref lockでは別ブランチへ切り替えず拒否します。成功時は`data.branch`と`data.commit_sha`を返し、pushしません。push・pull・PR merge・履歴書き換えの既存制限は維持します。[ADR 0039](docs/adr/0039-current-branch-local-commits.md)を参照してください。
 
 `githubie.exe`（管理CLI）と、MCP Serverが公開するTool一覧を記載する。
 
@@ -14,17 +26,23 @@
 
 | オプション | 説明 |
 | --- | --- |
-| `--config <path>` | `githubie.json`の場所を明示指定する。省略時は`<install-root>\config\githubie.json` |
+| `--config <path>` | 唯一の `<install-root>\config\githubie.json` を再指定する場合だけ使用。省略時も同じファイル。別パスは拒否 |
 
 ## Branch作成の互換性変更
 
 `github_branch_create`には`source`が必須です。作成元のBranch名または完全な40桁コミットSHAを指定します。main・develop・HEAD等への暗黙補完はしません。省略時はMCP引数エラー、空白・nullは`branch_source_invalid`、存在しないBranchは`branch_not_found`、存在しないコミットは`branch_source_not_found`です。解決失敗時はBranchを作成しません。作成先の許可条件は維持し、checkoutは行いません。
+
+`github_local_branch_create`はローカル専用です。既存のローカルBranch名、Tag名、またはローカルに存在する完全な40桁SHAを必須指定します。dirty/conflict中のworktree、既存の作成先、Remote tracking ref、不在の作成元は拒否します。HEAD/worktreeを変更せず、Remoteへ接続しません。
 
 CLIは次のJSONをファイルへ保存し、`githubie mcp call github_branch_create --file branch-create.json`で同じサービス処理を呼び出します。Moyai等の呼び出し側も`source`の指定が必要です。設計正本は[ADR 0026](docs/adr/0026-explicit-branch-source.md)です。
 
 ```json
 {"repository":"example","branch":"develop","source":"main"}
 ```
+
+## 専用MCPクライアント
+
+`githubiemcp --help` と `githubiemcp --version` で説明と版を確認できます。`githubiemcp status`・`tools`・`test`・`stdio`・`call <tool> [<JSON> | --file <path>]` は対応する `githubie mcp` 操作へ委譲します。`repo`・`issue`・`auth` 等も既存CLIで処理します。サーバー管理コマンドは拒否するため、サービスは別途起動してください。Repository登録と認証情報入力には既存の対話UIを使用し、認証情報を引数や出力に含めません。`--config` で指定できるのは `<実際のインストール先>/config/githubie.json` のみで、別パスは拒否します。許可一覧・認可・監査・承認は稼働中サービスが適用し、終了コードと出力は委譲先と同じです。
 
 ## CLIコマンド
 
@@ -68,6 +86,7 @@ CLIは次のJSONをファイルへ保存し、`githubie mcp call github_branch_c
 | コマンド | 説明 |
 | --- | --- |
 | `githubie mcp status` | MCP Endpointへ`initialize`リクエストを送り、応答を表示する |
+| `githubie mcp auth status codex` | 実行ユーザーの`codex mcp list --json`からGithubieの有効状態・認証欄をJSONで表示する。Codex CLIがPATH上に必要。サービス設定は不要。終了0は取得成功（unknown・無効も含む）、1は未登録、2は実行失敗・10秒タイムアウト・応答不正。unknownだけで認証切れと断定しない。設定全文・資格情報・子プロセスの標準エラーは出力しない。 |
 | `githubie mcp tools` | MCP Endpointへ`tools/list`リクエストを送り、公開Tool定義を表示する |
 | `githubie mcp call <tool> [<arguments-json>]` | 実行中Server経由で任意の公開Toolを呼び出す。引数省略時は`{}` |
 | `githubie mcp call <tool> --file <path>` | ファイル内のJSON Objectを引数として公開Toolを呼び出す |
@@ -107,16 +126,20 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_repository_status` | `repository` | local/remote head、ahead/behind、working tree cleanを取得。初回Commit前はlocal headを空、ahead/behindを0として返す |
 | `github_repository_diff` | `repository` | 登録Repositoryのworking tree差分を取得 |
 | `github_repository_settings_get` | `repository` | 登録済みの非秘密設定allowlistだけを返す。実行中のメモリ登録値を使い、Git/GitHubアクセスを行わない |
-| `github_repository_commit` | `repository`, `message` | 登録済みまたはRepositoryローカルの作成者で許可Branchへlocal commitを作成する。作成者がなければStage前に`author_identity_missing`を返す |
-| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | 指定patchだけをlocal commitする。staged変更とHEAD不一致を拒否し、未選択差分は作業ツリーに残す |
+| `github_repository_commit` | `repository`, `message` | 登録済みまたはRepositoryローカルの作者で現在branchへ全変更をcommitし、`branch`/`commit_sha`を返す。作者がなければStage前に拒否する |
+| `github_repository_commit_selected` | `repository`, `message`, `expected_head`, `patch` | 現在branchで指定patchだけをcommitし、`branch`/`commit_sha`を返す。staged変更とbranch/HEAD競合を拒否し、未選択差分を残す |
+| `github_repository_merge` | `repository`, `branch`, `expected_head`, `source_kind`, `source`, `expected_source_sha`, `fast_forward`, `message?`, `resolutions?` | 明示した取り込み元（`source_kind`は`branch`、`remote_branch`（例: `origin/main`）、`tag`、`commit`（40桁SHA））を、checkout中のローカルbranchへmergeする。作業ツリーがclean（未追跡fileを含む）で、`branch`がdetachedでなく`expected_head`と一致し、取り込み元が`expected_source_sha`を指す場合だけ実行する。`fast_forward`は`allow`・`never`・`only`。pushは行わない。衝突時の既定は中止で、作業ツリー・index・HEADを変更せず`merge_conflict`と衝突path一覧（`error.candidates`）を返す。`resolutions`で全衝突pathに`choice`（`current`・`source`・`content`＋解消済み全文）を指定した場合だけcommitする。`protected_branches`のbranchへの取り込みは拒否する。結果は`branch`、`commit_sha`、`parents`、`fast_forward`、`previous_head`、`source_sha`、`resolved_paths`。エラーは`merge_request_invalid`、`merge_source_not_found`、`expected_source_mismatch`、`expected_head_mismatch`、`current_branch_changed`、`detached_head`、`working_tree_dirty`、`nothing_to_merge`、`fast_forward_not_possible`、`merge_conflict`、`merge_resolution_invalid`、`protected_branch`。Git 2.38以降が必要 |
 | `github_repository_description_get` | `repository` | Repository Descriptionを取得 |
 | `github_workflow_run_get` | `repository`, `run_id` | Workflow run状態を取得。log本文は返さない |
 | `github_workflow_run_list` | `repository`、任意filter、`limit` | Workflow runを最大100件取得。log本文は返さない |
 | `github_branch_list` | `repository` | Remote Branch一覧を取得 |
 | `github_branch_get` | `repository`, `branch` | 指定Branchのhead commit sha等を取得 |
-| `github_provider_capabilities` | `repository` | Githubieが対応するRepository Contract操作（`branch_switch`を含む）を返す |
+| `github_branch_protection_get` | `repository`, `branch` | GitHub側の完全一致branch保護を読取。[契約](docs/specifications/github-branch-protection.ja.md)参照 |
+| `github_branch_protection_update` | `repository`, `branch`, `edit`, `create_if_missing` | 既存設定の保全を確認し、Desktop承認後に更新 |
+| `github_branch_protection_delete` | `repository`, `branch` | Desktop承認後に従来型ルールを解除。rulesetは別 |
+| `github_provider_capabilities` | `repository` | Githubieが対応するRepository Contract操作（`branch_switch`、`local_branch_create`、`pr_create`を含む）を返す |
 | `github_pr_list` | `repository`, `state?`, `source?`, `destination?` | Pull Request一覧を取得 |
-| `github_pr_get` | `repository`, `pull_request_number` | Pull Request詳細を取得 |
+| `github_pr_get` | `repository`, `pull_request_number` | 実際の`source_commit_sha`とnullableの`draft`を含むPR詳細。[読取・マージ契約](docs/specifications/pr-merge-provider.ja.md)参照 |
 | `github_issue_list` | `repository`, `state?` | Issue一覧を取得。Pull Requestは除外する |
 | `github_issue_get` | `repository`, `issue_number` | Issue詳細を取得。Pull Request番号は拒否する |
 | `github_pr_diff` | `repository`, `pull_request_number` | diff・変更統計を取得 |
@@ -135,17 +158,19 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 | `github_repository_moyai_project_set` | `repository`, `moyai_project_id` | 登録済みRepositoryを対話Desktop承認後にMoyai Project UUIDへ対応付け、実行中Serviceへ即時反映する。空のUUID（`invalid_moyai_project_id`）、ほかのRepositoryで使用中、または`provider_authentication.projects`の管理者設定と異なるUUID（`duplicate_moyai_project_id`）、未登録Repositoryは拒否する。変更は監査ログへ記録する |
 | `github_repository_create` | `repository`, `owner`, `name`, `visibility?`, `description?`, `local_root?`, `develop_branch?`, `main_branch?`, `commit_author_name?`, `commit_author_email?` | 対話Desktop承認後、GitHub上にRepositoryを新規作成する（既定は`private`、初期Commitなし）。Tokenの利用者と`owner`が一致すれば個人、異なればOrganization配下に作成する。`repository`の保存済みTokenを使い、なければToken画面で受け取る。`local_root`を指定すると、未設定の`origin`へ作成先を設定し、承認とToken入力を繰り返さずに登録する。失敗時は`repository_already_exists`、`permission_denied`、`authentication_failed`、`approval_denied`、`remote_already_configured`、`token_unavailable`を返し、GitHubの拒否理由を`error.diagnostic`に入れる。ローカル履歴のpushは`github_push`で別に行う |
 | `github_repository_update` | `repository`、Branch Policy項目、`commit_author_name?`、`commit_author_email?` | 対話Desktop承認後にBranch PolicyとCommit作成者を更新する。GitHub識別情報とPathは変更しない |
-| `github_repository_settings_update` | `repository`、`changes` | 指定されたallowlist項目だけをDesktop承認後に更新する。成功時は`data.settings`、実際に変わった`data.changed_fields`、`data.approved: true`を返し、検証・承認・保存失敗で部分更新しない |
+| `github_repository_settings_update` | `repository`、`changes` | 指定されたallowlist項目だけをDesktop承認後に更新する。`pull_request_routes`は`source_branch`と`destination_branch`の組の配列で、空配列は全経路を無効化する。成功時は`data.settings`、実際に変わった`data.changed_fields`、`data.approved: true`を返し、失敗時は部分更新しない |
 | `github_repository_unregister` | `repository` | Githubie設定と実行中Allowlistから登録解除。GitHub／Localのデータは削除しない |
+| `github_repository_relocate` | `repository`、`local_root` | 対話Desktop承認後に登録済みLocal Rootだけを変更し、Service再起動なしで反映する。新しい場所は実在し、Git管理下で、パスにjunction・symlinkを含まず、登録remote（保存値が空なら一致するHTTPS remote）が登録済みGitHub Repositoryを指す必要がある。満たさない場合は`reparse_point_detected`、`remote_mismatch`、`remote_https_required`、`repository_not_registered`を返す。Token・Branch Policy・Commit作成者・Moyai対応付けは保持する。CLIは`githubie repo relocate <repository> <local-root>` |
 | `github_repository_rename` | `old_repository`、`new_repository` | 設定と暗号化Tokenを一括移行し、失敗時は旧IDを維持する |
 | `github_repository_description_update` | `repository`, `description` | Descriptionだけを更新。空文字列で削除、最大350文字 |
 | `github_workflow_dispatch` | `repository`, `workflow`, `ref`, `inputs` | 許可済みworkflowだけを起動し、新規runを一意に関連付ける |
 | `github_push` | `repository` | develop等へのGit push。許可BranchがRemoteに未作成なら初回pushで作成し、既存BranchはFast-forward時だけ更新。Protected Branchへの直接Pushは`protected_branch`で拒否 |
 | `github_branch_switch` | `repository`, `branch` | 既存のLocal Branchへ切替。未コミット変更がある場合は拒否し、fetchやBranch作成は行わない |
+| `github_local_branch_create` | `repository`, `branch`, `source`（必須） | 既存のローカルBranch、Tag、完全な40桁SHAからローカルBranchだけを作成。dirty/conflict中、無効・不在の作成元、作成先重複は拒否し、HEADとcheckoutを維持。Remote操作なし |
 | `github_branch_create` | `repository`, `branch`, `source`（必須） | 明示された作成元Branch名または完全な40桁コミットSHAから作成。省略時はエラー、暗黙補完なし。既存時は競合エラー |
 | `github_branch_delete` | `repository`, `branch` | 許可された非保護Branchを削除 |
-| `github_pr_create` | `repository`, `title`, `description?`, `draft` | develop→mainのPRを作成（Source/Destinationは設定固定） |
-| `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?` | 2秒間隔・最大3回でmerge可能性を確認後、Stateと許可経路を検証してPRをmerge |
+| `github_pr_create` | `repository`, `title`, `description`（null可）, `draft`, `source_branch?`, `destination_branch?` | Repository設定で許可された経路のPRを作成。両方省略時は従来どおりdevelop→main。片側だけの指定や未許可経路は拒否。timeout／network errorは結果不明の可能性があるため自動再送せず、先にPR一覧を確認 |
+| `github_pr_merge` | `repository`, `pull_request_number`, `merge_strategy?`, `message?`, `expected_source_commit_sha?` | 所有ユーザー/Moyai接続では期待source SHA必須。既マージは読取照合、結果不明時は非再送。[読取・マージ契約](docs/specifications/pr-merge-provider.ja.md)参照 |
 | `github_pr_close` | `repository`, `pull_request_number` | 未マージのPRをクローズ。クローズ済みの場合は状態を維持 |
 | `github_pr_reopen` | `repository`, `pull_request_number` | 未マージのPRを再オープン。オープン済みの場合は状態を維持 |
 | `github_pr_comment_create` | `repository`, `pull_request_number`, `body` | PR全体へ空でない会話コメントを追加 |
@@ -161,6 +186,8 @@ Tool名は`github_`を接頭辞とする（`get_version`と`list_projects`のみ
 
 Remoteと通信するGit操作（`github_repository_status`、`github_fetch`、`github_pull`、`github_push`、`github_tag_push`、`github_tag_create`、`github_history_rewrite`）は、任意引数`remote`（Moyaiの`gitRemoteName`）を受け付ける。使用するRemoteは、引数`remote`、登録済みのRemote名、登録RepositoryとURLが一致するHTTPSのRemote（複数あれば`github-origin-https`という名前のもの）の順に決める。名前で指定したRemoteはURLを検証し、ほかへ退避しない。失敗時は`provider_remote_not_found`、`provider_remote_ambiguous`、`provider_remote_mismatch`を返す。SSHのRemoteは`provider_remote_not_found`とし、`error.provider.code`を`remote_https_required`とする。`github_repository_diff`と`github_repository_commit`も`remote`を受け付けるが使わない。`github_provider_capabilities`は`remote_resolution`（`version` 1、`mode` `repository_url`）を返す。ADR 0032を参照。
 
+`github_provider_capabilities`は、PR作成機能が実装されていれば`pr_create: true`を返します。これは操作機能の表明であり、個別経路が許可済みであることは示しません。`github_pr_create`はProject Assertionのscope `provider.githubie.pull_request.write`で保護されます。ADR 0038を参照してください。
+
 ### 未分類（局所的な状態変更を伴うが破壊的操作ではない）
 
 | Tool | パラメータ | 説明 |
@@ -171,3 +198,29 @@ Remoteと通信するGit操作（`github_repository_status`、`github_fetch`、`
 ## 監査ログ
 
 すべてのTool呼び出しは`<install-root>\logs\githubie-yyyyMMdd.log`へ、`client` / `tool` / `repository` / `branch` / `pull_request_number` / `tag` / `result` / `duration_ms` / `error_code`の構造化行として記録する。Personal Access Token・Authorization Header・生エラーメッセージは記録しない。
+
+## ローカルcommit実行条件
+
+ローカルcommitは専用index・commit-tree、WindowsのHEADファイル共有制御、対象refの旧SHA条件付き更新を使います。他OSでは`atomic_not_supported`で拒否します。Repository hookと自動署名は実行しません。進行中のmerge/rebase/cherry-pick/revertは専用手順で完了・中止してください。通常commitはstaged変更と作業ツリーを含め、選択commitは既存staged変更を拒否します。ref公開前の失敗では実indexと作業ツリーを保持します。ref公開後のindex設置に失敗し復旧できない場合は`commit_result_unknown`となり、再commit前の照合が必要です。自動再送しないでください。
+
+## 同一Windowsユーザー認証（候補2.1.0.0）
+
+唯一のJSONの `user_host.authentication_mode` に `windows_owner` を明示すると、所有者認証済みユーザーホスト接続でMoyai/nativeを同じWindowsユーザーとして扱います。省略値 `legacy` は従来動作を保持します。新規MSIの既定JSONは `windows_owner` を明示しますが、既存JSONは上書きしません。このモードは `--user-host` 専用で、旧Serviceでは拒否します。
+
+全HTTP要求にschema1 discoveryの `X-Githubie-Session` と `X-Githubie-Generation` が必要です。ES256 Assertion・Issuer鍵・Project署名scope・legacy tokenは必須にしません。旧Moyai/direct設定とtrust資産は保持しますが、このモードの認可に使用しません。Repository/branch制限・本人承認・外部サービス資格・監査は維持します。監査主体はWindows所有SIDです。
+
+Consumerは版と `github_provider_capabilities.authentication.owner_authentication` の明示契約・対象tool名を確認してから操作します。通常のcapabilityだけでは署名不要と判断できません。ownerモードへAuthorizationを渡すと403/`user_host_auth_mode_mismatch`、所有者資格・世代等の拒否は既存の403/`user_host_owner_rejected`です。別経路fallbackと結果不明mutationの自動再送を行いません。
+
+正確なwire・能力フィールド・対象操作・エラーは[Windows owner認証v1](docs/specifications/windows-owner-authentication-v1.md)、設計判断は[ADR0042](docs/adr/0042-windows-owner-authentication.md)を参照してください。現在は契約提案・候補の段階です。Moyai Consumer合意/相互受入と通常環境切替は別工程で、実装候補を稼働中の設定へ自動適用しません。既存鍵・DB・trustを削除しないでください。
+
+## PR元ブランチ限定公開
+
+`githubie pr publish-create --file <arguments.json>`
+
+`githubie pr publish-status <repository> <operation-id>`
+
+`github_pr_publish_create`は明示経路・固定SHA・UUID・対話承認で新規公開とPR作成を行います。`github_pr_publish_status`は同じUUIDの結果を読み取り照合します。結果不明時は再送せず先にstatusを呼び、失敗時もdata内の両副作用の状態を確認してください。通常push許可は拡張しません。
+
+入力・能力・認可・回復手順は[契約](docs/specifications/pr-source-publication.ja.md)を参照してください。
+
+`githubie repo settings get <repository>`と`githubie repo settings update --file <arguments.json>`は既存の現在ユーザーhostを使います。ファイルは`{repository, changes}`です。`githubiemcp`も同じ引数を転送します。公開元リスト更新は`repository.settings.write`と既存Desktop承認を要求し、省略は保持、`[]`は公開無効、nullは拒否です。経路や旧commit値から自動生成しません。

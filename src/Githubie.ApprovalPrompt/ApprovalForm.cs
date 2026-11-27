@@ -1,4 +1,4 @@
-using Githubie.Application.Interactive;
+﻿using Githubie.Application.Interactive;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
@@ -18,6 +18,7 @@ internal sealed partial class ApprovalForm : Form
     public ApprovalForm(ApprovalPromptRequest request)
     {
         InitializeComponent();
+        Icon = Githubie.Desktop.ApplicationIcon.Default;
         ApplyRequestText(request);
         ActiveControl = denyButton;
         countdownTimer.Start();
@@ -88,7 +89,9 @@ internal sealed partial class ApprovalForm : Form
         }
 
         var isRegistration = request.Title.Equals("Githubie repository registration", StringComparison.Ordinal);
-        Text = isRegistration ? "Githubie - リポジトリ登録の承認" : "Githubie - 履歴書き換えの承認";
+        Text = request.Title.Equals("Githubie GitHub branch protection", StringComparison.Ordinal)
+            ? "Githubie - GitHub ブランチ保護の承認"
+            : isRegistration ? "Githubie - リポジトリ登録の承認" : "Githubie - 操作の承認";
         operationCaptionLabel.Text = "操作";
         operationValueLabel.Text = GetOperation(request.Title, true);
         summaryCaptionLabel.Text = "概要";
@@ -102,6 +105,8 @@ internal sealed partial class ApprovalForm : Form
 
     private static string GetOperation(string title, bool japanese)
     {
+        if (title.Equals("Githubie GitHub branch protection", StringComparison.Ordinal))
+            return japanese ? "GitHub ブランチ保護" : "GitHub branch protection";
         var registration = title.Equals("Githubie repository registration", StringComparison.Ordinal);
         var update = title.Equals("Githubie repository update", StringComparison.Ordinal);
         if (japanese) return registration ? "リポジトリ登録" : update ? "リポジトリ設定変更" : "Git履歴書き換え";

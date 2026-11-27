@@ -1,7 +1,8 @@
-param(
-    [string]$DisplayVersion = '1.8.10.0',
+﻿param(
+    [string]$DisplayVersion = '2.2.4.0',
     [string]$RuntimeIdentifier = 'win-x64',
-    [switch]$NoRestore
+    [switch]$NoRestore,
+    [string]$PublishedBinDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -10,9 +11,25 @@ $releaseWorkDirectory = [IO.Path]::GetFullPath((Join-Path $repositoryRoot '.loca
 $stagingDirectory = Join-Path $releaseWorkDirectory 'staging'
 $outputDirectory = Join-Path $releaseWorkDirectory 'output'
 
-if (-not $NoRestore) {
+if ($PublishedBinDirectory) {
+    $PublishedBinDirectory = (Resolve-Path -LiteralPath $PublishedBinDirectory).ProviderPath
+    $publishedPath = $PublishedBinDirectory.TrimEnd('\') + '\'
+    if ($publishedPath.StartsWith("$releaseWorkDirectory\", [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Published binaries must be outside the ZIP build directory.'
+    }
+    foreach ($file in @('githubie.exe', 'githubiemcp.exe', 'Githubie.Server.exe', 'Githubie.AskPass.exe', 'Githubie.ApprovalPrompt.exe')) {
+        $path = Join-Path $PublishedBinDirectory $file
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf) -or [Diagnostics.FileVersionInfo]::GetVersionInfo($path).FileVersion -ne $DisplayVersion) {
+            throw "Missing or incorrect version in published binaries: $file"
+        }
+    }
+}
+
+if (-not $NoRestore -and -not $PublishedBinDirectory) {
     dotnet restore (Join-Path $repositoryRoot 'src\Githubie.Cli\Githubie.Cli.csproj') -r $RuntimeIdentifier --nologo
     if ($LASTEXITCODE -ne 0) { throw 'CLI restore failed.' }
+    dotnet restore (Join-Path $repositoryRoot 'src\Githubie.McpClient\Githubie.McpClient.csproj') -r $RuntimeIdentifier --nologo
+    if ($LASTEXITCODE -ne 0) { throw 'MCP client restore failed.' }
     dotnet restore (Join-Path $repositoryRoot 'src\Githubie.Server\Githubie.Server.csproj') -r $RuntimeIdentifier --nologo
     if ($LASTEXITCODE -ne 0) { throw 'Server restore failed.' }
     dotnet restore (Join-Path $repositoryRoot 'src\Githubie.AskPass\Githubie.AskPass.csproj') -r $RuntimeIdentifier --nologo
@@ -43,19 +60,24 @@ New-Item -ItemType Directory -Path $binDirectory, $configDirectory, $logDirector
 
 # Publish each project separately, then merge with a forced overwrite and Githubie.Server last.
 # dotnet publish keeps a newer existing file, so a shared output directory can retain an older assembly version.
-$publishStagingDirectory = Join-Path $releaseWorkDirectory 'publish-staging'
-if (Test-Path -LiteralPath $publishStagingDirectory) { Remove-Item -LiteralPath $publishStagingDirectory -Recurse -Force }
-foreach ($project in @(
-        'src\Githubie.Cli\Githubie.Cli.csproj',
-        'src\Githubie.AskPass\Githubie.AskPass.csproj',
-        'src\Githubie.ApprovalPrompt\Githubie.ApprovalPrompt.csproj',
-        'src\Githubie.Server\Githubie.Server.csproj')) {
-    $projectOutput = Join-Path $publishStagingDirectory ([IO.Path]::GetFileNameWithoutExtension($project))
-    dotnet publish (Join-Path $repositoryRoot $project) -c Release -r $RuntimeIdentifier --self-contained true -o $projectOutput --nologo --no-restore
-    if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed: $project" }
-    Copy-Item -Path (Join-Path $projectOutput '*') -Destination $binDirectory -Recurse -Force
+if ($PublishedBinDirectory) {
+    Copy-Item -Path (Join-Path $PublishedBinDirectory '*') -Destination $binDirectory -Recurse -Force
+} else {
+    $publishStagingDirectory = Join-Path $releaseWorkDirectory 'publish-staging'
+    if (Test-Path -LiteralPath $publishStagingDirectory) { Remove-Item -LiteralPath $publishStagingDirectory -Recurse -Force }
+    foreach ($project in @(
+            'src\Githubie.Cli\Githubie.Cli.csproj',
+            'src\Githubie.McpClient\Githubie.McpClient.csproj',
+            'src\Githubie.AskPass\Githubie.AskPass.csproj',
+            'src\Githubie.ApprovalPrompt\Githubie.ApprovalPrompt.csproj',
+            'src\Githubie.Server\Githubie.Server.csproj')) {
+        $projectOutput = Join-Path $publishStagingDirectory ([IO.Path]::GetFileNameWithoutExtension($project))
+        dotnet publish (Join-Path $repositoryRoot $project) -c Release -r $RuntimeIdentifier --self-contained true -o $projectOutput --nologo --no-restore
+        if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed: $project" }
+        Copy-Item -Path (Join-Path $projectOutput '*') -Destination $binDirectory -Recurse -Force
+    }
+    Remove-Item -LiteralPath $publishStagingDirectory -Recurse -Force
 }
-Remove-Item -LiteralPath $publishStagingDirectory -Recurse -Force
 
 # Debug symbols are not part of the portable ZIP package contract.
 Get-ChildItem -LiteralPath $binDirectory -Filter '*.pdb' -File -Recurse | Remove-Item -Force
@@ -78,6 +100,7 @@ foreach ($target in $serverDeps.targets.PSObject.Properties) {
     }
 }
 
+Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.default.json') -Destination (Join-Path $configDirectory 'githubie.json')
 Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.example.json') -Destination $configDirectory
   $documents = @(
       'README.md',
@@ -88,6 +111,8 @@ Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.example.json') -Dest
       'MCP_SETUP.ja.md',
       'INSTALLATION.md',
       'INSTALLATION.ja.md',
+      'USER_HOST.md',
+      'USER_HOST.ja.md',
       'OPERATIONS.md',
       'OPERATIONS.ja.md',
       'TROUBLESHOOTING.md',
@@ -106,6 +131,18 @@ Copy-Item -LiteralPath (Join-Path $repositoryRoot 'githubie.example.json') -Dest
 )
 foreach ($document in $documents) {
     Copy-Item -LiteralPath (Join-Path $repositoryRoot $document) -Destination $docsDirectory
+}
+
+# Preserve the repository-relative links used by the packaged public guides.
+foreach ($document in @(
+    'docs\specifications\pr-source-publication.md',
+    'docs\specifications\pr-source-publication.ja.md',
+    'docs\adr\0046-pr-source-publication-integration.md',
+    'docs\adr\0047-pr-publication-source-allowlist.md',
+    'docs\adr\0051-tray-server-lifecycle.md')) {
+    $destination = Join-Path $docsDirectory $document
+    New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $repositoryRoot $document) -Destination $destination
 }
 
 $zipPath = Join-Path $outputDirectory "Githubie-$DisplayVersion-win-x64.zip"

@@ -21,13 +21,16 @@ public sealed record GitWorkingTreeChange(string Status, string Path);
 public sealed record GitRepositoryDiff(string Diff);
 
 /// <summary>作成したLocal Commitです。</summary>
-public sealed record GitRepositoryCommit(string CommitSha);
+public sealed record GitRepositoryCommit(string CommitSha, string? Branch = null);
 
 /// <summary>Repository stashの一覧要素です。</summary>
 public sealed record GitStashEntry(string Id, string Subject);
 
 /// <summary>Branch切替の前後に確認した名前です。</summary>
 public sealed record GitBranchSwitchInfo(string PreviousBranch, string CurrentBranch);
+
+/// <summary>作成したローカルBranchと作成後に確認したHEAD状態です。</summary>
+public sealed record GitLocalBranchCreateInfo(string Name, string Source, string CurrentBranch, string HeadSha);
 
 public sealed record GitHistoryRewriteRef(string Ref, string NewLocalSha, string ExpectedRemoteSha);
 
@@ -48,6 +51,9 @@ public sealed record GitGatewayResult<T>(bool IsSuccess, T? Value, GitGatewayErr
     public string? Diagnostic { get; init; }
 
     public int? ExitCode { get; init; }
+
+    /// <summary>エラーの対象を示す一覧です（例: merge衝突ファイル）。</summary>
+    public IReadOnlyList<string>? Candidates { get; init; }
 
     public static GitGatewayResult<T> Success(T value) => new(true, value, null);
 
@@ -88,10 +94,16 @@ public enum GitGatewayError
     AuthenticationFailed,
 
     WorkingTreeDirty,
+    UnresolvedConflicts,
     NothingToCommit,
     InvalidSelectedCommitPatch,
     StagedChangesPresent,
     ExpectedHeadMismatch,
+    DetachedHead,
+    CurrentBranchChanged,
+    RepositoryBusy,
+    CommitResultUnknown,
+    CommitInProgress,
     InvalidStashPath,
     InvalidStashReference,
     InvalidStashMessage,
@@ -99,6 +111,8 @@ public enum GitGatewayError
     AuthorIdentityMissing,
     BranchNotAllowed,
     BranchNotFound,
+    BranchSourceNotFound,
+    LocalBranchAlreadyExists,
     ProtectedBranch,
 
     NothingToPush,
@@ -114,4 +128,12 @@ public enum GitGatewayError
     ApprovalTimedOut,
     ApprovalUnavailable,
     PermissionDenied,
+
+    InvalidMergeRequest,
+    MergeSourceNotFound,
+    ExpectedSourceMismatch,
+    NothingToMerge,
+    FastForwardNotPossible,
+    MergeConflict,
+    MergeResolutionInvalid,
 }

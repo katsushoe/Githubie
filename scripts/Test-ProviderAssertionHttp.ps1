@@ -47,7 +47,7 @@ function Assert-Http([string]$Name, $Response, [int]$ExpectedStatus) {
     $results.Add([pscustomobject]@{ name = $Name; status = 'passed'; http = $ExpectedStatus })
 }
 function Start-TestServer {
-    $script:serverProcess = Start-Process -FilePath (Join-Path $testBin 'Githubie.Server.exe') -ArgumentList ('"' + $configPath + '"') -WindowStyle Hidden -PassThru
+    $script:serverProcess = Start-Process -FilePath (Join-Path $testBin 'Githubie.Server.exe') -ArgumentList ('"' + $configPath + '" --moyai') -WindowStyle Hidden -PassThru
     $statePath = Join-Path $testRoot 'data/service-state.json'
     for ($attempt = 0; $attempt -lt 150; $attempt++) {
         if ($script:serverProcess.HasExited) { throw 'Isolated server exited before readiness.' }
@@ -73,6 +73,16 @@ try {
     Start-TestServer
     Assert-Http 'initialize' (Invoke-TestRpc 'initialize' @{ protocolVersion = '2025-03-26'; capabilities = @{}; clientInfo = @{ name = 'isolated-http-test'; version = '1' } }) 200
     Assert-Http 'discovery' (Invoke-TestRpc 'tools/list' @{}) 200
+    $settingsParameters = @{ name = 'github_repository_settings_get'; arguments = @{ repository = 'isolated' } }
+    $settingsResponse = Invoke-TestRpc 'tools/call' $settingsParameters -Direct
+    Assert-Http 'repository settings read' $settingsResponse 200
+    $settingsWireJson = $settingsResponse.Content
+    if ($settingsWireJson -match '(?m)^data:\s*(\{.*\})\s*$') { $settingsWireJson = $Matches[1] }
+    $settingsRpc = $settingsWireJson | ConvertFrom-Json
+    $settingsResult = $settingsRpc.result.structuredContent
+    if (-not $settingsResult.ok -or $null -eq $settingsResult.data.settings) { throw 'MCP repository settings response did not contain data.settings.' }
+    if ($settingsResult.data.PSObject.Properties.Name -contains 'direct_push_branches') { throw 'Repository settings leaked fields at data root.' }
+    $results.Add([pscustomobject]@{ name = 'repository settings response is wrapped in data.settings'; status = 'passed' })
     $parameters = @{ name = 'github_repository_status'; arguments = @{ repository = 'isolated' } }
     Assert-Http 'missing assertion' (Invoke-TestRpc 'tools/call' $parameters) 401
     Assert-Http 'direct local call without Moyai headers' (Invoke-TestRpc 'tools/call' $parameters -Direct) 200

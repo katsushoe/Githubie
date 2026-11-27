@@ -1,4 +1,4 @@
-using Githubie.Application.Git;
+﻿using Githubie.Application.Git;
 
 namespace Githubie.Infrastructure.Git;
 
@@ -6,13 +6,18 @@ namespace Githubie.Infrastructure.Git;
 /// <see cref="IGitCommandClient"/>の実装です。許可された固定引数配列だけをGitへ渡します。
 /// Agent入力をGit Argumentへ直接連結せず、remote名/branch名の前に`--`を置いてoption injectionを防ぎます。
 /// </summary>
-public sealed class GitCommandClient(IProcessExecutor processExecutor, string askPassExecutablePath) : IGitCommandClient
+public sealed class GitCommandClient(
+    IProcessExecutor processExecutor, string askPassExecutablePath, string? userCredentialDatabasePath = null) : IGitCommandClient, Githubie.Application.Publishing.IPrPublicationGit
 {
     private static readonly TimeSpan LocalTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan NetworkTimeout = TimeSpan.FromSeconds(120);
 
     private readonly IProcessExecutor _processExecutor = processExecutor;
     private readonly string _askPassExecutablePath = askPassExecutablePath;
+    private readonly string? _userCredentialDatabasePath = userCredentialDatabasePath;
+
+    /// <summary>AskPassへ渡すユーザーホスト資格DBの絶対パスです。旧Service配置ではnullです。</summary>
+    public string? UserCredentialDatabasePath => _userCredentialDatabasePath;
 
     public async Task<GitCommandResult> GetCurrentBranchAsync(string repositoryRoot, CancellationToken cancellationToken)
     {
@@ -27,6 +32,9 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
 
     public Task<GitCommandResult> SwitchBranchAsync(string repositoryRoot, string branch, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["switch", "--", branch], cancellationToken);
+
+    public Task<GitCommandResult> CreateLocalBranchAsync(string repositoryRoot, string branch, string commitSha, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["branch", "--no-track", "--", branch, commitSha], cancellationToken);
 
     public async Task<GitCommandResult> GetHeadAsync(string repositoryRoot, CancellationToken cancellationToken)
     {
@@ -63,54 +71,34 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> GetLocalConfigAsync(string repositoryRoot, string key, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["config", "--local", "--get", key], cancellationToken);
 
-    public Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken) =>
-        ExecuteLocalAsync(repositoryRoot,
-            ["-c", $"user.name={authorName}", "-c", $"user.email={authorEmail}", "commit", "-m", message, "--"], cancellationToken);
+    public async Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken)
+    {
+        var branch = await GetCurrentBranchAsync(repositoryRoot, cancellationToken);
+        if (!branch.IsSuccess) return branch;
+        var head = await GetHeadAsync(repositoryRoot, cancellationToken);
+        if (!head.IsSuccess) return head;
+        return await CommitCurrentBranchAsync(repositoryRoot, message, authorName, authorEmail,
+            branch.StandardOutput.Trim(), head.StandardOutput.Trim(), null, cancellationToken);
+    }
 
     public async Task<GitCommandResult> CommitSelectedAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedHead, string patch, CancellationToken cancellationToken)
     {
-        string index = Path.Combine(Path.GetTempPath(), $"githubie-selected-commit-{Guid.NewGuid():N}.index");
-        string patchFile = Path.Combine(Path.GetTempPath(), $"githubie-selected-commit-{Guid.NewGuid():N}.patch");
-        Dictionary<string, string> environment = GitEnvironmentSanitizer.BuildBaseEnvironment();
-        environment["GIT_INDEX_FILE"] = index;
-        await File.WriteAllTextAsync(patchFile, patch, new System.Text.UTF8Encoding(false), cancellationToken).ConfigureAwait(false);
-        try
-        {
-            GitCommandResult initialized = await ExecuteLocalAsync(repositoryRoot,
-                string.IsNullOrEmpty(expectedHead) ? ["read-tree", "--empty"] : ["read-tree", expectedHead], cancellationToken, environment).ConfigureAwait(false);
-            if (!initialized.IsSuccess) return initialized;
-            GitCommandResult checkedPatch = await ExecuteLocalAsync(repositoryRoot, ["apply", "--cached", "--check", patchFile], cancellationToken, environment).ConfigureAwait(false);
-            if (!checkedPatch.IsSuccess) return checkedPatch;
-            GitCommandResult applied = await ExecuteLocalAsync(repositoryRoot, ["apply", "--cached", patchFile], cancellationToken, environment).ConfigureAwait(false);
-            if (!applied.IsSuccess) return applied;
-            GitCommandResult tree = await ExecuteLocalAsync(repositoryRoot, ["write-tree"], cancellationToken, environment).ConfigureAwait(false);
-            if (!tree.IsSuccess) return tree;
-            List<string> commitArguments = ["-c", $"user.name={authorName}", "-c", $"user.email={authorEmail}", "commit-tree", tree.StandardOutput.Trim()];
-            if (!string.IsNullOrEmpty(expectedHead)) commitArguments.AddRange(["-p", expectedHead]);
-            commitArguments.AddRange(["-m", message]);
-            GitCommandResult commit = await ExecuteLocalAsync(repositoryRoot, commitArguments, cancellationToken, environment).ConfigureAwait(false);
-            if (!commit.IsSuccess) return commit;
-            string commitSha = commit.StandardOutput.Trim();
-            GitCommandResult updateRef = await ExecuteLocalAsync(repositoryRoot,
-                ["update-ref", "-m", $"commit: {message}", "HEAD", commitSha, expectedHead], cancellationToken).ConfigureAwait(false);
-            if (!updateRef.IsSuccess)
-            {
-                if (updateRef.StandardError.Contains("expected", StringComparison.OrdinalIgnoreCase) ||
-                    updateRef.StandardError.Contains("cannot lock ref", StringComparison.OrdinalIgnoreCase) ||
-                    updateRef.StandardError.Contains("already exists", StringComparison.OrdinalIgnoreCase))
-                    return GitCommandResult.Failed(GitCommandFailure.Failed, standardError: "HEAD changed before selected commit.", exitCode: updateRef.ExitCode);
-                return updateRef;
-            }
-            return await ExecuteLocalAsync(repositoryRoot, ["read-tree", "HEAD"], cancellationToken).ConfigureAwait(false);
-        }
-        finally
-        {
-            File.Delete(patchFile);
-            if (File.Exists(index)) File.Delete(index);
-            string lockPath = index + ".lock";
-            if (File.Exists(lockPath)) File.Delete(lockPath);
-        }
+        var branch = await GetCurrentBranchAsync(repositoryRoot, cancellationToken);
+        if (!branch.IsSuccess) return branch;
+        return await CommitCurrentBranchAsync(repositoryRoot, message, authorName, authorEmail,
+            branch.StandardOutput.Trim(), expectedHead, patch, cancellationToken);
     }
+
+    /// <inheritdoc />
+    public Task<GitCommandResult> CommitCurrentBranchAsync(string repositoryRoot, string message, string authorName,
+        string authorEmail, string expectedBranch, string expectedHead, string? patch, CancellationToken cancellationToken) =>
+        new CurrentBranchCommit((arguments, token, environment) => ExecuteLocalAsync(repositoryRoot, arguments, token, environment))
+            .ExecuteAsync(message, authorName, authorEmail, expectedBranch, expectedHead, patch, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<GitMergeCommandOutcome> MergeIntoCurrentBranchAsync(string repositoryRoot, GitMergeRequest request, CancellationToken cancellationToken) =>
+        new CurrentBranchMerge((arguments, token, environment) => ExecuteLocalAsync(repositoryRoot, arguments, token, environment))
+            .ExecuteAsync(request, cancellationToken);
 
     public Task<GitCommandResult> PushStashAsync(
         string repositoryRoot, string message, IReadOnlyList<string> paths, CancellationToken cancellationToken)
@@ -162,6 +150,23 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
     public Task<GitCommandResult> PushAsync(string repositoryRoot, string repositoryId, string remote, string branch, CancellationToken cancellationToken) =>
         ExecuteNetworkAsync(repositoryRoot, repositoryId, ["push", "--", remote, branch], cancellationToken);
 
+    public Task<GitCommandResult> GetPushUrlsAsync(string root, string remote, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(root, ["remote", "get-url", "--push", "--all", "--", remote], cancellationToken);
+
+    public Task<GitCommandResult> CreateBranchAtCommitAsync(string root, string repository, string remote,
+        string branch, string sha, CancellationToken cancellationToken)
+    {
+        if (!Githubie.Application.Publishing.PrPublicationService.IsBranch(branch)
+            || sha.Length != 40 || !sha.All(Uri.IsHexDigit)
+            || remote.Length is 0 or > 255 || remote.StartsWith('-') || remote.Any(c => char.IsWhiteSpace(c) || char.IsControl(c)))
+            throw new ArgumentException("Invalid creation-only publication arguments.");
+        // Empty explicit lease requires remote non-existence. No existing ref can be advanced or replaced.
+        return ExecuteNetworkAsync(root, repository,
+            ["-c", $"remote.{remote}.mirror=false", "-c", "push.followTags=false", "-c", "push.recurseSubmodules=no",
+             "push", "--porcelain", "--no-follow-tags", "--recurse-submodules=no",
+             $"--force-with-lease=refs/heads/{branch}:", "--", remote, $"{sha}:refs/heads/{branch}"], cancellationToken);
+    }
+
     public Task<GitCommandResult> PushTagAsync(string repositoryRoot, string repositoryId, string remote, string tag, CancellationToken cancellationToken) =>
         ExecuteNetworkAsync(repositoryRoot, repositoryId, ["push", "--", remote, $"refs/tags/{tag}:refs/tags/{tag}"], cancellationToken);
 
@@ -170,6 +175,9 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
 
     public Task<GitCommandResult> GetLocalRefAsync(string repositoryRoot, string reference, CancellationToken cancellationToken) =>
         ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--verify", reference], cancellationToken);
+
+    public Task<GitCommandResult> GetLocalCommitAsync(string repositoryRoot, string reference, CancellationToken cancellationToken) =>
+        ExecuteLocalAsync(repositoryRoot, ["rev-parse", "--verify", $"{reference}^{{commit}}"], cancellationToken);
 
     public Task<GitCommandResult> GetRemoteRefAsync(string repositoryRoot, string repositoryId, string remote, string reference, CancellationToken cancellationToken) =>
         ExecuteNetworkAsync(repositoryRoot, repositoryId, ["ls-remote", "--refs", "--", remote, reference], cancellationToken);
@@ -215,7 +223,7 @@ public sealed class GitCommandClient(IProcessExecutor processExecutor, string as
         arguments.AddRange(gitArguments);
 
         var environment = GitEnvironmentSanitizer.BuildBaseEnvironment();
-        foreach (var (key, value) in GitAskPassProtocol.CreateEnvironment(_askPassExecutablePath, repositoryId))
+        foreach (var (key, value) in GitAskPassProtocol.CreateEnvironment(_askPassExecutablePath, repositoryId, _userCredentialDatabasePath))
         {
             environment[key] = value;
         }

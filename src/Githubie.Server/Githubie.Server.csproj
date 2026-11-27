@@ -1,6 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <!-- ログオン時の自動起動でコンソールウィンドウを出さないため、GUIサブシステムでビルドする。ログはDailyFileLoggerProviderでlogsへ出力する。 -->
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Product>Githubie MCP Server</Product>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Moyai.ProviderAuthentication" Version="1.0.2" />
@@ -13,6 +17,9 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Githubie.Server.Tests" />
+    <EmbeddedResource Include="ApplyStartupUpdate.ps1" />
+    <EmbeddedResource Include="../../assets/githubie.ico" LogicalName="Githubie.Icon.ico" />
+    <Compile Include="../Shared/ApplicationIcon.cs" Link="ApplicationIcon.cs" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 </Project>

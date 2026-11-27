@@ -6,5 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Githubie.Application/Githubie.Application.csproj" />
+    <EmbeddedResource Include="../../assets/githubie.ico" LogicalName="Githubie.Icon.ico" />
+    <Compile Include="../Shared/ApplicationIcon.cs" Link="ApplicationIcon.cs" />
   </ItemGroup>
 </Project>

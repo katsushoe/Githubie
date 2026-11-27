@@ -9,11 +9,22 @@
     InstallerVersion="500">
 
     <SummaryInformation Description="Githubie GitHub MCP Server" />
+    <Icon Id="GithubieIcon" SourceFile="..\..\assets\githubie.ico" />
+    <Property Id="ARPPRODUCTICON" Value="GithubieIcon" />
     <MajorUpgrade
       AllowSameVersionUpgrades="yes"
       DowngradeErrorMessage="A newer version of Githubie is already installed." />
     <MediaTemplate EmbedCab="yes" CompressionLevel="high" />
     <Property Id="ROOTDRIVE" Value="C:\" Secure="yes" />
+    <Property Id="INSTALLROOT" Secure="yes" />
+    <Property Id="INSTALLROOT_REMEMBERED" Secure="yes">
+      <RegistrySearch Id="InstallRootSearch" Root="HKLM" Key="SOFTWARE\Akatsukisoft\Githubie" Name="InstallRoot" Type="raw" Bitness="always64" />
+    </Property>
+    <SetProperty Id="INSTALLROOT" Value="[INSTALLROOT_REMEMBERED]" After="AppSearch" Sequence="both" Condition="NOT INSTALLROOT AND INSTALLROOT_REMEMBERED" />
+    <Property Id="GITHUBIE_USER_SETUP_PENDING" Secure="yes" />
+    <Property Id="GITHUBIE_TARGET_SID" Secure="yes" />
+    <Launch Condition="Installed OR REMOVE = &quot;ALL&quot; OR (GITHUBIE_USER_SETUP_PENDING = &quot;1&quot; AND GITHUBIE_TARGET_SID)"
+            Message="Run Install-UserHost.ps1 as the intended non-elevated signed-in user. MSI alone does not complete user startup setup." />
 
     <!-- Service mode: standalone by default; MOYAI=1 registers the service in Moyai integration mode (MOYAI=0 returns to standalone).
          The value is remembered in the registry so later upgrades keep the selected mode. -->
@@ -40,7 +51,12 @@
         <Directory Id="DATADIR" Name="data">
           <Directory Id="SECRETSDIR" Name="secrets" />
         </Directory>
-        <Directory Id="DOCDIR" Name="docs" />
+        <Directory Id="DOCDIR" Name="docs">
+          <Directory Id="REFERENCE_DOCS" Name="docs">
+            <Directory Id="SPEC_DOCS" Name="specifications" />
+            <Directory Id="ADR_DOCS" Name="adr" />
+          </Directory>
+        </Directory>
       </Directory>
     </StandardDirectory>
 
@@ -56,6 +72,7 @@
     <ComponentGroup Id="BinaryComponents" Directory="BINDIR">
       <Component Id="ServerServiceComponent" Guid="*">
         <File Id="ServerExecutable" Source="$(PublishDir)\Githubie.Server.exe" KeyPath="yes" />
+        <RegistryValue Root="HKLM" Key="SOFTWARE\Akatsukisoft\Githubie" Name="InstallRoot" Type="string" Value="[INSTALLROOT]" />
         <Environment
           Id="AddBinToPath"
           Name="PATH"
@@ -64,16 +81,6 @@
           Part="last"
           Action="set"
           System="yes" />
-        <ServiceInstall
-          Id="GithubieServiceInstall"
-          Name="Githubie"
-          DisplayName="Githubie MCP Server"
-          Description="Local MCP gateway for approved Git and GitHub.com operations."
-          Type="ownProcess"
-          Start="auto"
-          ErrorControl="normal"
-          Account="LocalSystem"
-          Arguments="&quot;[CONFIGDIR]githubie.json&quot;[GITHUBIE_MOYAI_SWITCH]" />
         <RegistryValue
           Root="HKLM"
           Key="SOFTWARE\Akatsukisoft\Githubie"
@@ -89,9 +96,8 @@
         <ServiceControl
           Id="GithubieServiceControl"
           Name="Githubie"
-          Start="install"
           Stop="both"
-          Remove="uninstall"
+          Remove="both"
           Wait="yes" />
       </Component>
       <Files Include="$(PublishDir)\**">
@@ -103,6 +109,9 @@
 
   <Fragment>
     <ComponentGroup Id="ConfigurationComponents" Directory="CONFIGDIR">
+      <Component Id="CanonicalConfigurationComponent" Guid="*" Permanent="yes" NeverOverwrite="yes">
+        <File Id="CanonicalConfiguration" Source="..\..\githubie.default.json" Name="githubie.json" KeyPath="yes" />
+      </Component>
       <Component Id="ConfigurationTemplateComponent" Guid="*" Permanent="yes" NeverOverwrite="yes">
         <File Id="ConfigurationTemplate" Source="..\..\githubie.example.json" Name="githubie.example.json" KeyPath="yes" />
         <CreateFolder>
@@ -139,6 +148,29 @@
 
   <Fragment>
     <ComponentGroup Id="DocumentationComponents" Directory="DOCDIR">
+      <Component Id="PrPublicationContractDocumentation" Directory="SPEC_DOCS" Guid="5D75A327-58E9-4BC8-9E0B-CAAE9F06A463">
+        <File Source="..\..\docs\specifications\pr-source-publication.md" />
+        <File Source="..\..\docs\specifications\pr-source-publication.ja.md" />
+      </Component>
+      <Component Id="PrPublicationDecisionDocumentation" Directory="ADR_DOCS" Guid="1C074B23-D3B4-49C8-BB1A-994CC7DE76FA">
+        <File Source="..\..\docs\adr\0046-pr-source-publication-integration.md" />
+        <File Source="..\..\docs\adr\0047-pr-publication-source-allowlist.md" />
+        <File Source="..\..\docs\adr\0051-tray-server-lifecycle.md" />
+      </Component>
+      <Component Id="PrMergeContractDocumentation" Directory="SPEC_DOCS" Guid="D659632C-C3C4-4C74-9F29-C425960EF4CD">
+        <File Source="..\..\docs\specifications\pr-merge-provider.md" />
+        <File Source="..\..\docs\specifications\pr-merge-provider.ja.md" />
+      </Component>
+      <Component Id="PrMergeDecisionDocumentation" Directory="ADR_DOCS" Guid="19B99C36-5080-4C29-87EB-AED588B9CE1E">
+        <File Source="..\..\docs\adr\0043-pull-request-merge-provider.md" />
+      </Component>
+      <Component Id="BranchProtectionContractDocumentation" Directory="SPEC_DOCS" Guid="B807A17D-A4B5-41FD-9138-15D8D678CA37">
+        <File Source="..\..\docs\specifications\github-branch-protection.md" />
+        <File Source="..\..\docs\specifications\github-branch-protection.ja.md" />
+      </Component>
+      <Component Id="BranchProtectionDecisionDocumentation" Directory="ADR_DOCS" Guid="C99D694F-6EED-41B0-B723-2F93D292A46E">
+        <File Source="..\..\docs\adr\0044-github-branch-protection.md" />
+      </Component>
       <Component Id="DocumentationComponent" Guid="8E570EE6-DF3F-48B0-BEE8-87EC77E8C615">
         <File Source="..\..\README.md" />
         <File Source="..\..\README.ja.md" />
@@ -146,6 +178,9 @@
         <File Source="..\..\DOCUMENTS.ja.md" />
         <File Source="..\..\MCP_SETUP.md" />
         <File Source="..\..\MCP_SETUP.ja.md" />
+        <File Source="..\..\USER_HOST.md" />
+        <File Source="..\..\USER_HOST.ja.md" />
+        <File Source="..\..\docs\licenses\Tomlyn.txt" Name="Tomlyn.LICENSE.txt" />
         <File Source="..\..\INSTALLATION.md" />
         <File Source="..\..\INSTALLATION.ja.md" />
         <File Source="..\..\OPERATIONS.md" />

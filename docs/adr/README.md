@@ -30,5 +30,28 @@
 | [0032](0032-git-remote-resolution.md) | Git remote resolution by repository URL (Moyai Repository Provider Contract) |
 | [0033](0033-approved-moyai-project-mapping.md) | Approved Moyai project mapping applied without a service restart |
 | [0034](0034-path-selective-stash.md) | Path-selective local Git stash |
+| [0035](0035-repository-settings-read-partial-update.md) | Registered repository settings read and partial update |
+| [0036](0036-configurable-pull-request-routes.md) | Approved per-repository pull request route allowlists with legacy defaults |
+| [0037](0037-local-branch-create-provider-capability.md) | Explicit capability for local branch creation, distinct from remote branch creation |
+| [0039](0039-current-branch-local-commits.md) | Current-branch ordinary/selected commits independent of branch policy with atomic ref verification |
+| [0038](0038-pr-create-provider-capability.md) | Explicit provider capability and contract for pull request creation |
+| [0040](0040-user-session-host.md) | Same-process user host/tray, fresh profiles, protected connections and atomic registration |
+| [0041](0041-single-canonical-configuration.md) | Single canonical machine configuration including host modes and autostart |
+| [0042](0042-windows-owner-authentication.md) | Explicit Windows owner authentication and unsigned operation coverage |
+| [0043](0043-pull-request-merge-provider.md) | Conditional PR merge, actual SHA metadata and non-replayed reconciliation |
+| [0044](0044-github-branch-protection.md) | GitHub branch protection with explicit approval and preservation of existing rules |
 
-ADRs are written in English, matching Buckettie's convention. All other project documentation is in Japanese.
+| [0045](0045-githubiemcp-client.md) | Dedicated MCP client delegates to the existing CLI and never starts the server |
+
+| [0046](0046-pr-source-publication-integration.md) | PR source publication integrated with owner authentication, route policy and the current user host |
+
+ADRs are written in English. Public guides are maintained in English with Japanese translations.
+
+
+
+
+| [0047](0047-pr-publication-source-allowlist.md) | Independent exact publication source permission AND PR route, default deny, explicit migration |
+| [0048](0048-approved-repository-relocation.md) | Approved local-root relocation keeping token, policy and Moyai mapping |
+| [0049](0049-desktop-settings-and-startup-updates.md) | Desktop settings and signed MSI startup updates |
+| [0050](0050-local-branch-merge.md) | Explicit local merge into the current branch without push; conflicts abort unchanged unless every path is resolved |
+| [0051](0051-tray-server-lifecycle.md) | Independent tray Server start/stop, readiness LED and embedded H icon |

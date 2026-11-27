@@ -1,4 +1,5 @@
-using System.Text.Json.Serialization;
+﻿using System.Text.Json.Serialization;
+using Githubie.Domain;
 
 namespace Githubie.Application.Configuration;
 
@@ -12,6 +13,15 @@ public sealed record GithubieOptions(
 {
     public const int DefaultMcpPort = 45460;
     public const string DefaultMcpPath = "/mcp";
+
+    public UserHostOptions UserHost { get; init; } = new();
+
+    /// <summary>検証済みユーザーホスト構築時だけ設定する監査主体です。JSONからは設定しません。</summary>
+    [JsonIgnore]
+    public string? WindowsOwnerSid { get; init; }
+
+    [JsonIgnore]
+    public bool WindowsOwnerAuthentication => WindowsOwnerSid is not null;
 
     /// <summary>
     /// MoyaiからのRepository操作を検証するProvider Assertion設定です。
@@ -61,6 +71,11 @@ public sealed record RepositoryOptions(
 {
     public string? CommitAuthorName { get; init; }
 
+    /// <summary>旧JSONからのみ受け付ける廃止済み設定。通常commitの許可や保存値には使いません。</summary>
+    [JsonPropertyName("local_commit_branches")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? LegacyLocalCommitBranches { get => null; init { } }
+
     public string? CommitAuthorEmail { get; init; }
 
     /// <summary>対話承認で登録したMoyai Project UUIDです。管理者設定`provider_authentication.projects`の対応が優先します。</summary>
@@ -68,6 +83,12 @@ public sealed record RepositoryOptions(
 
     public IReadOnlyDictionary<string, WorkflowPolicyOptions> Workflows { get; init; }
         = new Dictionary<string, WorkflowPolicyOptions>(StringComparer.Ordinal);
+
+    /// <summary>Allowed pull request routes. The initializer preserves the legacy develop-to-main route for old configuration.</summary>
+    public IReadOnlyList<PullRequestRoute> PullRequestRoutes { get; init; } = [new(DevelopBranch, MainBranch)];
+
+    /// <summary>Exact source branches permitted for PR publication, independently of ordinary commit and push.</summary>
+    public IReadOnlyList<string> PrPublicationSourceBranches { get; init; } = [];
 }
 
 public sealed record WorkflowPolicyOptions(

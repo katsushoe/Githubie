@@ -1,8 +1,11 @@
-﻿using FluentAssertions;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
+using FluentAssertions;
 using Githubie.Application.Configuration;
 using Githubie.Application.Credentials;
 using Githubie.Application.Interactive;
 using Githubie.Application.Repositories;
+using Githubie.Domain;
 using NSubstitute;
 using Xunit;
 
@@ -51,6 +54,15 @@ public sealed class RepositoryManagementServiceTests
         settings.CommitAuthorEmail.Should().BeNull();
         settings.DirectPushBranches.Should().Equal("develop");
         return Task.CompletedTask;
+    }
+
+    [Fact]
+    public void LegacyRepositoryOptionsWithoutPullRequestRoutes_KeepConfiguredDefaultRoute()
+    {
+        var json = JsonNode.Parse(JsonSerializer.Serialize(CreateOptions()))!.AsObject();
+        json.Remove("PullRequestRoutes");
+        var migrated = JsonSerializer.Deserialize<RepositoryOptions>(json.ToJsonString())!;
+        migrated.PullRequestRoutes.Should().Equal(new PullRequestRoute("develop", "main"));
     }
 
     [Fact]
@@ -110,6 +122,61 @@ public sealed class RepositoryManagementServiceTests
         _allowlist.TryGet(RepositoryId, out var updated).Should().BeTrue();
         updated.DirectPushBranches.Should().BeEmpty();
         updated.RequireCleanWorkingTree.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task SettingsUpdate_PullRequestRoutes_ArePersistedAndReturned()
+    {
+        var service = CreateService();
+        var routes = new[] { new PullRequestRoute("release", "main") };
+
+        var result = await service.UpdateSettingsAsync(RepositoryId,
+            new RepositorySettingsChanges(PullRequestRoutes: routes, HasPullRequestRoutes: true), TestContext.Current.CancellationToken);
+
+        result.IsSuccess.Should().BeTrue();
+        _allowlist.TryGet(RepositoryId, out var updated).Should().BeTrue();
+        updated.PullRequestRoutes.Should().Equal(routes);
+        result.Value!.Settings!.PullRequestRoutes.Should().Equal(routes);
+    }
+
+    [Fact]
+    public async Task SettingsUpdate_PublicationList_PersistsReturnsAndCanExplicitlyClear()
+    {
+        var service = CreateService();
+        var result = await service.UpdateSettingsAsync(RepositoryId,
+            new RepositorySettingsChanges(PrPublicationSourceBranches: ["docs/topic"], HasPrPublicationSourceBranches: true), TestContext.Current.CancellationToken);
+        result.IsSuccess.Should().BeTrue();
+        result.Value!.Settings!.PrPublicationSourceBranches.Should().Equal("docs/topic");
+        result.Value.ChangedFields.Should().Equal("pr_publication_source_branches");
+        _allowlist.TryGet(RepositoryId, out var updated).Should().BeTrue();
+        updated.DirectPushBranches.Should().Equal("develop");
+        await _store.Received().SaveRepositoryAsync(RepositoryId,
+            Arg.Is<RepositoryOptions>(o => o.PrPublicationSourceBranches.SequenceEqual(new[] { "docs/topic" })), Arg.Any<CancellationToken>());
+        var cleared = await service.UpdateSettingsAsync(RepositoryId,
+            new RepositorySettingsChanges(PrPublicationSourceBranches: [], HasPrPublicationSourceBranches: true), TestContext.Current.CancellationToken);
+        cleared.Value!.Settings!.PrPublicationSourceBranches.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task SettingsUpdate_PublicationListNull_RejectsBeforePersistence()
+    {
+        var result = await CreateService().UpdateSettingsAsync(RepositoryId,
+            new RepositorySettingsChanges(PrPublicationSourceBranches: null, HasPrPublicationSourceBranches: true), TestContext.Current.CancellationToken);
+        result.Error.Should().Be(RepositoryMutationError.InvalidPolicy);
+        await _store.DidNotReceive().SaveRepositoryAsync(Arg.Any<string>(), Arg.Any<RepositoryOptions>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("refs/heads/topic")]
+    [InlineData("topic~1")]
+    [InlineData("*")]
+    [InlineData("topic")]
+    public async Task SettingsUpdate_PublicationListInvalidOrDuplicate_Rejects(string value)
+    {
+        var branches = value == "topic" ? new[] { value, value } : new[] { value };
+        var result = await CreateService().UpdateSettingsAsync(RepositoryId,
+            new RepositorySettingsChanges(PrPublicationSourceBranches: branches, HasPrPublicationSourceBranches: true), TestContext.Current.CancellationToken);
+        result.Error.Should().Be(RepositoryMutationError.InvalidPolicy);
     }
 
     [Fact]

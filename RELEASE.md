@@ -2,11 +2,48 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
+## 2.2.4.0 (unreleased)
+
+- Adds the white H icon with a bold black outline and Git-style nodes to the tray, application executables, dialogs and installed-app listing.
+- Adds Server > Status / Start / Stop. The LED is green only after HTTP readiness and dark gray while off. Stopping the server keeps the tray available for starting it again; Exit Githubie ends the application.
+- Renames the full restart command to **Restart tray and MCP server**.
+- Retries a short-lived Windows access denial when publishing server readiness while a reader has the state file open.
+- Validation: all 1,095 automated tests passed, including the Windows readiness file replacement regression test.
+
+## 2.2.3.0
+
+- This release ships an unsigned MSI. Install it manually to upgrade, since startup updates require a valid signature.
+- `github_repository_merge` merges an explicitly specified local branch, remote-tracking branch, tag or commit into the checked-out branch without pushing. A conflict aborts without changing the working tree, index or HEAD and lists the conflicted paths; the merge is committed only when every conflicted path has an explicit resolution.
+
+## 2.2.2.0
+
+- This release ships an unsigned MSI. Install it manually to upgrade, since startup updates require a valid signature.
+- `githubie repo relocate <repository> <local-root>` changes a registered local root after interactive Desktop approval. Junctions and symbolic links are rejected.
+- Git AskPass reads the tokens stored by the user host, so push and other authenticated Git operations work through the user host.
+- The user host no longer opens a console window when it starts at Windows sign-in.
+
+## 2.2.1.0
+
+- This release ships an unsigned MSI. Install it manually to upgrade, since startup updates require a valid signature.
+- **About Githubie…** in the Windows notification area shows the product name, description, running version, and publisher.
+- The interactive host runs in the Windows notification area. **Settings…** controls sign-in startup and startup updates. Automatic installation requires a newer stable MSI with a valid Akatsukisoft signature.
+- Settings are stored in `<install-root>\config\githubie.json`. An in-place upgrade from 2.2.0.0 preserved the configuration, user profile, registered repositories, and sign-in startup setting on Windows.
+
+## 2.0 user host
+
+Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `C:\Githubie`; mutable data is per user. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.
+
+## 1.x reference and recovery
+
+The following Service paths, direct token input and installation procedures describe 1.x. The 2.0 guide above takes precedence. Unchanged typed MCP tool argument/result schemas still apply to 2.0. Historical acceptance statements apply only to their stated versions.
+
+Version `1.8.13.2` corrects ordinary/selected local commits to target only the current attached branch independently of PR routes, push allowlists and branch protection. It adds branch/SHA result fields, atomic expected-branch/HEAD verification, private-index preservation and legacy JSON compatibility. Push/merge/history authorization is unchanged. See ADR 0039. This entry describes the candidate; installation, live Moyai acceptance and public release are separate checkpoints.
+
 ## Versioning
 
-Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. The candidate display version is `1.8.10.1` (not yet published or installed).
+Githubie uses four-part display versions: `major.minor.patch.revision`. MSI comparison uses the first three parts and permits same-three-part upgrades so revision-only releases can replace an installed build. Display version `1.8.11.0` is installed locally but has not been published.
 
-The `1.8.10.1` candidate adds repository registration settings read and partial update. It includes an eight-field allowlist, preservation of omitted fields, replacement semantics for arrays, explicit `false`, paired author name/email validation, interactive approval, Project/Repository scopes, auditing, and capabilities. Source build and related verification are complete. Publication and installation are pending.
+Version `1.8.11.0` adds per-repository pull request route allowlists. Routes can be read and updated through approved Repository Settings, and `github_pr_create` accepts explicit source and destination branches. Omitting both keeps each repository's legacy configured DevelopBranch-to-MainBranch route; disallowed routes are rejected before the GitHub API call. The Repository Settings read/partial-update feature is also included. All 577 tests passed, and the WiX MSI built with 0 warnings and 0 errors. MSI: `.local/installer/output/Githubie-1.8.11.0-win-x64.msi`; SHA-256: `EE934F2B3A1A4987C6E4C1197F95903224FA2D975172F69EA43B5069480B9304`. On 2026-10-15 it was upgraded into `C:\Githubie`; the Windows service is Running and the live MCP version reports 1.8.11.0. No GitHub Release, commit, or push was performed.
 
 Version `1.8.10.0` adds path-selective stash push, list, apply, and drop through MCP and the generic CLI caller (ADR 0034). Push includes untracked files and accepts repository-relative paths; omitted paths select all changes. Apply restores the index, and apply/drop require a full stash object ID. The operations use the existing repository allowlist, assertion scopes, and audit path.
 

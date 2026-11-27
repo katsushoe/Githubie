@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 
 namespace Githubie.ApprovalPrompt;
 
@@ -15,6 +15,7 @@ partial class TokenForm
     private FlowLayoutPanel buttonPanel = null!;
     private Button okButton = null!;
     private Button cancelButton = null!;
+    private Button skipButton = null!;
 
     protected override void Dispose(bool disposing)
     {
@@ -35,6 +36,7 @@ partial class TokenForm
         buttonPanel = new FlowLayoutPanel();
         okButton = new Button();
         cancelButton = new Button();
+        skipButton = new Button();
         rootLayout.SuspendLayout();
         buttonPanel.SuspendLayout();
         SuspendLayout();
@@ -78,6 +80,7 @@ partial class TokenForm
         buttonPanel.AutoSize = true;
         buttonPanel.Controls.Add(cancelButton);
         buttonPanel.Controls.Add(okButton);
+        buttonPanel.Controls.Add(skipButton);
         buttonPanel.Dock = DockStyle.Bottom;
         buttonPanel.FlowDirection = FlowDirection.RightToLeft;
         buttonPanel.Margin = new Padding(0, 20, 0, 0);
@@ -88,6 +91,9 @@ partial class TokenForm
         cancelButton.DialogResult = DialogResult.Cancel;
         cancelButton.Size = new Size(96, 32);
         cancelButton.Text = "キャンセル";
+        skipButton.DialogResult = DialogResult.Ignore;
+        skipButton.AutoSize = true;
+        skipButton.Size = new Size(180, 32);
         AcceptButton = okButton;
         CancelButton = cancelButton;
         ClientSize = new Size(600, 250);

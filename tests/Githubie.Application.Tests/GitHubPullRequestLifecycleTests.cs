@@ -1,13 +1,14 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Githubie.Application.Configuration;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
+using Githubie.Domain;
 using NSubstitute;
 using Xunit;
 
 namespace Githubie.Application.Tests;
 
-public sealed class GitHubPullRequestLifecycleTests
+public sealed partial class GitHubPullRequestLifecycleTests
 {
     private readonly IGitHubApiClient _api = Substitute.For<IGitHubApiClient>();
     private readonly GitHubRepositoryGateway _gateway;
@@ -20,6 +21,39 @@ public sealed class GitHubPullRequestLifecycleTests
                 ["develop"], ["develop", "main"], ["main"], "main", "^v", "merge", true),
         });
         _gateway = new GitHubRepositoryGateway(allowlist, _api, mergeabilityPollInterval: TimeSpan.Zero);
+    }
+
+    [Fact]
+    public async Task CreatePullRequestAsync_UsesConfiguredAllowedRoute()
+    {
+        var options = new RepositoryOptions("owner", "repo", "C:\\repo", "origin", "develop", "main",
+            ["develop"], ["develop", "main"], ["main"], "main", "^v", "merge", true)
+        { PullRequestRoutes = [new("release", "main")] };
+        var gateway = new GitHubRepositoryGateway(new RepositoryAllowlist(new Dictionary<string, RepositoryOptions> { ["sample"] = options }), _api);
+        var pullRequest = PullRequest(GitHubPullRequestState.Open);
+        _api.CreatePullRequestAsync("sample", "owner", "repo", "release", "main",
+            Arg.Any<GitHubPullRequestCreate>(), Arg.Any<CancellationToken>())
+            .Returns(GitHubResult<GitHubPullRequestInfo>.Success(pullRequest));
+
+        var result = await gateway.CreatePullRequestAsync(
+            "sample", new("title", "description", true, "release", "main"), TestContext.Current.CancellationToken);
+
+        result.Value.Should().Be(pullRequest);
+        await _api.Received(1).CreatePullRequestAsync("sample", "owner", "repo", "release", "main",
+            Arg.Is<GitHubPullRequestCreate>(request => request.Title == "title"
+                && request.Description == "description" && request.Draft
+                && request.SourceBranch == "release" && request.DestinationBranch == "main"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreatePullRequestAsync_RejectsDisallowedRouteBeforeApiCall()
+    {
+        var result = await _gateway.CreatePullRequestAsync("sample", new("title", null, false, "release", "main"), TestContext.Current.CancellationToken);
+
+        result.Error.Should().Be(GitHubError.PullRequestRouteNotAllowed);
+        await _api.DidNotReceive().CreatePullRequestAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<GitHubPullRequestCreate>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -185,9 +219,9 @@ public sealed class GitHubPullRequestLifecycleTests
         GitHubPullRequestState state,
         string mergeabilityStatus = GitHubMergeabilityStatus.Mergeable,
         bool? mergeable = true) => new(
-        1, "title", null, state, "develop", "main", "user", null, mergeable,
+        1, "title", null, state, "develop", "main", "user", state == GitHubPullRequestState.Merged ? new string('2', 40) : null, mergeable,
         DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, "https://example.com/pr/1",
-        mergeabilityStatus, mergeabilityStatus.EndsWith("_retryable", StringComparison.Ordinal) ? 2 : null);
+        mergeabilityStatus, mergeabilityStatus.EndsWith("_retryable", StringComparison.Ordinal) ? 2 : null, new string('1', 40), false);
 
     private static GitHubPullRequestReview Review(string state) => new(
         10, "body", "reviewer", state, DateTimeOffset.UnixEpoch, "abc", "https://example.com/review/10");

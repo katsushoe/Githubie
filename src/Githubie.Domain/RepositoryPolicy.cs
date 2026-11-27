@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Text.Json.Serialization;
 
 namespace Githubie.Domain;
 
@@ -74,7 +75,9 @@ public sealed record RepositoryPolicy(
 /// <summary>
 /// 許可されたPull Request経路を表します。
 /// </summary>
-public sealed record PullRequestRoute(string Source, string Destination);
+public sealed record PullRequestRoute(
+    [property: JsonPropertyName("source_branch")] string SourceBranch,
+    [property: JsonPropertyName("destination_branch")] string DestinationBranch);
 
 /// <summary>
 /// Policy検証結果を表します。

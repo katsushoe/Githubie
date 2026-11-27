@@ -2,6 +2,14 @@
 
 [English](PACKAGES.md) | [日本語](PACKAGES.ja.md)
 
+## 2.0 ユーザーホスト
+
+2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。バイナリは `C:\Githubie`、可変データはユーザー別です。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
+
+## 1.x の参照・復旧資料
+
+以下のService配置・直接Token入力・導入手順は1.x向けです。2.0では上記正本を優先してください。変更していない型付きMCP Toolの引数・結果schemaは2.0でも使用します。過去の受入記録は、その記載版の結果です。
+
 標準のWindows成果物は`Githubie-<version>-win-x64.msi`とそのSHA-256ファイルです。手動導入・ポータブル用途にはSelf-contained ZIPも配布できます。両方とも`bin` / `config` / `logs` / `data`の構成で統一します。
 
 | パッケージ内パス | 内容 |

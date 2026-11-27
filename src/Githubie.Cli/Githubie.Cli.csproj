@@ -1,10 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
     <OutputType>Exe</OutputType>
     <AssemblyName>githubie</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="../Githubie.Server/Githubie.Server.csproj" />
+    <PackageReference Include="Tomlyn" Version="2.10.1" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="9.0.8" />
+    <ProjectReference Include="../Githubie.Application/Githubie.Application.csproj" />
+    <ProjectReference Include="../Githubie.Infrastructure/Githubie.Infrastructure.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Githubie.Cli.Tests" />

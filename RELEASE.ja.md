@@ -2,7 +2,44 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
+## 2.2.4.0（未公開）
+
+- 太い黒枠の白いHにGit風の丸と線を組み込んだアイコンを、タスクトレイ・実行ファイル・ダイアログ・インストール済みアプリ一覧へ適用します。
+- 「Server → 状態／起動／終了」を追加します。HTTPサーバーの起動完了後は緑、OFF時はダークグレーのLEDを表示します。サーバー終了後もトレイから再起動でき、「Githubieを終了」でアプリ全体を終了できます。
+- アプリ全体の再起動メニューを「トレイとMCPサーバーを再起動」に変更します。
+- Windowsで起動状態ファイルの読み取りと置き換えが重なり、一時的にアクセス拒否になる場合に再試行します。
+- 自動テストは、Windowsの起動状態ファイル置き換えに関する回帰テストを含め、全1,095件に合格しました。
+
+## 2.2.3.0
+
+- この版のMSIは未署名です。起動時の自動更新では適用されないため、更新するにはMSIを手動で導入してください。
+- `github_repository_merge` で、明示したローカルbranch・remote追跡branch・tag・commitを、checkout中のbranchへpushせずにmergeできます。衝突時は作業ツリー・index・HEADを変更せずに中止して衝突path一覧を返し、全衝突pathの解消を明示した場合だけcommitします。
+
+## 2.2.2.0
+
+- この版のMSIは未署名です。起動時の自動更新では適用されないため、更新するにはMSIを手動で導入してください。
+- `githubie repo relocate <repository> <local-root>` で、対話Desktop承認後に登録済みLocal Rootを変更できます。ジャンクションとシンボリックリンクは拒否します。
+- Git AskPassがユーザーホストの保存済みTokenを読み取るようになり、ユーザーホスト経由のpushなど認証が必要なGit操作が動作します。
+- Windowsへのサインイン時の自動起動で、コンソールウィンドウが表示されなくなりました。
+
+## 2.2.1.0
+
+- この版のMSIは未署名です。起動時の自動更新では適用されないため、更新するにはMSIを手動で導入してください。
+- Windowsのタスクトレイに **バージョン情報…** を追加しました。製品名、概要、実行中のバージョン、発行元を確認できます。
+- タスクトレイの **設定…** から、Windowsのサインイン時の起動と起動時の自動更新を切り替えられます。自動更新の適用には、Akatsukisoftの有効な署名が付いた新しい安定版MSIが必要です。
+- 設定は実際のインストール先にある `config\githubie.json` に保存されます。実機で2.2.0.0から更新し、設定、ユーザープロフィール、登録済みリポジトリ、自動起動設定が保持されることを確認しました。
+
+## 2.0 ユーザーホスト
+
+2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。バイナリは `C:\Githubie`、可変データはユーザー別です。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
+
+## 1.x の参照・復旧資料
+
+以下のService配置・直接Token入力・導入手順は1.x向けです。2.0では上記正本を優先してください。変更していない型付きMCP Toolの引数・結果schemaは2.0でも使用します。過去の受入記録は、その記載版の結果です。
+
 本書はバージョニング方針とリリース手順を定めます（Buckettieの運用を踏襲）。
+
+Version `1.8.13.2`は通常・選択差分commitを現在branchだけへ記録し、PR経路・push許可・保護設定から分離します。branch/SHA返却、branch/HEAD原子検証、専用indexによる保全、旧JSON互換を加え、push/merge/履歴操作の認可は維持します。ADR 0039を参照してください。この記述は候補版のもので、実機導入・Moyai実受入・公開Releaseは別の工程です。
 
 ## バージョニング方針
 
@@ -19,9 +56,9 @@
 
 Windows Installerの`ProductVersion`はMSI仕様上3部構成（`MAJOR.MINOR.BUILD`、各255以下）までしか比較に使わないため、Display Versionの先頭3部をそのまま用います（例: Display Version `1.0.0.0` → Product Version `1.0.0`）。修正番号だけの更新でも既存版を置換できるよう、同一3部版のMajor Upgradeを許可します。
 
-候補版のDisplay Versionは`1.8.10.1`です（未公開・未導入）。
+Display Version `1.8.11.0`は未公開ですが、2026-10-15に`C:\Githubie`へ実機Upgrade導入済みです。
 
-Version `1.8.10.1`候補では、Repository登録設定の読取と部分更新を追加します。8項目のallowlist、省略項目保持、空配列置換、false明示、作者名/emailの組検証、対話承認、Project/Repository scope、監査、capabilitiesを含みます。ソースビルドと関連検証は完了しています。公開・実機導入は未実施です。
+Version `1.8.11.0`では、Repository単位のPull Request許可経路を追加しました。`pull_request_routes`で経路の読取・承認付き更新ができ、`github_pr_create`でsource/destinationを指定できます。未指定時は各Repositoryの従来のDevelopBranch→MainBranchを維持します。許可外経路はGitHub API呼出し前に拒否します。Repository設定の読取・部分更新機能も含みます。全577テスト成功、WiX MSIは警告0・エラー0で作成済みです。MSI: `.local/installer/output/Githubie-1.8.11.0-win-x64.msi`、SHA-256 `EE934F2B3A1A4987C6E4C1197F95903224FA2D975172F69EA43B5069480B9304`。2026-10-15に同MSIを`C:\Githubie`へUpgrade導入し、Windows ServiceがRunning、MCP稼働版が1.8.11.0であることを確認しました。GitHub Release・commit・pushは未実施です。
 
 Version `1.8.10.0`では、パス指定に対応したstash作成・一覧・適用・削除をMCPと汎用CLI呼び出しへ追加しました（ADR 0034）。作成はuntracked fileを含み、Repository相対pathsの省略時は全変更を対象にします。適用はindexを復元し、適用・削除には完全なstash object IDを指定します。既存のAllowlist、Assertion Scope、監査経路を使用します。
 

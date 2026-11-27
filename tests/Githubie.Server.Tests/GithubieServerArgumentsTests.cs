@@ -1,10 +1,17 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Xunit;
 
 namespace Githubie.Server.Tests;
 
 public sealed class GithubieServerArgumentsTests
 {
+    [Fact]
+    public async Task AlternateProductionConfig_IsRejectedBeforeProfileInitialization()
+    {
+        var start = () => HostRuntime.RunAsync(["--user-host", @"D:\alternate.json"], TestContext.Current.CancellationToken);
+        await start.Should().ThrowAsync<ArgumentException>();
+    }
+
     [Fact]
     public void Parse_NoOption_IsStandaloneMode()
     {

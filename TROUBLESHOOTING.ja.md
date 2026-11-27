@@ -2,6 +2,24 @@
 
 [English](TROUBLESHOOTING.md) | [日本語](TROUBLESHOOTING.ja.md)
 
+## 2.0 ユーザーホスト
+
+2.0の導入・配置・CLI・MCP登録・自動起動・安全条件・削除/復旧は[ユーザーホスト正本](USER_HOST.ja.md)を使用してください。バイナリは `C:\Githubie`、可変データはユーザー別です。旧Service設定・Tokenを自動取り込みせず、Repositoryと認証を再登録します。`configure codex|claude` は秘密を含まないstdio接続を登録します。
+
+## 1.x の参照・復旧資料
+
+以下のService配置・直接Token入力・導入手順は1.x向けです。2.0では上記正本を優先してください。変更していない型付きMCP Toolの引数・結果schemaは2.0でも使用します。過去の受入記録は、その記載版の結果です。
+
+## ローカルcommitの状態確認
+
+| エラー | 対処 |
+| --- | --- |
+| `detached_head` | 意図した既存branchへ明示的に切り替えてください。Githubieはbranchを自動作成・切替しません。 |
+| `current_branch_changed` / `expected_head_mismatch` | 現在branch・HEAD・diffを読み直してからcommitを準備してください。 |
+| `repository_busy` | 他操作のlockまたはindexが利用できない状態です。所有者を確認し、稼働中のlockを削除して迂回しないでください。 |
+| `commit_in_progress` | 進行中のmerge/rebase/cherry-pick/revertを専用手順で完了または中止してください。 |
+| `commit_result_unknown` | branch HEAD・index・reflogを照合して復旧し、commitを自動再送しないでください。 |
+
 MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー形式は共通で以下。
 
 ```json
@@ -100,7 +118,7 @@ MCP Toolの`error.code`一覧と、原因・対処法を記載する。エラー
 
 | 症状 | 原因 | 対処 |
 | --- | --- | --- |
-| `Githubie.Server.exe`が起動直後に終了する | `githubie.json`が存在しない/不正、または非Windows環境（DPAPI要件） | 標準エラー出力に表示される内容を確認する。`config check`で事前検証する |
+| `Githubie.Server.exe`が起動直後に終了する | `githubie.json`が存在しない/不正、または非Windows環境（DPAPI要件） | 表示されたエラーダイアログと、`githubie.exe logs`が表示するディレクトリのログを確認する（`Githubie.Server.exe`はコンソールを持たないため標準エラー出力は表示されない）。`config check`で事前検証する |
 | `githubie.exe mcp status`が`[NG] MCP endpoint unreachable` | Serverが未起動、または`mcp_port`/`mcp_path`が設定と不一致 | `githubie.exe status`でService状態、`config show`でPort/Pathを確認する |
 | CLIのヘルプ等で日本語が文字化けする | ターミナルの codepage がUTF-8以外 | `githubie.exe`はConsole出力をUTF-8に固定しているため、通常は発生しない。発生する場合はターミナル側のフォント/codepage設定を確認する |
 | `auth set`が`[NG] IoError`で失敗する | MSIでインストールした直後の環境で、`data\secrets`ディレクトリのACLに管理者でも変更できない制限が残っている場合がある（[docs/adr/0013](docs/adr/0013-msi-directory-acl-grants.md)で修正済み） | v1.0.0.0以降のMSIを使用しているか確認する。旧バージョンの場合は管理者で`icacls "<install-root>\data\secrets" /inheritance:r /grant:r Administrators:F /grant:r SYSTEM:F`を実行してから再試行する |

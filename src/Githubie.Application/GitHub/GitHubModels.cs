@@ -46,17 +46,39 @@ public sealed record GitHubProviderCapabilities(
     bool RepositoryStashDrop = false,
     bool RepositoryCommitSelected = false,
     bool RepositorySettingsRead = false,
-    bool RepositorySettingsUpdate = false)
+    bool RepositorySettingsUpdate = false,
+    bool LocalBranchCreate = false,
+    bool PrCreate = false,
+    bool PrGet = false,
+    bool PrMerge = false,
+    bool BranchProtectionRead = false,
+    bool BranchProtectionWrite = false)
 {
     /// <summary>Moyai Consumer Contractの`integration_mode`と`direct_connection`です。</summary>
     public GitHubProviderAuthentication? Authentication { get; init; }
 
     /// <summary>Repository Provider Contract「Gitリモートの解決」への対応表明です。</summary>
+    /// <summary>`github_repository_merge`（現在branchへのローカルmerge、pushなし）への対応表明です。</summary>
+    public bool RepositoryMerge { get; init; }
+
+    public bool PullRequestPublishCreate { get; init; }
+    public bool PullRequestPublishStatus { get; init; }
+
     public GitHubRemoteResolution RemoteResolution { get; init; } = GitHubRemoteResolution.RepositoryUrl;
 }
 
 /// <summary>`integration_mode`は`standalone`／`moyai`、`direct_connection`は`read_only`／`unrestricted`です。</summary>
-public sealed record GitHubProviderAuthentication(string IntegrationMode, string DirectConnection);
+public sealed record GitHubProviderAuthentication(string IntegrationMode, string DirectConnection)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public GitHubOwnerAuthentication? OwnerAuthentication { get; init; }
+}
+
+/// <summary>所有ユーザー認証の契約を一般的な操作能力と区別して通知します。</summary>
+public sealed record GitHubOwnerAuthentication(
+    int Version, string Mode, string Transport, string Principal,
+    bool AssertionRequired, bool ProjectBindingRequired, bool LegacyTokenRequired,
+    string CredentialHeader, string GenerationHeader, IReadOnlyList<string> Operations);
 
 /// <summary>Moyai Repository Provider Contract「Gitリモートの解決」への対応表明です。</summary>
 public sealed record GitHubRemoteResolution(int Version, string Mode)
@@ -89,7 +111,10 @@ public sealed record GitHubPullRequestInfo(
     DateTimeOffset Updated,
     string Url,
     string MergeabilityStatus = GitHubMergeabilityStatus.UnknownRetryable,
-    int? RetryAfterSeconds = null);
+    int? RetryAfterSeconds = null,
+    string? SourceCommitSha = null,
+    bool? Draft = null,
+    string? HeadRepository = null, string? BaseRepository = null);
 
 /// <summary>Pull Requestのマージ可能性を表す安定した外部状態名です。</summary>
 public static class GitHubMergeabilityStatus
@@ -101,7 +126,7 @@ public static class GitHubMergeabilityStatus
     public const string UnknownRetryable = "unknown_retryable";
 }
 
-public sealed record GitHubPullRequestCreate(string Title, string? Description, bool Draft);
+public sealed record GitHubPullRequestCreate(string Title, string? Description, bool Draft, string? SourceBranch = null, string? DestinationBranch = null);
 
 public enum GitHubMergeMethod
 {
@@ -110,7 +135,12 @@ public enum GitHubMergeMethod
     Rebase,
 }
 
-public sealed record GitHubPullRequestMerge(int Number, GitHubMergeMethod? MergeMethod, string? CommitMessage);
+public sealed record GitHubPullRequestMerge(
+    int Number, GitHubMergeMethod? MergeMethod, string? CommitMessage, string? ExpectedSourceCommitSha = null)
+{
+    /// <summary>所有ユーザーまたはMoyai契約の呼出しでは承認対象SHAを必須にします。</summary>
+    public bool RequireExpectedSourceCommit { get; init; }
+}
 
 public sealed record GitHubPullRequestComment(
     long Id,

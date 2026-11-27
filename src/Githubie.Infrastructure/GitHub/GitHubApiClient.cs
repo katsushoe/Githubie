@@ -1,4 +1,4 @@
-using System.Net;
+﻿using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -14,7 +14,7 @@ namespace Githubie.Infrastructure.GitHub;
 /// 認証はFine-grained Personal Access TokenによるBearer方式、APIバージョンは`X-GitHub-Api-Version`で固定します。
 /// Tokenは<see cref="IApiTokenStore"/>から都度読み出し、使用後にメモリ上から消去します。
 /// </summary>
-public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenStore) : IGitHubApiClient
+public sealed partial class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenStore) : IGitHubApiClient
 {
     private const string ApiVersion = "2022-11-28";
     private const int PageSize = 100;
@@ -238,52 +238,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         return GitHubResult<bool>.Success(true);
     }
 
-    public async Task<GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>> ListPullRequestsAsync(
-        string repositoryId, string owner, string repo, GitHubPullRequestState? state, string? source, string? destination, CancellationToken cancellationToken)
-    {
-        var query = new List<string> { $"per_page={PageSize}" };
-        if (state is not null)
-        {
-            query.Add($"state={MapStateQuery(state.Value)}");
-        }
 
-        if (!string.IsNullOrWhiteSpace(source))
-        {
-            query.Add($"head={Uri.EscapeDataString($"{owner}:{source}")}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(destination))
-        {
-            query.Add($"base={Uri.EscapeDataString(destination)}");
-        }
-
-        var path = $"repos/{owner}/{repo}/pulls?{string.Join('&', query)}";
-        var page = await GetAllPagesAsync<PullRequestResponse>(repositoryId, path, cancellationToken);
-        if (!page.IsSuccess)
-        {
-            return GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>.FailureFrom(page);
-        }
-
-        var items = page.Value!.Where(IsValidPullRequest).Select(ToPullRequestInfo).ToArray();
-        return GitHubResult<IReadOnlyList<GitHubPullRequestInfo>>.Success(items);
-    }
-
-    public async Task<GitHubResult<GitHubPullRequestInfo>> GetPullRequestAsync(string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken)
-    {
-        var response = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/pulls/{number}", null, cancellationToken, notFoundError: GitHubError.PullRequestNotFound);
-        if (!response.IsSuccess)
-        {
-            return GitHubResult<GitHubPullRequestInfo>.FailureFrom(response);
-        }
-
-        var body = await ReadAsync<PullRequestResponse>(response.Value!, cancellationToken);
-        if (body is null || !IsValidPullRequest(body))
-        {
-            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.InvalidResponse);
-        }
-
-        return GitHubResult<GitHubPullRequestInfo>.Success(ToPullRequestInfo(body));
-    }
 
     public async Task<GitHubResult<IReadOnlyList<GitHubIssueInfo>>> ListIssuesAsync(
         string repositoryId, string owner, string repo, GitHubIssueState? state, CancellationToken cancellationToken)
@@ -308,124 +263,12 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         return GitHubResult<GitHubIssueInfo>.Success(ToIssueInfo(body));
     }
 
-    public async Task<GitHubResult<GitHubPullRequestDiff>> GetPullRequestDiffAsync(string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken)
-    {
-        var stats = await SendAsync(repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/pulls/{number}", null, cancellationToken, notFoundError: GitHubError.PullRequestNotFound);
-        if (!stats.IsSuccess)
-        {
-            return GitHubResult<GitHubPullRequestDiff>.FailureFrom(stats);
-        }
 
-        var statsBody = await ReadAsync<PullRequestResponse>(stats.Value!, cancellationToken);
-        if (statsBody is null)
-        {
-            return GitHubResult<GitHubPullRequestDiff>.Failure(GitHubError.InvalidResponse);
-        }
 
-        var diffResponse = await SendAsync(
-            repositoryId, HttpMethod.Get, $"repos/{owner}/{repo}/pulls/{number}", "application/vnd.github.v3.diff", cancellationToken, notFoundError: GitHubError.PullRequestNotFound);
-        if (!diffResponse.IsSuccess)
-        {
-            return GitHubResult<GitHubPullRequestDiff>.FailureFrom(diffResponse);
-        }
 
-        var diffText = await diffResponse.Value!.Content.ReadAsStringAsync(cancellationToken);
 
-        return GitHubResult<GitHubPullRequestDiff>.Success(new GitHubPullRequestDiff(
-            diffText, statsBody.ChangedFiles ?? 0, statsBody.Additions ?? 0, statsBody.Deletions ?? 0));
-    }
 
-    public async Task<GitHubResult<GitHubPullRequestInfo>> CreatePullRequestAsync(
-        string repositoryId, string owner, string repo, string source, string destination, GitHubPullRequestCreate request, CancellationToken cancellationToken)
-    {
-        var payload = new CreatePullRequestRequest(request.Title, request.Description, source, destination, request.Draft);
-        var response = await SendAsync(repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/pulls", null, cancellationToken, jsonBody: payload);
-        if (!response.IsSuccess)
-        {
-            return GitHubResult<GitHubPullRequestInfo>.FailureFrom(response);
-        }
 
-        var body = await ReadAsync<PullRequestResponse>(response.Value!, cancellationToken);
-        if (body is null || !IsValidPullRequest(body))
-        {
-            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.InvalidResponse);
-        }
-
-        return GitHubResult<GitHubPullRequestInfo>.Success(ToPullRequestInfo(body));
-    }
-
-    public async Task<GitHubResult<GitHubPullRequestInfo>> MergePullRequestAsync(
-        string repositoryId, string owner, string repo, GitHubPullRequestMerge request, CancellationToken cancellationToken)
-    {
-        var payload = new MergePullRequestRequest(request.CommitMessage, request.MergeMethod is null ? null : MapMergeMethod(request.MergeMethod.Value));
-        var response = await SendAsync(
-            repositoryId, HttpMethod.Put, $"repos/{owner}/{repo}/pulls/{request.Number}/merge", null, cancellationToken,
-            jsonBody: payload, notFoundError: GitHubError.PullRequestNotFound, conflictError: GitHubError.PullRequestNotMergeable);
-        if (!response.IsSuccess)
-        {
-            return GitHubResult<GitHubPullRequestInfo>.FailureFrom(response);
-        }
-
-        return await GetPullRequestAsync(repositoryId, owner, repo, request.Number, cancellationToken);
-    }
-
-    public async Task<GitHubResult<GitHubPullRequestInfo>> UpdatePullRequestStateAsync(
-        string repositoryId, string owner, string repo, int number, GitHubPullRequestState state, CancellationToken cancellationToken)
-    {
-        if (state is not (GitHubPullRequestState.Open or GitHubPullRequestState.Closed))
-            return GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.PullRequestStateNotAllowed);
-        var payload = new UpdatePullRequestRequest(state == GitHubPullRequestState.Open ? "open" : "closed");
-        var response = await SendAsync(
-            repositoryId, HttpMethod.Patch, $"repos/{owner}/{repo}/pulls/{number}", null, cancellationToken,
-            jsonBody: payload, notFoundError: GitHubError.PullRequestNotFound,
-            unprocessableError: GitHubError.PullRequestStateNotAllowed);
-        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestInfo>.FailureFrom(response);
-        var body = await ReadAsync<PullRequestResponse>(response.Value!, cancellationToken);
-        return body is not null && IsValidPullRequest(body)
-            ? GitHubResult<GitHubPullRequestInfo>.Success(ToPullRequestInfo(body))
-            : GitHubResult<GitHubPullRequestInfo>.Failure(GitHubError.InvalidResponse);
-    }
-
-    public async Task<GitHubResult<IReadOnlyList<GitHubPullRequestComment>>> ListPullRequestCommentsAsync(
-        string repositoryId, string owner, string repo, int number, CancellationToken cancellationToken)
-    {
-        var page = await GetAllPagesAsync<IssueCommentResponse>(
-            repositoryId, $"repos/{owner}/{repo}/issues/{number}/comments", cancellationToken);
-        if (!page.IsSuccess) return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.FailureFrom(page);
-        var comments = page.Value!.Where(IsValidComment).Select(ToPullRequestComment).ToArray();
-        return GitHubResult<IReadOnlyList<GitHubPullRequestComment>>.Success(comments);
-    }
-
-    public async Task<GitHubResult<GitHubPullRequestComment>> CreatePullRequestCommentAsync(
-        string repositoryId, string owner, string repo, int number, string body, CancellationToken cancellationToken)
-    {
-        var response = await SendAsync(
-            repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/issues/{number}/comments", null, cancellationToken,
-            jsonBody: new CreateIssueCommentRequest(body), notFoundError: GitHubError.PullRequestNotFound,
-            unprocessableError: GitHubError.PullRequestCommentInvalid);
-        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestComment>.FailureFrom(response);
-        var item = await ReadAsync<IssueCommentResponse>(response.Value!, cancellationToken);
-        return item is not null && IsValidComment(item)
-            ? GitHubResult<GitHubPullRequestComment>.Success(ToPullRequestComment(item))
-            : GitHubResult<GitHubPullRequestComment>.Failure(GitHubError.InvalidResponse);
-    }
-
-    public async Task<GitHubResult<GitHubPullRequestReview>> CreatePullRequestReviewAsync(
-        string repositoryId, string owner, string repo, int number, GitHubPullRequestReviewAction action,
-        string? body, CancellationToken cancellationToken)
-    {
-        var reviewEvent = action == GitHubPullRequestReviewAction.Approve ? "APPROVE" : "REQUEST_CHANGES";
-        var response = await SendAsync(
-            repositoryId, HttpMethod.Post, $"repos/{owner}/{repo}/pulls/{number}/reviews", null, cancellationToken,
-            jsonBody: new CreatePullRequestReviewRequest(body, reviewEvent),
-            notFoundError: GitHubError.PullRequestNotFound,
-            unprocessableError: GitHubError.PullRequestReviewInvalid);
-        if (!response.IsSuccess) return GitHubResult<GitHubPullRequestReview>.FailureFrom(response);
-        var review = await ReadAsync<PullRequestReviewResponse>(response.Value!, cancellationToken);
-        return review is not null && IsValidReview(review)
-            ? GitHubResult<GitHubPullRequestReview>.Success(ToPullRequestReview(review))
-            : GitHubResult<GitHubPullRequestReview>.Failure(GitHubError.InvalidResponse);
-    }
 
     public async Task<GitHubResult<IReadOnlyList<GitHubTagInfo>>> ListTagsAsync(string repositoryId, string owner, string repo, CancellationToken cancellationToken)
     {
@@ -1006,31 +849,6 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         run.Id, run.Name!, run.HeadBranch!, run.HeadSha!, run.Event!, run.Status!, run.Conclusion,
         run.Actor!.Login!, run.CreatedAt, run.UpdatedAt, run.HtmlUrl!);
 
-    private static bool IsValidPullRequest(PullRequestResponse pr) =>
-        pr.Number > 0
-        && !string.IsNullOrEmpty(pr.Title)
-        && !string.IsNullOrEmpty(pr.State)
-        && !string.IsNullOrEmpty(pr.Head?.Ref)
-        && !string.IsNullOrEmpty(pr.Base?.Ref)
-        && !string.IsNullOrEmpty(pr.User?.Login)
-        && !string.IsNullOrEmpty(pr.HtmlUrl);
-
-    private static GitHubPullRequestInfo ToPullRequestInfo(PullRequestResponse pr) => new(
-        pr.Number,
-        pr.Title!,
-        pr.Body,
-        pr.Merged == true ? GitHubPullRequestState.Merged : string.Equals(pr.State, "open", StringComparison.Ordinal) ? GitHubPullRequestState.Open : GitHubPullRequestState.Closed,
-        pr.Head!.Ref!,
-        pr.Base!.Ref!,
-        pr.User!.Login!,
-        pr.MergeCommitSha,
-        pr.Mergeable,
-        pr.CreatedAt,
-        pr.UpdatedAt,
-        pr.HtmlUrl!,
-        ClassifyMergeability(pr.Mergeable, pr.MergeableState),
-        IsRetryableMergeability(pr.Mergeable, pr.MergeableState) ? 2 : null);
-
     private static bool IsValidIssue(IssueResponse issue) =>
         issue.Number > 0 && issue.Title is not null && issue.State is "open" or "closed" &&
         issue.User?.Login is not null && issue.HtmlUrl is not null;
@@ -1041,40 +859,6 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         issue.User!.Login!, issue.Labels?.Select(x => x.Name).Where(x => x is not null).Select(x => x!).ToArray() ?? [],
         issue.Assignees?.Select(x => x.Login).Where(x => x is not null).Select(x => x!).ToArray() ?? [],
         issue.Comments, issue.Locked, issue.CreatedAt, issue.UpdatedAt, issue.HtmlUrl!);
-
-    private static string ClassifyMergeability(bool? mergeable, string? state)
-    {
-        if (mergeable is null || string.Equals(state, "unknown", StringComparison.OrdinalIgnoreCase))
-            return GitHubMergeabilityStatus.CalculatingRetryable;
-        if (string.Equals(state, "dirty", StringComparison.OrdinalIgnoreCase))
-            return GitHubMergeabilityStatus.Conflicting;
-        if (state is not null && (state.Equals("blocked", StringComparison.OrdinalIgnoreCase)
-            || state.Equals("behind", StringComparison.OrdinalIgnoreCase)
-            || state.Equals("unstable", StringComparison.OrdinalIgnoreCase)
-            || state.Equals("draft", StringComparison.OrdinalIgnoreCase)))
-            return GitHubMergeabilityStatus.Blocked;
-        if (mergeable == true)
-            return GitHubMergeabilityStatus.Mergeable;
-        return GitHubMergeabilityStatus.UnknownRetryable;
-    }
-
-    private static bool IsRetryableMergeability(bool? mergeable, string? state) =>
-        ClassifyMergeability(mergeable, state) is
-            GitHubMergeabilityStatus.CalculatingRetryable or GitHubMergeabilityStatus.UnknownRetryable;
-
-    private static string MapStateQuery(GitHubPullRequestState state) => state switch
-    {
-        GitHubPullRequestState.Open => "open",
-        GitHubPullRequestState.Closed or GitHubPullRequestState.Merged => "closed",
-        _ => "all",
-    };
-
-    private static string MapMergeMethod(GitHubMergeMethod method) => method switch
-    {
-        GitHubMergeMethod.Squash => "squash",
-        GitHubMergeMethod.Rebase => "rebase",
-        _ => "merge",
-    };
 
     private static bool IsValidComment(IssueCommentResponse comment) =>
         comment.Id > 0 && comment.Body is not null && comment.User?.Login is not null && comment.HtmlUrl is not null;
@@ -1135,26 +919,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
 
     private sealed record CommitRef(string? Sha);
 
-    private sealed record PullRequestResponse(
-        int Number,
-        string? Title,
-        string? Body,
-        string? State,
-        bool? Merged,
-        PullRequestRef? Head,
-        [property: JsonPropertyName("base")] PullRequestRef? Base,
-        UserRef? User,
-        [property: JsonPropertyName("merge_commit_sha")] string? MergeCommitSha,
-        bool? Mergeable,
-        [property: JsonPropertyName("mergeable_state")] string? MergeableState,
-        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt,
-        [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
-        [property: JsonPropertyName("html_url")] string? HtmlUrl,
-        [property: JsonPropertyName("changed_files")] int? ChangedFiles,
-        int? Additions,
-        int? Deletions);
 
-    private sealed record PullRequestRef(string? Ref);
 
     private sealed record UserRef(string? Login);
 
@@ -1185,11 +950,9 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
 
     private sealed record GitTaggerResponse(string? Name, DateTimeOffset? Date);
 
-    private sealed record CreatePullRequestRequest(string Title, string? Body, string Head, [property: JsonPropertyName("base")] string BaseBranch, bool Draft);
 
-    private sealed record MergePullRequestRequest([property: JsonPropertyName("commit_message")] string? CommitMessage, [property: JsonPropertyName("merge_method")] string? MergeMethod);
 
-    private sealed record UpdatePullRequestRequest(string State);
+
 
     private sealed record CreateIssueCommentRequest(string Body);
 
@@ -1201,18 +964,7 @@ public sealed class GitHubApiClient(HttpClient httpClient, IApiTokenStore tokenS
         [property: JsonPropertyName("updated_at")] DateTimeOffset UpdatedAt,
         [property: JsonPropertyName("html_url")] string? HtmlUrl);
 
-    private sealed record CreatePullRequestReviewRequest(
-        string? Body,
-        [property: JsonPropertyName("event")] string EventName);
 
-    private sealed record PullRequestReviewResponse(
-        long Id,
-        string? Body,
-        UserRef? User,
-        string? State,
-        [property: JsonPropertyName("submitted_at")] DateTimeOffset? SubmittedAt,
-        [property: JsonPropertyName("commit_id")] string? CommitId,
-        [property: JsonPropertyName("html_url")] string? HtmlUrl);
 
     private sealed record CreateTagObjectRequest(string Tag, string Message, string Object, string Type);
 

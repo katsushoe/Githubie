@@ -1,4 +1,4 @@
-using Githubie.Application.Configuration;
+﻿using Githubie.Application.Configuration;
 using Githubie.Application.Credentials;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
@@ -23,6 +23,11 @@ public static class GithubieCompositionRoot
 {
     private const int DefaultDatabaseBusyTimeoutSeconds = 5;
     private const int DoctorDatabaseBusyTimeoutSeconds = 30;
+
+    /// <summary>ユーザーホストの明示された分離プロフィールを構築します。</summary>
+    public static Task<GithubieCompositionResult> BuildForUserHostAsync(string configPath, GithubiePathLayout layout,
+        bool moyaiIntegration, bool directUnrestricted, CancellationToken cancellationToken) =>
+        BuildAsync(configPath, layout.BinDirectory, true, moyaiIntegration, directUnrestricted, cancellationToken, layout);
 
     /// <summary>単体動作モードのサービスグラフを構築します。`provider_authentication`は使用しません。</summary>
     public static async Task<GithubieCompositionResult> BuildAsync(string configPath, string binDirectory, CancellationToken cancellationToken)
@@ -54,7 +59,8 @@ public static class GithubieCompositionRoot
         bool initializeDatabase,
         bool moyaiIntegration,
         bool directUnrestricted,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        GithubiePathLayout? userLayout = null)
     {
         if (directUnrestricted && !moyaiIntegration)
             return GithubieCompositionResult.Failure("--direct-unrestricted requires --moyai.");
@@ -80,7 +86,10 @@ public static class GithubieCompositionRoot
             return GithubieCompositionResult.Failure("Githubie requires Windows (DPAPI credential storage).");
         }
 
-        var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
+        var layout = userLayout ?? GithubiePathLayout.FromBinDirectory(binDirectory);
+        var windowsOwner = options.UserHost.AuthenticationMode == UserHostAuthenticationMode.WindowsOwner;
+        if (windowsOwner && userLayout is null)
+            return GithubieCompositionResult.Failure("windows_owner requires the authenticated user host.");
         SqliteRepositoryConfigurationStore configurationStore;
         IReadOnlyDictionary<string, RepositoryOptions> repositories;
         try
@@ -101,11 +110,12 @@ public static class GithubieCompositionRoot
         options = options with
         {
             Repositories = repositories,
-            ProviderAuthentication = moyaiIntegration ? options.ProviderAuthentication : null,
-            DirectUnrestricted = directUnrestricted,
+            ProviderAuthentication = !windowsOwner && moyaiIntegration ? options.ProviderAuthentication : null,
+            DirectUnrestricted = windowsOwner || directUnrestricted,
+            WindowsOwnerSid = windowsOwner ? new UserProfileStore(userLayout!).ReadIdentity().OwnerSid : null,
         };
         var databaseErrors = JsonGithubieOptionsLoader.Validate(options);
-        if (moyaiIntegration)
+        if (moyaiIntegration && !windowsOwner)
         {
             databaseErrors.AddRange(JsonGithubieOptionsLoader.ValidateMoyaiIntegration(options));
         }
@@ -123,7 +133,15 @@ public static class GithubieCompositionRoot
         services.AddLogging(logging => logging.AddProvider(new DailyFileLoggerProvider(layout.LogsDirectory)));
         services.AddSingleton(options);
         services.AddSingleton<IGithubieOptionsLoader, JsonGithubieOptionsLoader>();
-        services.AddSingleton<IApiTokenStore>(new DpapiFileTokenStore(layout.SecretsDirectory));
+        if (userLayout is not null)
+        {
+            services.AddSingleton<RepositoryMutationLock>();
+            var credentials = new SqliteUserCredentialStore(layout.RepositoryDatabasePath, new CurrentUserDpapiProtector());
+            services.AddSingleton<IApiTokenStore>(credentials);
+            services.AddSingleton<IAtomicRepositoryRegistrationStore>(credentials);
+            services.AddSingleton<IAtomicRepositoryManagementStore>(credentials);
+        }
+        else services.AddSingleton<IApiTokenStore>(new DpapiFileTokenStore(layout.SecretsDirectory));
         var repositoryAllowlist = new RepositoryAllowlist(options.Repositories);
         services.AddSingleton(repositoryAllowlist);
         services.AddSingleton(new MoyaiProjectMapping(repositoryAllowlist, options.ProviderAuthentication?.Projects));
@@ -133,11 +151,21 @@ public static class GithubieCompositionRoot
         services.AddSingleton<IProviderExecutionGuard>(sp => sp.GetRequiredService<GithubieAssertionExecutionContext>());
         services.AddSingleton<IProcessExecutor, ProcessExecutor>();
         services.AddSingleton<IGitCommandClient>(sp =>
-            new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath));
+            new GitCommandClient(sp.GetRequiredService<IProcessExecutor>(), askPassExecutablePath,
+                userLayout is null ? null : layout.RepositoryDatabasePath));
 #pragma warning disable CA1416
-        services.AddSingleton(sp => CreateApprovalPrompt(sp, approvalPromptExecutablePath));
-        services.AddSingleton<IInteractiveApprovalPrompt>(sp => sp.GetRequiredService<WindowsInteractiveApprovalPrompt>());
-        services.AddSingleton<IInteractiveTokenPrompt>(sp => sp.GetRequiredService<WindowsInteractiveApprovalPrompt>());
+        if (userLayout is not null)
+        {
+            var prompt = new CurrentUserInteractivePrompt(approvalPromptExecutablePath);
+            services.AddSingleton<IInteractiveApprovalPrompt>(prompt);
+            services.AddSingleton<IInteractiveTokenPrompt>(prompt);
+        }
+        else
+        {
+            services.AddSingleton(sp => CreateApprovalPrompt(sp, approvalPromptExecutablePath));
+            services.AddSingleton<IInteractiveApprovalPrompt>(sp => sp.GetRequiredService<WindowsInteractiveApprovalPrompt>());
+            services.AddSingleton<IInteractiveTokenPrompt>(sp => sp.GetRequiredService<WindowsInteractiveApprovalPrompt>());
+        }
 #pragma warning restore CA1416
         services.AddSingleton<IRepositoryConfigurationStore>(configurationStore);
         services.AddSingleton<IRepositoryRegistrationService, RepositoryRegistrationService>();
@@ -149,9 +177,25 @@ public static class GithubieCompositionRoot
             client.BaseAddress = new Uri("https://api.github.com/");
             client.Timeout = TimeSpan.FromSeconds(30);
         });
-        services.AddSingleton<IGitHubApiClient>(sp => new GitHubApiClient(
+        services.AddSingleton(sp => new GitHubApiClient(
             sp.GetRequiredService<IHttpClientFactory>().CreateClient("GitHub"), sp.GetRequiredService<IApiTokenStore>()));
+        services.AddSingleton<IGitHubApiClient>(sp => sp.GetRequiredService<GitHubApiClient>());
         services.AddSingleton<IGitHubRepositoryGateway, GitHubRepositoryGateway>();
+        var publicationStore = new SqlitePrPublicationStore(layout.RepositoryDatabasePath);
+        if (initializeDatabase)
+        {
+            try { await publicationStore.InitializeAsync(cancellationToken); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or Microsoft.Data.Sqlite.SqliteException)
+            { return GithubieCompositionResult.Failure("publication database initialization failed"); }
+        }
+        services.AddSingleton<Githubie.Application.Publishing.IPrPublicationStore>(publicationStore);
+        services.AddSingleton<Githubie.Application.Publishing.IPrPublicationDiagnostics, PrPublicationDiagnostics>();
+        services.AddSingleton<Githubie.Application.Publishing.IPrPublicationGit>(sp =>
+            (Githubie.Application.Publishing.IPrPublicationGit)sp.GetRequiredService<IGitCommandClient>());
+        services.AddSingleton<Githubie.Application.Publishing.IPrPublicationService, Githubie.Application.Publishing.PrPublicationService>();
+
+        services.AddSingleton<IGitHubBranchProtectionBackend, GitHubBranchProtectionBackend>();
+        services.AddSingleton<IGitHubBranchProtectionGateway, GitHubBranchProtectionGateway>();
 
         try
         {

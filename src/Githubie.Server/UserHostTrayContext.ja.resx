@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+  <data name="autostartMenu.Text" xml:space="preserve"><value>ログオン時に起動</value></data>
+  <data name="restartMenu.Text" xml:space="preserve"><value>トレイとMCPサーバーを再起動</value></data>
+  <data name="stopMenu.Text" xml:space="preserve"><value>Githubieを終了</value></data>
+  <data name="serverMenu.Text" xml:space="preserve"><value>Server</value></data>
+  <data name="serverStatusMenu.Text" xml:space="preserve"><value>状態</value></data>
+  <data name="serverStartMenu.Text" xml:space="preserve"><value>起動</value></data>
+  <data name="serverStopMenu.Text" xml:space="preserve"><value>終了</value></data>
+  <data name="trayIcon.Text" xml:space="preserve"><value>Githubie</value></data>
+  <data name="settingsMenu.Text" xml:space="preserve"><value>設定…</value></data>
+  <data name="aboutMenu.Text" xml:space="preserve"><value>バージョン情報…</value></data>
+</root>

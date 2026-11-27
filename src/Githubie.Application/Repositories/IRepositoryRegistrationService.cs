@@ -14,6 +14,16 @@ public interface IRepositoryRegistrationService
     Task<RepositoryCreateResult> CreateAsync(
         RepositoryCreateRequest request,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 登録済みRepositoryのLocal Rootだけを対話承認後に変更し、実行中サービスへ即時反映します。
+    /// 新しいLocal Rootは実在・Git管理・reparse pointなしで、登録remote（空なら一致するHTTPS remote）が
+    /// 登録済みのGitHub Repositoryを指す必要があります。Token・Policy・作者設定・Moyai対応付けは保持します。
+    /// </summary>
+    Task<RepositoryRelocateResult> RelocateAsync(
+        string repository,
+        string localRoot,
+        CancellationToken cancellationToken);
 }
 
 /// <summary>GitHub Repository新規作成要求です。`Visibility`は`private`（既定）または`public`です。</summary>
@@ -120,6 +130,10 @@ public enum RepositoryRegistrationError
     GitHubRepositoryAlreadyExists,
     /// <summary>その他のGitHub API失敗。</summary>
     GitHubFailed,
+    /// <summary>Repositoryが未登録。</summary>
+    RepositoryNotRegistered,
+    /// <summary>新しいLocal Rootのremoteが登録済みGitHub Repositoryと一致しない。</summary>
+    RemoteMismatch,
 }
 
 /// <summary>Repository登録処理の結果です。</summary>
@@ -132,4 +146,24 @@ public sealed record RepositoryRegistrationResult(
     public static RepositoryRegistrationResult Success(RepositoryRegistrationInfo value) => new(value, null);
 
     public static RepositoryRegistrationResult Failure(RepositoryRegistrationError error) => new(null, error);
+}
+
+/// <summary>Local Root変更の結果情報です。</summary>
+public sealed record RepositoryRelocateInfo(
+    bool Approved,
+    string RepositoryId,
+    string PreviousLocalRoot,
+    string LocalRoot,
+    string Remote);
+
+/// <summary>Local Root変更処理の結果です。</summary>
+public sealed record RepositoryRelocateResult(
+    RepositoryRelocateInfo? Value,
+    RepositoryRegistrationError? Error)
+{
+    public bool IsSuccess => Value is not null && Error is null;
+
+    public static RepositoryRelocateResult Success(RepositoryRelocateInfo value) => new(value, null);
+
+    public static RepositoryRelocateResult Failure(RepositoryRegistrationError error) => new(null, error);
 }

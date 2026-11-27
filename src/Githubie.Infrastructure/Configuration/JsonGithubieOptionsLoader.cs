@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using Githubie.Application.Configuration;
@@ -92,6 +92,12 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
     {
         var errors = new List<ConfigurationError>();
 
+        if (options.UserHost is null || !UserHostAuthenticationMode.IsValid(options.UserHost.AuthenticationMode)
+            || (options.UserHost.AuthenticationMode == UserHostAuthenticationMode.Legacy
+                && options.UserHost.DirectUnrestricted && !options.UserHost.MoyaiIntegration))
+            errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidJson, "$.user_host",
+                "user_host requires authentication_mode legacy or windows_owner; legacy direct_unrestricted requires moyai_integration."));
+
         if (options.McpPort is < 1 or > 65535)
         {
             errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidMcpPort, "$.mcp_port", "mcp_port must be between 1 and 65535."));
@@ -133,6 +139,20 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
                 errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidBranchName, path, "develop_branch and main_branch must not be empty."));
             }
 
+            if (repository.PullRequestRoutes is null || repository.PullRequestRoutes.Any(route => route is null
+                || !IsValidBranchName(route.SourceBranch) || !IsValidBranchName(route.DestinationBranch))
+                || repository.PullRequestRoutes.Distinct().Count() != repository.PullRequestRoutes.Count)
+            {
+                errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidBranchName, $"{path}.pull_request_routes", "pull_request_routes must contain unique valid source and destination branch names."));
+            }
+
+            if (repository.PrPublicationSourceBranches is null
+                || repository.PrPublicationSourceBranches.Any(branch => !Githubie.Application.Publishing.PrPublicationService.IsBranch(branch))
+                || repository.PrPublicationSourceBranches.Distinct(StringComparer.Ordinal).Count() != repository.PrPublicationSourceBranches.Count)
+            {
+                errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidBranchName, $"{path}.pr_publication_source_branches", "pr_publication_source_branches must contain unique valid exact branch names."));
+            }
+
             if (!IsValidRegex(repository.TagPattern))
             {
                 errors.Add(new ConfigurationError(ConfigurationErrorCode.InvalidTagPattern, $"{path}.tag_pattern", "tag_pattern must be a valid regular expression."));
@@ -169,6 +189,9 @@ public sealed class JsonGithubieOptionsLoader : IGithubieOptionsLoader
 
         return errors;
     }
+
+    private static bool IsValidBranchName(string? value) => !string.IsNullOrWhiteSpace(value)
+        && value[0] != '-' && !value.Any(char.IsWhiteSpace);
 
     private static void ValidateProviderAuthentication(GithubieOptions options, List<ConfigurationError> errors)
     {

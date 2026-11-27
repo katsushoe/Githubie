@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -10,6 +10,8 @@ public sealed class ServiceReadinessStore(string statePath)
     private const string InitializingStatus = "initializing";
     private const string ReadyStatus = "ready";
     private const string FailedStatus = "failed";
+    private const int MaximumReplaceRetries = 20;
+    private static readonly TimeSpan ReplaceRetryDelay = TimeSpan.FromMilliseconds(25);
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -88,7 +90,7 @@ public sealed class ServiceReadinessStore(string statePath)
                 temporaryPath,
                 JsonSerializer.Serialize(state, SerializerOptions),
                 cancellationToken);
-            File.Move(temporaryPath, _statePath, overwrite: true);
+            await ReplaceAsync(temporaryPath, cancellationToken);
         }
         finally
         {
@@ -96,10 +98,31 @@ public sealed class ServiceReadinessStore(string statePath)
         }
     }
 
+    private async Task ReplaceAsync(string temporaryPath, CancellationToken cancellationToken)
+    {
+        for (var retry = 0; ; retry++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                File.Move(temporaryPath, _statePath, overwrite: true);
+                return;
+            }
+            catch (UnauthorizedAccessException exception) when (OperatingSystem.IsWindows()
+                && exception.HResult == unchecked((int)0x80070005) && retry < MaximumReplaceRetries)
+            {
+                // Windows can reject replacement until a concurrent reader closes its handle.
+                await Task.Delay(ReplaceRetryDelay, cancellationToken);
+            }
+        }
+    }
+
     private async Task<ServiceReadinessState?> ReadAsync(CancellationToken cancellationToken)
     {
         if (!File.Exists(_statePath)) return null;
-        await using var stream = File.OpenRead(_statePath);
+        // ポーリング中の読取が、同じファイルの原子的な置換を妨げないようにします。
+        await using var stream = new FileStream(_statePath, FileMode.Open, FileAccess.Read,
+            FileShare.Read | FileShare.Delete, 4096, FileOptions.Asynchronous);
         return await JsonSerializer.DeserializeAsync<ServiceReadinessState>(stream, SerializerOptions, cancellationToken)
             ?? throw new InvalidDataException("Service state was empty.");
     }

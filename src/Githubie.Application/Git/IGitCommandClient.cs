@@ -2,7 +2,7 @@ namespace Githubie.Application.Git;
 
 /// <summary>
 /// `repositoryRoot`を起点とした低レベルGitコマンド実行のポートです。
-/// 許可されたコマンド以外は公開しません（`status` / `rev-parse` / `remote get-url` / `remote add` / `fetch` / `pull --ff-only` / `push`）。
+/// 許可されたコマンド以外は公開しません。Local branch作成は既存のローカルcommitからrefだけを作ります。
 /// </summary>
 public interface IGitCommandClient
 {
@@ -11,6 +11,8 @@ public interface IGitCommandClient
     Task<GitCommandResult> CheckBranchNameAsync(string repositoryRoot, string branch, CancellationToken cancellationToken);
 
     Task<GitCommandResult> SwitchBranchAsync(string repositoryRoot, string branch, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> CreateLocalBranchAsync(string repositoryRoot, string branch, string commitSha, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetHeadAsync(string repositoryRoot, CancellationToken cancellationToken);
 
@@ -28,6 +30,13 @@ public interface IGitCommandClient
 
     Task<GitCommandResult> CommitAsync(string repositoryRoot, string message, string authorName, string authorEmail, CancellationToken cancellationToken);
     Task<GitCommandResult> CommitSelectedAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedHead, string patch, CancellationToken cancellationToken);
+
+    /// <summary>検証済みの現在branch/HEADだけへ、専用indexで通常または選択commitを作成します。</summary>
+    Task<GitCommandResult> CommitCurrentBranchAsync(string repositoryRoot, string message, string authorName, string authorEmail, string expectedBranch, string expectedHead, string? patch, CancellationToken cancellationToken);
+
+    /// <summary>検証済みの現在branch/HEADへ取り込み元をmergeします。衝突・不一致は作業ツリーとHEADを変更せずに拒否します。</summary>
+    Task<GitMergeCommandOutcome> MergeIntoCurrentBranchAsync(string repositoryRoot, GitMergeRequest request, CancellationToken cancellationToken) =>
+        throw new NotSupportedException();
 
     Task<GitCommandResult> PushStashAsync(string repositoryRoot, string message, IReadOnlyList<string> paths, CancellationToken cancellationToken);
 
@@ -59,6 +68,8 @@ public interface IGitCommandClient
     Task<GitCommandResult> FetchTagAsync(string repositoryRoot, string repositoryId, string remote, string tag, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetLocalRefAsync(string repositoryRoot, string reference, CancellationToken cancellationToken);
+
+    Task<GitCommandResult> GetLocalCommitAsync(string repositoryRoot, string reference, CancellationToken cancellationToken);
 
     Task<GitCommandResult> GetRemoteRefAsync(string repositoryRoot, string repositoryId, string remote, string reference, CancellationToken cancellationToken);
 

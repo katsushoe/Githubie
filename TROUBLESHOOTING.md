@@ -2,6 +2,14 @@
 
 [English](TROUBLESHOOTING.md) | [日本語](TROUBLESHOOTING.ja.md)
 
+## 2.0 user host
+
+Use the [canonical user-host guide](USER_HOST.md) for 2.0 installation, paths, CLI/MCP registration, startup, security, uninstall and recovery. Binaries stay in `C:\Githubie`; mutable data is per user. Old Service settings/tokens are not imported: re-register repositories and credentials. `configure codex|claude` registers a credential-free stdio command.
+
+## 1.x reference and recovery
+
+The following Service paths, direct token input and installation procedures describe 1.x. The 2.0 guide above takes precedence. Unchanged typed MCP tool argument/result schemas still apply to 2.0. Historical acceptance statements apply only to their stated versions.
+
 ## Repository and Git Errors
 
 | Error | Cause and recovery |
@@ -17,12 +25,20 @@
 | `remote_already_configured` | `github_repository_create` does not rewrite an existing `origin`; use `github_repository_register` for a repository that already points to GitHub. |
 | `token_unavailable` | No token is stored for the repository ID and none was entered; enter a token that can create repositories for the owner. |
 | `permission_denied` (repository creation) | The token cannot create repositories for the user or organization; read `error.diagnostic` and use a token with that permission. |
+| `detached_head` | Check out an existing intended branch explicitly; Githubie does not create or switch one. |
+| `current_branch_changed` / `expected_head_mismatch` | Re-read the current branch, HEAD and diff before preparing a new commit. |
+| `repository_busy` | Another operation owns a lock or the index is unavailable. Check its owner; never delete an active lock to bypass it. |
+| `commit_in_progress` | Complete or abort the existing merge/rebase/cherry-pick/revert using its explicit workflow. |
+| `commit_result_unknown` | Inspect branch HEAD, index and reflog before recovery; never automatically repeat the commit. |
 | `git_not_found` / `git_failed` | Install Git for Windows, check `PATH`, inspect `diagnostic` and `exit_code`, then use `correlation_id` to locate the audit event if needed. |
 | `authentication_failed` / `permission_denied` | Refresh the configured credential or grant the required repository permission. |
 | `network_error` | Check DNS, proxy, TLS, and network connectivity, then retry. |
 | `remote_unavailable` | Verify the configured repository, remote, and ref. |
 | `non_fast_forward` | Fetch and reconcile remote changes before retrying. |
 | `working_tree_dirty` | Commit or stash changes when clean-tree enforcement is enabled. |
+| `unresolved_conflicts` | Resolve all merge conflicts before creating a local branch. |
+| `local_branch_already_exists` | Choose a destination branch name that does not already exist locally. |
+| `branch_source_not_found` | Specify an existing local branch or tag, or a complete 40-character commit SHA present locally. Remote refs are not resolved. |
 | `branch_protection_denied` | GitHub branch protection or a repository ruleset rejected the rewrite. Review the target ref's rules and force-push policy. |
 | `token_permission_denied` | The configured token lacks repository write permission. Reissue or update the token, then run `auth test`. |
 | `workflow_permission_denied` | The rewrite changes workflow files but the token lacks workflow permission. Grant the required workflow permission. |

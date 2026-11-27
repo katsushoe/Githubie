@@ -1,4 +1,3 @@
-using Githubie.Application.Configuration;
 using Githubie.Application.Git;
 
 var repositoryId = Environment.GetEnvironmentVariable(GitAskPassProtocol.RepositoryIdVariable);
@@ -9,9 +8,14 @@ if (string.IsNullOrWhiteSpace(repositoryId) || !OperatingSystem.IsWindows())
     return 1;
 }
 
-var binDirectory = AppContext.BaseDirectory;
-var layout = GithubiePathLayout.FromBinDirectory(binDirectory);
-var tokenStore = new Githubie.Infrastructure.Credentials.DpapiFileTokenStore(layout.SecretsDirectory);
+var tokenStore = Githubie.Infrastructure.Credentials.GitAskPassTokenStoreFactory.Create(
+    AppContext.BaseDirectory,
+    Environment.GetEnvironmentVariable(GitAskPassProtocol.UserCredentialDatabaseVariable));
+if (tokenStore is null)
+{
+    return 1;
+}
+
 var responder = new GitAskPassResponder(tokenStore);
 
 var response = responder.Respond(repositoryId, prompt);

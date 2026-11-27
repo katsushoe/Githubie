@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using Githubie.Application.Configuration;
 using Githubie.Application.Interactive;
 using Githubie.Application.Credentials;
+using Githubie.Domain;
 
 namespace Githubie.Application.Repositories;
 
@@ -34,7 +35,12 @@ public sealed record RepositorySettings(
     [property: JsonPropertyName("tag_target_branch")] string TagTargetBranch,
     [property: JsonPropertyName("require_clean_working_tree")] bool RequireCleanWorkingTree,
     [property: JsonPropertyName("commit_author_name"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? CommitAuthorName,
-    [property: JsonPropertyName("commit_author_email"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? CommitAuthorEmail);
+    [property: JsonPropertyName("commit_author_email"), JsonIgnore(Condition = JsonIgnoreCondition.Never)] string? CommitAuthorEmail,
+    [property: JsonPropertyName("pull_request_routes")] IReadOnlyList<PullRequestRoute> PullRequestRoutes)
+{
+    [JsonPropertyName("pr_publication_source_branches")]
+    public IReadOnlyList<string> PrPublicationSourceBranches { get; init; } = [];
+}
 
 public sealed record RepositorySettingsChanges(
     IReadOnlyList<string>? DirectPushBranches = null,
@@ -52,7 +58,11 @@ public sealed record RepositorySettingsChanges(
     string? CommitAuthorName = null,
     bool HasCommitAuthorName = false,
     string? CommitAuthorEmail = null,
-    bool HasCommitAuthorEmail = false);
+    bool HasCommitAuthorEmail = false,
+    IReadOnlyList<PullRequestRoute>? PullRequestRoutes = null,
+    bool HasPullRequestRoutes = false,
+    IReadOnlyList<string>? PrPublicationSourceBranches = null,
+    bool HasPrPublicationSourceBranches = false);
 
 public enum RepositoryMutationError
 {
@@ -98,12 +108,14 @@ public sealed class RepositoryManagementService(
     IInteractiveApprovalPrompt approvalPrompt,
     IRepositoryConfigurationStore configurationStore,
     IApiTokenStore tokenStore,
-    MoyaiProjectMapping? moyaiProjects = null) : IRepositoryManagementService
+    MoyaiProjectMapping? moyaiProjects = null,
+    IAtomicRepositoryManagementStore? atomicManagementStore = null,
+    RepositoryMutationLock? mutationLock = null) : IRepositoryManagementService
 {
     private readonly MoyaiProjectMapping _moyaiProjects = moyaiProjects ?? new MoyaiProjectMapping(allowlist, null);
 
     private static readonly TimeSpan ApprovalTimeout = TimeSpan.FromMinutes(5);
-    private readonly SemaphoreSlim _mutationLock = new(1, 1);
+    private readonly SemaphoreSlim _mutationLock = mutationLock?.Gate ?? new(1, 1);
 
     public bool TryGetSettings(string repositoryId, out RepositorySettings settings)
     {
@@ -142,6 +154,8 @@ public sealed class RepositoryManagementService(
                 RequireCleanWorkingTree = changes.HasRequireCleanWorkingTree ? changes.RequireCleanWorkingTree!.Value : current.RequireCleanWorkingTree,
                 CommitAuthorName = changes.HasCommitAuthorName ? changes.CommitAuthorName : current.CommitAuthorName,
                 CommitAuthorEmail = changes.HasCommitAuthorEmail ? changes.CommitAuthorEmail : current.CommitAuthorEmail,
+                PullRequestRoutes = changes.HasPullRequestRoutes ? changes.PullRequestRoutes! : current.PullRequestRoutes,
+                PrPublicationSourceBranches = changes.HasPrPublicationSourceBranches ? changes.PrPublicationSourceBranches! : current.PrPublicationSourceBranches,
             };
             if (!IsValidSettings(updated)) return RepositoryMutationResult.Failure(RepositoryMutationError.InvalidPolicy);
             var approval = await approvalPrompt.RequestApprovalAsync(new ApprovalPromptRequest(
@@ -163,7 +177,7 @@ public sealed class RepositoryManagementService(
         finally { _mutationLock.Release(); }
     }
 
-    private static bool Any(RepositorySettingsChanges c) => c.HasDirectPushBranches || c.HasProtectedBranches || c.HasPullBranches || c.HasTagPattern || c.HasTagTargetBranch || c.HasRequireCleanWorkingTree || c.HasCommitAuthorName || c.HasCommitAuthorEmail;
+    private static bool Any(RepositorySettingsChanges c) => c.HasDirectPushBranches || c.HasProtectedBranches || c.HasPullBranches || c.HasTagPattern || c.HasTagTargetBranch || c.HasRequireCleanWorkingTree || c.HasCommitAuthorName || c.HasCommitAuthorEmail || c.HasPullRequestRoutes || c.HasPrPublicationSourceBranches;
     private static IEnumerable<string> RequestedNames(RepositorySettingsChanges c)
     {
         if (c.HasDirectPushBranches) yield return "direct_push_branches";
@@ -174,6 +188,8 @@ public sealed class RepositoryManagementService(
         if (c.HasRequireCleanWorkingTree) yield return "require_clean_working_tree";
         if (c.HasCommitAuthorName) yield return "commit_author_name";
         if (c.HasCommitAuthorEmail) yield return "commit_author_email";
+        if (c.HasPullRequestRoutes) yield return "pull_request_routes";
+        if (c.HasPrPublicationSourceBranches) yield return "pr_publication_source_branches";
     }
     private static IEnumerable<string> ChangedNames(RepositoryOptions old, RepositoryOptions updated)
     {
@@ -185,12 +201,20 @@ public sealed class RepositoryManagementService(
         if (old.RequireCleanWorkingTree != updated.RequireCleanWorkingTree) yield return "require_clean_working_tree";
         if (old.CommitAuthorName != updated.CommitAuthorName) yield return "commit_author_name";
         if (old.CommitAuthorEmail != updated.CommitAuthorEmail) yield return "commit_author_email";
+        if (!old.PullRequestRoutes.SequenceEqual(updated.PullRequestRoutes)) yield return "pull_request_routes";
+        if (!old.PrPublicationSourceBranches.SequenceEqual(updated.PrPublicationSourceBranches)) yield return "pr_publication_source_branches";
     }
-    private static RepositorySettings ToSettings(RepositoryOptions r) => new(r.DirectPushBranches, r.ProtectedBranches, r.PullBranches, r.TagPattern, r.TagTargetBranch, r.RequireCleanWorkingTree, r.CommitAuthorName, r.CommitAuthorEmail);
+    private static RepositorySettings ToSettings(RepositoryOptions r) => new(r.DirectPushBranches, r.ProtectedBranches, r.PullBranches, r.TagPattern, r.TagTargetBranch, r.RequireCleanWorkingTree, r.CommitAuthorName, r.CommitAuthorEmail, r.PullRequestRoutes)
+    { PrPublicationSourceBranches = r.PrPublicationSourceBranches };
     private static bool IsValidSettings(RepositoryOptions r)
     {
         if (!IsValidName(r.TagTargetBranch) || string.IsNullOrWhiteSpace(r.TagPattern)
             || !r.DirectPushBranches.All(IsValidName) || !r.PullBranches.All(IsValidName) || !r.ProtectedBranches.All(IsValidName)
+            || r.PullRequestRoutes is null || r.PullRequestRoutes.Any(route => route is null
+                || !IsValidName(route.SourceBranch) || !IsValidName(route.DestinationBranch))
+            || r.PullRequestRoutes.Distinct().Count() != r.PullRequestRoutes.Count
+            || r.PrPublicationSourceBranches is null || r.PrPublicationSourceBranches.Any(branch => !Publishing.PrPublicationService.IsBranch(branch))
+            || r.PrPublicationSourceBranches.Distinct(StringComparer.Ordinal).Count() != r.PrPublicationSourceBranches.Count
             || !((r.CommitAuthorName is null && r.CommitAuthorEmail is null) || CommitAuthorIdentity.IsValid(r.CommitAuthorName, r.CommitAuthorEmail)))
             return false;
         try { _ = new Regex(r.TagPattern, RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1)); return true; }
@@ -303,7 +327,11 @@ public sealed class RepositoryManagementService(
         {
             if (!allowlist.TryGet(repositoryId, out _))
                 return RepositoryMutationResult.Failure(RepositoryMutationError.RepositoryNotRegistered);
-            try { await configurationStore.DeleteRepositoryAsync(repositoryId, cancellationToken); }
+            try
+            {
+                if (atomicManagementStore is not null) await atomicManagementStore.DeleteRegistrationAsync(repositoryId, cancellationToken);
+                else await configurationStore.DeleteRepositoryAsync(repositoryId, cancellationToken);
+            }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or KeyNotFoundException)
             { return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed); }
             allowlist.TryRemove(repositoryId);
@@ -326,6 +354,15 @@ public sealed class RepositoryManagementService(
             if (allowlist.TryGet(newRepositoryId, out _))
                 return RepositoryMutationResult.Failure(RepositoryMutationError.DuplicateRepositoryId);
 
+            if (atomicManagementStore is not null)
+            {
+                try { await atomicManagementStore.RenameRegistrationAsync(oldRepositoryId, newRepositoryId, cancellationToken); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                { return RepositoryMutationResult.Failure(RepositoryMutationError.PersistenceFailed); }
+                if (!allowlist.TryRename(oldRepositoryId, newRepositoryId))
+                    throw new InvalidOperationException("The committed repository rename could not be published.");
+                return RepositoryMutationResult.Success(new RepositoryMutationInfo(false, newRepositoryId));
+            }
             var tokenMove = tokenStore.Rename(oldRepositoryId, newRepositoryId);
             if (!tokenMove.IsSuccess)
                 return RepositoryMutationResult.Failure(tokenMove.Error == ApiTokenStoreError.TokenNotFound

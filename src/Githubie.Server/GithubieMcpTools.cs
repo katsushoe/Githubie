@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Githubie.Application.Configuration;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
@@ -18,7 +19,9 @@ public sealed class GithubieMcpTools(
     IRepositoryRegistrationService registrationService,
     IRepositoryManagementService managementService,
     RepositoryAllowlist repositoryAllowlist,
-    GithubieOptions? options = null)
+    GithubieOptions? options = null,
+    IGitHubBranchProtectionGateway? branchProtectionGateway = null,
+    Githubie.Application.Publishing.IPrPublicationService? publicationService = null)
 {
     [McpServerTool(Name = "list_projects", ReadOnly = true, UseStructuredContent = true)]
     [Description("Githubieに登録済みのRepository ID一覧を取得します。")]
@@ -118,12 +121,12 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_repository_settings_get", ReadOnly = true, UseStructuredContent = true)]
-    [Description("登録済みRepositoryの許可済み設定8項目を読み取ります。Git、GitHub、ファイルにはアクセスせず、秘密値や識別情報は返しません。作者nullは登録作者が未設定です。")]
-    public GithubieToolResult<RepositorySettings> GetRepositorySettings(string repository)
+    [Description("登録済みRepositoryの許可済み設定を読み取ります。PR公開専用のsource許可リストを含みます。Git、GitHub、ファイルにはアクセスせず、秘密値や識別情報は返しません。作者nullは登録作者が未設定です。")]
+    public GithubieToolResult<RepositorySettingsReadInfo> GetRepositorySettings(string repository)
     {
         if (managementService.TryGetSettings(repository, out var settings))
-            return GithubieToolResult<RepositorySettings>.Success("repository_settings_get", repository, settings);
-        return GithubieToolResult<RepositorySettings>.Failure("repository_settings_get", repository,
+            return GithubieToolResult<RepositorySettingsReadInfo>.Success("repository_settings_get", repository, new(settings));
+        return GithubieToolResult<RepositorySettingsReadInfo>.Failure("repository_settings_get", repository,
             new("repository_not_registered", "Repository is invalid or not registered."));
     }
 
@@ -149,6 +152,17 @@ public sealed class GithubieMcpTools(
 
     private static GithubieToolResult<RepositoryMutationInfo> SettingsError(string repository, string code, string message) =>
         GithubieToolResult<RepositoryMutationInfo>.Failure("repository_settings_update", repository, new(code, message));
+
+    [McpServerTool(Name = "github_repository_relocate", Destructive = true, UseStructuredContent = true)]
+    [Description("登録済みRepositoryのLocal Rootだけを対話承認後に変更します。新しい場所は実在するGit Repositoryでjunction等を含まず、remoteが登録済みGitHub Repositoryと一致する必要があります。Token・Policy・作者設定・Moyai対応付けは保持し、サービス再起動なしで反映します。")]
+    public async Task<GithubieToolResult<RepositoryRelocateInfo>> RelocateRepositoryAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("新しいLocal Rootの絶対パス（junction・symlinkを含まない実パス）")] string local_root,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await registrationService.RelocateAsync(repository, local_root, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_relocate", repository, result);
+    }
 
     [McpServerTool(Name = "github_repository_rename", Destructive = true, UseStructuredContent = true)]
     [Description("Repository設定と暗号化Tokenを旧IDから新IDへ一括移行します。")]
@@ -186,7 +200,7 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_repository_commit", Destructive = true, UseStructuredContent = true)]
-    [Description("Policyで許可されたbranchにLocal Commitを作成します。")]
+    [Description("現在branchに全変更のlocal commitを作成し、branchとcommit_shaを返します。branch許可/保護設定には依存せず、detached HEAD・branch/HEAD競合を拒否します。pushは行いません。")]
     public async Task<GithubieToolResult<GitRepositoryCommit>> CommitRepositoryAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("Commit message")] string message,
@@ -199,7 +213,7 @@ public sealed class GithubieMcpTools(
     }
 
     [McpServerTool(Name = "github_repository_commit_selected", Destructive = true, UseStructuredContent = true)]
-    [Description("指定HEAD上でunified diff patchの変更だけをlocal commitします。既存staged変更がある場合は拒否します。")]
+    [Description("現在branchの指定HEAD上でpatchだけをlocal commitし、branchとcommit_shaを返します。branch許可/保護設定には依存せず、staged変更・detached HEAD・branch/HEAD競合を拒否します。")]
     public async Task<GithubieToolResult<GitRepositoryCommit>> CommitSelectedRepositoryAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("Commit message")] string message,
@@ -211,6 +225,25 @@ public sealed class GithubieMcpTools(
         using var remoteScope = GitRemoteSelection.Begin(remote);
         var result = await gitGateway.CommitSelectedAsync(repository, message, expected_head, patch, cancellationToken);
         return GithubieToolResultMapper.Map("repository_commit_selected", repository, result);
+    }
+
+    [McpServerTool(Name = "github_repository_merge", Destructive = true, UseStructuredContent = true)]
+    [Description("現在checkout中のローカルbranchへ、明示した取り込み元（ローカルbranch・remote追跡branch・tag・40桁SHA）をmergeします。作業ツリーがclean、branch名とHEAD、取り込み元SHAが指定と一致する場合だけ実行し、pushは行いません。衝突時の既定は中止で、作業ツリーとHEADを変更せずに衝突ファイル一覧（error.candidates）を返します。resolutionsで全衝突fileの解消方法を明示した場合だけcommitします。protected_branchesへの取り込みは拒否します。")]
+    public async Task<GithubieToolResult<GitRepositoryMergeInfo>> MergeRepositoryAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("取り込み先として期待する現在branch名")] string branch,
+        [Description("取り込み先branchの期待HEAD（40桁SHA）")] string expected_head,
+        [Description("取り込み元の種類: branch（ローカルbranch）、remote_branch（例: origin/main）、tag、commit（40桁SHA）")] string source_kind,
+        [Description("取り込み元。source_kindに対応する名前または40桁SHA。暗黙補完しません")] string source,
+        [Description("取り込み元の期待commit SHA（40桁）")] string expected_source_sha,
+        [Description("fast-forwardの扱い: allow（可能ならfast-forward）、never（常にmerge commit）、only（fast-forwardのみ）")] string fast_forward,
+        [Description("merge commitのメッセージ。省略時は取り込み元とbranchから生成")] string? message = null,
+        [Description("衝突の明示的な解消。各要素はpath、choice（current/source/content）、choice=contentのときcontent（解消済み全文）。指定のない衝突が残る場合はcommitしません")] IReadOnlyList<GitMergeResolution>? resolutions = null,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await gitGateway.MergeAsync(repository, branch, expected_head, source_kind, source, expected_source_sha,
+            fast_forward, message, resolutions, cancellationToken);
+        return GithubieToolResultMapper.Map("repository_merge", repository, result);
     }
 
     [McpServerTool(Name = "github_repository_stash_push", Destructive = true, UseStructuredContent = true)]
@@ -348,6 +381,18 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("branch_switch", repository, result);
     }
 
+    [McpServerTool(Name = "github_local_branch_create", Destructive = true, UseStructuredContent = true)]
+    [Description("ローカルbranch、tag、または完全な40桁SHAを作成元にローカルbranchを作成します。作業Treeがdirtyまたはconflict中なら拒否し、remote通信やworktree切替は行いません。")]
+    public async Task<GithubieToolResult<GitLocalBranchCreateInfo>> CreateLocalBranchAsync(
+        [Description("Githubie内部のRepository ID")] string repository,
+        [Description("作成するローカルBranch名")] string branch,
+        [Description("作成元のローカルBranch名、Tag名、または完全な40桁コミットSHA。必須")] string source,
+        CancellationToken cancellationToken = default)
+    {
+        var result = await gitGateway.CreateLocalBranchAsync(repository, branch, source, cancellationToken);
+        return GithubieToolResultMapper.Map("local_branch_create", repository, result);
+    }
+
     [McpServerTool(Name = "github_push", Destructive = true, UseStructuredContent = true)]
     [Description("ローカルCommitをGitHubへPushします。mainなどProtected Branchへの直接Pushは拒否します。")]
     public async Task<GithubieToolResult<Unit>> PushAsync(
@@ -395,21 +440,70 @@ public sealed class GithubieMcpTools(
 
     [McpServerTool(Name = "github_provider_capabilities", ReadOnly = true, UseStructuredContent = true)]
     [Description("Repository Contractで利用できるGithubie操作を返します。")]
-    public async Task<GithubieToolResult<GitHubProviderCapabilities>> GetProviderCapabilitiesAsync(
+    public Task<GithubieToolResult<GitHubProviderCapabilities>> GetProviderCapabilitiesAsync(
         string repository, CancellationToken cancellationToken)
     {
-        var repositoryResult = await gitHubGateway.GetRepositoryAsync(repository, cancellationToken);
-        if (!repositoryResult.IsSuccess)
-            return GithubieToolResultMapper.Map(
-                "provider_capabilities", repository, GitHubResult<GitHubProviderCapabilities>.FailureFrom(repositoryResult));
-        return GithubieToolResult<GitHubProviderCapabilities>.Success(
+        if (!repositoryAllowlist.TryGet(repository, out _))
+            return Task.FromResult(GithubieToolResult<GitHubProviderCapabilities>.Failure(
+                "provider_capabilities", repository, new("repository_not_found", "Repository is not registered.")));
+
+        return Task.FromResult(GithubieToolResult<GitHubProviderCapabilities>.Success(
             "provider_capabilities", repository, new(true, true, true, true, true, true, true, true, true, true,
-                true, true, true, true, true, true, true, true)
+                true, true, true, true, true, true, true, true, true, true, true, true,
+                branchProtectionGateway is not null, branchProtectionGateway is not null)
             {
+                RepositoryMerge = true,
+                PullRequestPublishCreate = publicationService is not null,
+                PullRequestPublishStatus = publicationService is not null,
                 Authentication = new(
                     GithubieIntegrationMode.IntegrationMode(options),
-                    GithubieIntegrationMode.DirectConnection(options)),
-            });
+                    GithubieIntegrationMode.DirectConnection(options))
+                {
+                    OwnerAuthentication = options?.WindowsOwnerAuthentication == true
+                        ? new(1, UserHostAuthenticationMode.WindowsOwner, "user_host_schema1", "windows_owner",
+                            false, false, false, UserHostProtocol.CredentialHeader, UserHostProtocol.GenerationHeader,
+                            GithubieAssertionPolicy.OperationNames) : null,
+                },
+            }));
+    }
+
+    [McpServerTool(Name = "github_branch_protection_get", ReadOnly = true, UseStructuredContent = true)]
+    [Description("GitHub側のexact branch protectionを読み取ります。Githubie側のprotected_branchesやGitHub rulesetとは別です。")]
+    public async Task<GithubieToolResult<GitHubBranchProtectionSnapshot>> GetBranchProtectionAsync(
+        string repository, string branch, CancellationToken cancellationToken)
+    {
+        if (branchProtectionGateway is null)
+            return GithubieToolResult<GitHubBranchProtectionSnapshot>.Failure("branch_protection_get", repository,
+                new("branch_protection_unavailable", "Branch protection is unavailable."));
+        var result = await branchProtectionGateway.GetAsync(repository, branch, cancellationToken);
+        return GithubieToolResultMapper.Map("branch_protection_get", repository, result);
+    }
+
+    [McpServerTool(Name = "github_branch_protection_update", Destructive = true, UseStructuredContent = true)]
+    [Description("GitHub側のexact branch protectionを対話承認後に設定・更新します。既存設定を保全できない場合は拒否します。")]
+    public async Task<GithubieToolResult<GitHubBranchProtectionMutation>> UpdateBranchProtectionAsync(
+        string repository, string branch,
+        [Description("明示的な変更。nullの項目は保持します。")] GitHubBranchProtectionEdit edit,
+        [Description("既存ruleを確認できず、branchも未保護と確認できた場合に新規作成を許可するか。")]
+        bool create_if_missing, CancellationToken cancellationToken)
+    {
+        if (branchProtectionGateway is null)
+            return GithubieToolResult<GitHubBranchProtectionMutation>.Failure("branch_protection_update", repository,
+                new("branch_protection_unavailable", "Branch protection is unavailable."));
+        var result = await branchProtectionGateway.UpdateAsync(repository, branch, edit, create_if_missing, cancellationToken);
+        return GithubieToolResultMapper.Map("branch_protection_update", repository, result);
+    }
+
+    [McpServerTool(Name = "github_branch_protection_delete", Destructive = true, UseStructuredContent = true)]
+    [Description("GitHub側のexact branch protectionを対話承認後に解除します。rulesetは解除しません。")]
+    public async Task<GithubieToolResult<GitHubBranchProtectionMutation>> DeleteBranchProtectionAsync(
+        string repository, string branch, CancellationToken cancellationToken)
+    {
+        if (branchProtectionGateway is null)
+            return GithubieToolResult<GitHubBranchProtectionMutation>.Failure("branch_protection_delete", repository,
+                new("branch_protection_unavailable", "Branch protection is unavailable."));
+        var result = await branchProtectionGateway.DeleteAsync(repository, branch, cancellationToken);
+        return GithubieToolResultMapper.Map("branch_protection_delete", repository, result);
     }
 
     [McpServerTool(Name = "github_branch_get", ReadOnly = true, UseStructuredContent = true)]
@@ -501,16 +595,56 @@ public sealed class GithubieMcpTools(
         return GithubieToolResultMapper.Map("pr_diff", repository, result);
     }
 
+    [McpServerTool(Name = "github_pr_publish_create", Destructive = true, UseStructuredContent = true)]
+    [Description("対話承認後に許可済みlocal sourceの固定SHAだけを新規公開しPRを作成します。既存remote refは更新しません。結果不明時はstatusで確認し、同operation_idの再送はmutationを再実行しません。")]
+    public async Task<GithubieToolResult<Githubie.Application.Publishing.PrPublicationInfo>> PublishPullRequestAsync(
+        string repository, string source_branch, string destination_branch, string expected_source_sha,
+        string title, string operation_id, string? description = null, bool draft = false,
+        CancellationToken cancellationToken = default)
+    {
+        if (publicationService is null) return PublicationUnavailable(repository, "pull_request_publish_create");
+        var result = await publicationService.PublishAsync(repository,
+            new(source_branch, destination_branch, expected_source_sha, title, description, draft, operation_id), cancellationToken);
+        return PublicationResult(repository, "pull_request_publish_create", result);
+    }
+
+    [McpServerTool(Name = "github_pr_publish_status", ReadOnly = true, UseStructuredContent = true)]
+    [Description("operation_idの永続結果とremote/PRを読み取り照合します。branch公開・PR作成は行いません。")]
+    public async Task<GithubieToolResult<Githubie.Application.Publishing.PrPublicationInfo>> GetPublicationStatusAsync(
+        string repository, string operation_id, CancellationToken cancellationToken = default)
+    {
+        if (publicationService is null) return PublicationUnavailable(repository, "pull_request_publish_status");
+        return PublicationResult(repository, "pull_request_publish_status",
+            await publicationService.GetStatusAsync(repository, operation_id, cancellationToken));
+    }
+
+    private static GithubieToolResult<Githubie.Application.Publishing.PrPublicationInfo> PublicationUnavailable(string repository, string operation) =>
+        GithubieToolResult<Githubie.Application.Publishing.PrPublicationInfo>.Failure(operation, repository,
+            new("provider_capability_missing", "Publication service is unavailable."));
+
+    private static GithubieToolResult<Githubie.Application.Publishing.PrPublicationInfo> PublicationResult(
+        string repository, string operation, Githubie.Application.Publishing.PrPublicationResult result) =>
+        new(result.IsSuccess, operation, repository, result.Data,
+            result.IsSuccess ? null : new GithubieToolError(result.ErrorCode!, "Publication operation did not complete.")
+            {
+                Outcome = result.Outcome,
+                CorrelationId = Guid.TryParse(result.Data.OperationId, out var operationId) ? operationId.ToString("N") : Guid.NewGuid().ToString("N"),
+                CommonCode = result.Outcome == "unknown" ? GithubieCommonErrorCode.ResultUnknown : GithubieCommonErrorCode.ProviderError,
+                SuggestedAction = GithubieSuggestedAction.CheckStatus,
+            });
+
     [McpServerTool(Name = "github_pr_create", Destructive = true, UseStructuredContent = true)]
-    [Description("develop→mainのPull Requestを作成します。Source/Destinationは設定から固定されます。")]
+    [Description("Repository設定で許可された経路のPull Requestを作成します。経路省略時は従来のdevelop→mainです。失敗・結果不明時に別経路で再送しないでください。")]
     public async Task<GithubieToolResult<GitHubPullRequestInfo>> CreatePullRequestAsync(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("PRタイトル")] string title,
         [Description("PR説明")] string? description,
         [Description("Draft PRとして作成するか")] bool draft,
+        [Description("Source branch。省略時はRepositoryのDevelopBranch")][Optional] string? source_branch,
+        [Description("Destination branch。省略時はRepositoryのMainBranch")][Optional] string? destination_branch,
         CancellationToken cancellationToken)
     {
-        var result = await gitHubGateway.CreatePullRequestAsync(repository, new GitHubPullRequestCreate(title, description, draft), cancellationToken);
+        var result = await gitHubGateway.CreatePullRequestAsync(repository, new GitHubPullRequestCreate(title, description, draft, source_branch, destination_branch), cancellationToken);
         return GithubieToolResultMapper.Map("pr_create", repository, result);
     }
 
@@ -520,11 +654,15 @@ public sealed class GithubieMcpTools(
         [Description("Githubie内部のRepository ID")] string repository,
         [Description("Pull Request番号")] int pull_request_number,
         [Description("merge/squash/rebase。省略時はリポジトリ設定の既定値")] GitHubMergeMethod? merge_strategy,
-        [Description("Merge commit message")] string? message,
-        CancellationToken cancellationToken)
+        [Description("Merge commit message。nullは既定、空白のみは拒否します。")] string? message,
+        CancellationToken cancellationToken,
+        [Description("承認対象source commitの40桁SHA。owner/Moyai接続では必須です。")] string? expected_source_commit_sha = null)
     {
         var result = await gitHubGateway.MergePullRequestAsync(
-            repository, new GitHubPullRequestMerge(pull_request_number, merge_strategy, message), cancellationToken);
+            repository, new GitHubPullRequestMerge(pull_request_number, merge_strategy, message, expected_source_commit_sha)
+            {
+                RequireExpectedSourceCommit = options?.WindowsOwnerAuthentication == true || options?.ProviderAuthentication is not null,
+            }, cancellationToken);
         return GithubieToolResultMapper.Map("pr_merge", repository, result);
     }
 

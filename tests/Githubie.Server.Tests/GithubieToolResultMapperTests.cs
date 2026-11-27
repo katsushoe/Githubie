@@ -1,4 +1,4 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Githubie.Application.Git;
 using Githubie.Application.GitHub;
 using Githubie.Application.Repositories;
@@ -14,6 +14,29 @@ namespace Githubie.Server.Tests;
 /// </summary>
 public sealed class GithubieToolResultMapperTests
 {
+    [Fact]
+    public void LocalCommit_UnknownPublicationResult_RequiresInspectionWithoutRetry()
+    {
+        var result = GithubieToolResultMapper.Map("repository_commit", "fixture",
+            GitGatewayResult<GitRepositoryCommit>.Failure(GitGatewayError.CommitResultUnknown));
+        result.Ok.Should().BeFalse();
+        result.Error!.Outcome.Should().Be("unknown");
+        result.Error.Retryable.Should().BeFalse();
+        result.Error.SuggestedAction.Should().Be("check_status");
+    }
+
+    [Fact]
+    public void LocalCommit_Success_ExposesRecordedBranchAndShaInWireJson()
+    {
+        var result = GithubieToolResultMapper.Map("repository_commit_selected", "fixture",
+            GitGatewayResult<GitRepositoryCommit>.Success(new("1111111111111111111111111111111111111111", "main")));
+        var json = System.Text.Json.JsonSerializer.Serialize(result,
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+        using var parsed = System.Text.Json.JsonDocument.Parse(json);
+        parsed.RootElement.GetProperty("data").GetProperty("branch").GetString().Should().Be("main");
+        parsed.RootElement.GetProperty("data").GetProperty("commit_sha").GetString().Should().Be("1111111111111111111111111111111111111111");
+    }
+
     private static readonly IReadOnlyDictionary<GitGatewayError, string> ExpectedGitGatewayCodes = new Dictionary<GitGatewayError, string>
     {
         [GitGatewayError.RepositoryNotFound] = "repository_not_found",
@@ -33,10 +56,16 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.RemoteUnavailable] = "remote_unavailable",
         [GitGatewayError.AuthenticationFailed] = "authentication_failed",
         [GitGatewayError.WorkingTreeDirty] = "working_tree_dirty",
+        [GitGatewayError.UnresolvedConflicts] = "unresolved_conflicts",
         [GitGatewayError.NothingToCommit] = "nothing_to_commit",
         [GitGatewayError.InvalidSelectedCommitPatch] = "selected_commit_patch_invalid",
         [GitGatewayError.StagedChangesPresent] = "staged_changes_present",
         [GitGatewayError.ExpectedHeadMismatch] = "expected_head_mismatch",
+        [GitGatewayError.DetachedHead] = "detached_head",
+        [GitGatewayError.CurrentBranchChanged] = "current_branch_changed",
+        [GitGatewayError.RepositoryBusy] = "repository_busy",
+        [GitGatewayError.CommitResultUnknown] = "commit_result_unknown",
+        [GitGatewayError.CommitInProgress] = "commit_in_progress",
         [GitGatewayError.InvalidStashPath] = "stash_path_invalid",
         [GitGatewayError.InvalidStashReference] = "stash_reference_invalid",
         [GitGatewayError.InvalidStashMessage] = "stash_message_invalid",
@@ -44,6 +73,8 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.AuthorIdentityMissing] = "author_identity_missing",
         [GitGatewayError.BranchNotAllowed] = "branch_not_allowed",
         [GitGatewayError.BranchNotFound] = "branch_not_found",
+        [GitGatewayError.BranchSourceNotFound] = "branch_source_not_found",
+        [GitGatewayError.LocalBranchAlreadyExists] = "local_branch_already_exists",
         [GitGatewayError.ProtectedBranch] = "protected_branch",
         [GitGatewayError.NothingToPush] = "nothing_to_push",
         [GitGatewayError.NonFastForward] = "non_fast_forward",
@@ -58,7 +89,45 @@ public sealed class GithubieToolResultMapperTests
         [GitGatewayError.ApprovalTimedOut] = "approval_timed_out",
         [GitGatewayError.ApprovalUnavailable] = "approval_unavailable",
         [GitGatewayError.PermissionDenied] = "permission_denied",
+        [GitGatewayError.InvalidMergeRequest] = "merge_request_invalid",
+        [GitGatewayError.MergeSourceNotFound] = "merge_source_not_found",
+        [GitGatewayError.ExpectedSourceMismatch] = "expected_source_mismatch",
+        [GitGatewayError.NothingToMerge] = "nothing_to_merge",
+        [GitGatewayError.FastForwardNotPossible] = "fast_forward_not_possible",
+        [GitGatewayError.MergeConflict] = "merge_conflict",
+        [GitGatewayError.MergeResolutionInvalid] = "merge_resolution_invalid",
     };
+
+    [Fact]
+    public void Merge_Conflict_ExposesConflictedPathsAsCandidates_AndIsNotExecuted()
+    {
+        var result = GithubieToolResultMapper.Map("repository_merge", "fixture",
+            GitGatewayResult<GitRepositoryMergeInfo>.Failure(GitGatewayError.MergeConflict) with { Candidates = ["README.ja.md", "README.md"] });
+        result.Ok.Should().BeFalse();
+        result.Error!.Code.Should().Be("merge_conflict");
+        result.Error.Candidates.Should().Equal("README.ja.md", "README.md");
+        result.Error.Outcome.Should().Be("not_executed");
+        result.Error.CommonCode.Should().Be("CONFLICT");
+        var json = System.Text.Json.JsonSerializer.Serialize(result,
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+        json.Should().Contain("\"candidates\":[\"README.ja.md\",\"README.md\"]");
+    }
+
+    [Fact]
+    public void Merge_Success_ExposesBranchCommitAndParentsInWireJson()
+    {
+        var result = GithubieToolResultMapper.Map("repository_merge", "fixture",
+            GitGatewayResult<GitRepositoryMergeInfo>.Success(new("develop", new string('c', 40), [new string('a', 40), new string('b', 40)],
+                false, new string('a', 40), new string('b', 40), [])));
+        var json = System.Text.Json.JsonSerializer.Serialize(result,
+            new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.SnakeCaseLower });
+        using var parsed = System.Text.Json.JsonDocument.Parse(json);
+        var data = parsed.RootElement.GetProperty("data");
+        data.GetProperty("branch").GetString().Should().Be("develop");
+        data.GetProperty("commit_sha").GetString().Should().Be(new string('c', 40));
+        data.GetProperty("parents").GetArrayLength().Should().Be(2);
+        data.GetProperty("fast_forward").GetBoolean().Should().BeFalse();
+    }
 
     private static readonly IReadOnlyDictionary<GitHubError, string> ExpectedGitHubCodes = new Dictionary<GitHubError, string>
     {
@@ -77,6 +146,14 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.BranchAlreadyExists] = "branch_already_exists",
         [GitHubError.BranchNotAllowed] = "branch_not_allowed",
         [GitHubError.ProtectedBranch] = "protected_branch",
+        [GitHubError.BranchProtectionResultUnknown] = "branch_protection_result_unknown",
+        [GitHubError.BranchProtectionNotFoundOrInaccessible] = "branch_protection_not_found_or_inaccessible",
+        [GitHubError.BranchProtectionInvalidInput] = "branch_protection_invalid_input",
+        [GitHubError.BranchProtectionUnsupportedPolicy] = "branch_protection_unsupported_policy",
+        [GitHubError.BranchProtectionChanged] = "branch_protection_changed",
+        [GitHubError.BranchProtectionApprovalDenied] = "branch_protection_approval_denied",
+        [GitHubError.BranchProtectionApprovalTimedOut] = "branch_protection_approval_timed_out",
+        [GitHubError.BranchProtectionApprovalUnavailable] = "branch_protection_approval_unavailable",
         [GitHubError.AuthenticationFailed] = "authentication_failed",
         [GitHubError.PermissionDenied] = "permission_denied",
         [GitHubError.TokenScopeMissing] = "token_scope_missing",
@@ -95,6 +172,14 @@ public sealed class GithubieToolResultMapperTests
         [GitHubError.PullRequestStateNotAllowed] = "pull_request_state_not_allowed",
         [GitHubError.PullRequestCommentInvalid] = "pull_request_comment_invalid",
         [GitHubError.PullRequestReviewInvalid] = "pull_request_review_invalid",
+        [GitHubError.PullRequestNumberInvalid] = "pull_request_number_invalid",
+        [GitHubError.PullRequestMergeMethodInvalid] = "merge_strategy_invalid",
+        [GitHubError.PullRequestMergeMessageInvalid] = "merge_message_invalid",
+        [GitHubError.ExpectedSourceCommitRequired] = "expected_source_commit_required",
+        [GitHubError.ExpectedSourceCommitInvalid] = "expected_source_commit_invalid",
+        [GitHubError.ExpectedSourceCommitMismatch] = "expected_source_commit_mismatch",
+        [GitHubError.PullRequestDraft] = "pull_request_draft",
+        [GitHubError.PullRequestMergeResultUnknown] = "pr_merge_result_unknown",
         [GitHubError.IssueNotFound] = "issue_not_found",
         [GitHubError.TagNotFound] = "tag_not_found",
         [GitHubError.TagInvalid] = "tag_invalid",
