@@ -76,6 +76,58 @@ public sealed class UserHostRuntimeTests
         }
     }
 
+    [Fact]
+    public async Task TrayServerCycles_RevokeConnectionsRotateCredentialsAndKeepProfileLock()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "Githubie-tray-cycle-" + Guid.NewGuid().ToString("N"));
+        var layout = GithubiePathLayout.FromUserProfileRoot(AppContext.BaseDirectory, root);
+        var identity = await new UserProfileStore(layout).InitializeAsync(TestContext.Current.CancellationToken);
+        using var reservation = new TcpListener(IPAddress.Loopback, 0);
+        reservation.Start();
+        var port = ((IPEndPoint)reservation.LocalEndpoint).Port;
+        reservation.Stop();
+        await File.WriteAllTextAsync(Path.Combine(layout.ConfigDirectory, "githubie.json"), JsonSerializer.Serialize(new
+        { mcp_port = port, mcp_path = "/mcp", repositories = new { } }), TestContext.Current.CancellationToken);
+        using var lifetime = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        lifetime.CancelAfter(TimeSpan.FromSeconds(40));
+        var connections = new UserHostConnectionStore(layout.DataDirectory, Environment.ProcessPath);
+        var server = new UserHostServerController((token, ready) => HostRuntime.RunAsync(["--user-host"], token,
+            layout, ready, profileLockHeld: true), lifetime.Token);
+        string? previousGeneration = null;
+        string? previousCredential = null;
+        try
+        {
+            using var ownedLock = new FileStream(Path.Combine(layout.DataDirectory, "host.lock"),
+                FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            for (var cycle = 0; cycle < 2; cycle++)
+            {
+                var running = server.StartAsync();
+                while (server.State == UserHostServerState.Starting)
+                    await Task.Delay(20, lifetime.Token);
+                server.State.Should().Be(UserHostServerState.Running);
+                var connection = connections.Read(identity);
+                connection.Generation.Should().NotBe(previousGeneration);
+                connection.Credential.Should().NotBe(previousCredential);
+                previousGeneration = connection.Generation;
+                previousCredential = connection.Credential;
+                using var client = new HttpClient(new HttpClientHandler { UseProxy = false });
+                using var response = await Call(client, connection, "list_projects", authenticated: true);
+                response.StatusCode.Should().Be(HttpStatusCode.OK);
+                await server.StopAsync();
+                (await running).Should().Be(0);
+                File.Exists(Path.Combine(layout.DataDirectory, "connection.json")).Should().BeFalse();
+                var duplicate = () => HostRuntime.RunAsync(["--user-host"], lifetime.Token, layout);
+                await duplicate.Should().ThrowAsync<IOException>();
+            }
+        }
+        finally
+        {
+            lifetime.Cancel();
+            await server.StopAsync();
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static Task<HttpResponseMessage> Call(HttpClient client, UserHostConnection connection, string tool, bool authenticated)
     {
         var request = new HttpRequestMessage(HttpMethod.Post, connection.Endpoint)

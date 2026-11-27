@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
 using System.Resources;
+using Githubie.Application.Configuration;
 using Githubie.Infrastructure.Configuration;
 using Microsoft.Win32;
 
@@ -35,37 +36,79 @@ internal static class UserHostApplication
             var executable = Path.Combine(AppContext.BaseDirectory, "Githubie.Server.exe");
             var startup = new UserAutostart(executable);
             var restart = 0;
-            using var context = new UserHostTrayContext(startup, cancellation.Cancel,
-                () => { Interlocked.Exchange(ref restart, 1); cancellation.Cancel(); });
+            var result = 0;
+            FileStream? profileLock = null;
+            var serverArguments = args;
+            var server = new UserHostServerController((token, ready) =>
+            {
+                var currentArguments = serverArguments;
+                // Sign-in preferences apply to the initial launch, not a manual Server > Start.
+                serverArguments = args.Where(argument => !string.Equals(argument, "--autostart", StringComparison.OrdinalIgnoreCase)).ToArray();
+                return HostRuntime.RunAsync(currentArguments, token,
+                    onReady: () => ui.Post(_ => ready(), null), profileLockHeld: true);
+            }, cancellation.Token);
+            using var context = new UserHostTrayContext(startup, () => { result = 0; cancellation.Cancel(); },
+                () => { result = 0; Interlocked.Exchange(ref restart, 1); cancellation.Cancel(); },
+                () => profileLock is null ? Task.CompletedTask : server.StartAsync(), server.StopAsync);
             var updater = new StartupUpdater(executable, args);
             var previousUpdate = Environment.GetEnvironmentVariable(StartupUpdater.SkipEnvironmentVariable);
             Environment.SetEnvironmentVariable(StartupUpdater.SkipEnvironmentVariable, null);
             context.ConfigureUpdates(updater, previousUpdate, cancellation.Token);
             SessionEndingEventHandler ending = (_, _) => { Interlocked.Exchange(ref restart, 0); cancellation.Cancel(); };
             SystemEvents.SessionEnding += ending;
-            var result = 1;
+            var exiting = false;
+            void Exit()
+            {
+                if (exiting) return;
+                exiting = true;
+                cancellation.Cancel();
+                context.HideTray();
+                context.ExitThread();
+            }
+            server.StateChanged += state =>
+            {
+                context.SetServerState(state);
+                if (state == UserHostServerState.Running) context.HostReady();
+            };
+            server.Completed += (code, stopped, failure) =>
+            {
+                result = code;
+                if (failure is not null) ShowError("HostFailed", failure);
+                else if (code != 0) ShowError("HostFailed", new InvalidOperationException("Host startup failed."));
+                if (cancellation.IsCancellationRequested || (!stopped && code == 0)) Exit();
+            };
+            using var closeRegistration = cancellation.Token.Register(() => ui.Post(_ =>
+            {
+                if (server.State == UserHostServerState.Stopped) Exit();
+            }, null));
             EventHandler? start = null;
             start = async (_, _) =>
             {
                 System.Windows.Forms.Application.Idle -= start;
                 try
                 {
-                    result = await HostRuntime.RunAsync(args, cancellation.Token,
-                        onReady: () => ui.Post(_ => context.HostReady(), null));
-                    if (result != 0) ShowError("HostFailed", new InvalidOperationException("Host startup failed."));
+                    var layout = GithubiePathLayout.ForCurrentUser(AppContext.BaseDirectory);
+                    await new UserProfileStore(layout).InitializeAsync(cancellation.Token);
+                    profileLock = new FileStream(Path.Combine(layout.DataDirectory, "host.lock"),
+                        FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                    await server.StartAsync();
                 }
-                catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { result = 0; }
-                catch (Exception exception) { ShowError("HostFailed", exception); }
-                finally
+                catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { Exit(); }
+                catch (Exception exception)
                 {
-                    cancellation.Cancel();
-                    context.HideTray();
-                    SystemEvents.SessionEnding -= ending;
-                    context.ExitThread();
+                    result = 1;
+                    ShowError("HostFailed", exception);
+                    Exit();
                 }
             };
             System.Windows.Forms.Application.Idle += start;
-            System.Windows.Forms.Application.Run(context);
+            try { System.Windows.Forms.Application.Run(context); }
+            finally
+            {
+                System.Windows.Forms.Application.Idle -= start;
+                SystemEvents.SessionEnding -= ending;
+                profileLock?.Dispose();
+            }
             if (Volatile.Read(ref restart) != 0 && result == 0)
             {
                 var launch = new ProcessStartInfo(executable) { UseShellExecute = false, CreateNoWindow = true };

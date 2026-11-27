@@ -33,6 +33,35 @@ public sealed class ServiceReadinessStoreTests
     }
 
     [Fact]
+    public async Task WriteReadyAsync_WhenReaderHoldsFile_RetriesUntilReaderCloses()
+    {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var root = CreateRoot();
+        try
+        {
+            var statePath = Path.Combine(root, "service-state.json");
+            var store = new ServiceReadinessStore(statePath);
+            await store.WriteInitializingAsync(cancellationToken);
+
+            Task write;
+            using (File.Open(statePath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete))
+            {
+                write = store.WriteReadyAsync(cancellationToken);
+                await Task.Delay(100, cancellationToken);
+            }
+            await write;
+
+            var state = await store.WaitForReadyAsync(TimeSpan.FromSeconds(1), TimeSpan.FromMilliseconds(20), cancellationToken);
+            state.IsReady.Should().BeTrue();
+            Directory.GetFiles(root).Should().ContainSingle().Which.Should().Be(statePath);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    [Fact]
     public async Task WaitForReadyAsync_FailedState_ReturnsFailureReason()
     {
         var root = CreateRoot();

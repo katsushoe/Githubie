@@ -59,7 +59,7 @@ partial class UserHostAboutForm
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
-        ShowIcon = false;
+        Icon = Githubie.Desktop.ApplicationIcon.Default;
         StartPosition = FormStartPosition.CenterScreen;
         resources.ApplyResources(this, "$this");
         ResumeLayout(false);

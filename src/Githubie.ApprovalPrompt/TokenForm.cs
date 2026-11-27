@@ -9,6 +9,7 @@ internal sealed partial class TokenForm : Form
     {
         ArgumentNullException.ThrowIfNull(request);
         InitializeComponent();
+        Icon = Githubie.Desktop.ApplicationIcon.Default;
         var strings = new System.Resources.ResourceManager("Githubie.ApprovalPrompt.TokenStrings", typeof(TokenForm).Assembly);
         instructionLabel.Text = strings.GetString("Instruction");
         projectNameCaptionLabel.Text = strings.GetString("Project");

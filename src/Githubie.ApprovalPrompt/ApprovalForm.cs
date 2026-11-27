@@ -18,6 +18,7 @@ internal sealed partial class ApprovalForm : Form
     public ApprovalForm(ApprovalPromptRequest request)
     {
         InitializeComponent();
+        Icon = Githubie.Desktop.ApplicationIcon.Default;
         ApplyRequestText(request);
         ActiveControl = denyButton;
         countdownTimer.Start();

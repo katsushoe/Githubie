@@ -56,5 +56,6 @@ partial class UserHostSettingsForm
         MaximizeBox = false;
         MinimizeBox = false;
         Text = text("SettingsTitle");
+        Icon = Githubie.Desktop.ApplicationIcon.Default;
     }
 }

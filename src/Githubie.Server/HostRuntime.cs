@@ -22,7 +22,7 @@ namespace Githubie.Server;
 internal static class HostRuntime
 {
     public static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken,
-        GithubiePathLayout? isolatedUserLayout = null, Action? onReady = null)
+        GithubiePathLayout? isolatedUserLayout = null, Action? onReady = null, bool profileLockHeld = false)
     {
         var binDirectory = AppContext.BaseDirectory;
         // 既定は単体動作モード。`--moyai`を指定した場合だけMoyai連携モード（Provider Assertion検証）で起動する。
@@ -55,7 +55,8 @@ internal static class HostRuntime
             identity = await new UserProfileStore(layout).InitializeAsync(cancellationToken);
             if (args.Contains("--autostart", StringComparer.OrdinalIgnoreCase)
                 && !new UserAutostart(Path.Combine(layout.BinDirectory, "Githubie.Server.exe"), configPath).Initialize()) return 0;
-            profileLock = new FileStream(Path.Combine(layout.DataDirectory, "host.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            if (!profileLockHeld)
+                profileLock = new FileStream(Path.Combine(layout.DataDirectory, "host.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         }
         using var ownedProfileLock = profileLock;
         var readinessStore = new ServiceReadinessStore(layout.ServiceStatePath);

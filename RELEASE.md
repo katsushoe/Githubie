@@ -2,6 +2,14 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
+## 2.2.4.0 (unreleased)
+
+- Adds the white H icon with a bold black outline and Git-style nodes to the tray, application executables, dialogs and installed-app listing.
+- Adds Server > Status / Start / Stop. The LED is green only after HTTP readiness and dark gray while off. Stopping the server keeps the tray available for starting it again; Exit Githubie ends the application.
+- Renames the full restart command to **Restart tray and MCP server**.
+- Retries a short-lived Windows access denial when publishing server readiness while a reader has the state file open.
+- Validation: all 1,095 automated tests passed, including the Windows readiness file replacement regression test.
+
 ## 2.2.3.0
 
 - This release ships an unsigned MSI. Install it manually to upgrade, since startup updates require a valid signature.

@@ -12,10 +12,19 @@ partial class UserHostTrayContext
     private ToolStripMenuItem restartMenu = null!;
     private ToolStripMenuItem stopMenu = null!;
     private NotifyIcon trayIcon = null!;
+    private ToolStripMenuItem serverMenu = null!;
+    private ToolStripMenuItem serverStatusMenu = null!;
+    private ToolStripMenuItem serverStartMenu = null!;
+    private ToolStripMenuItem serverStopMenu = null!;
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing) components?.Dispose();
+        if (disposing)
+        {
+            components?.Dispose();
+            _serverOn.Dispose();
+            _serverOff.Dispose();
+        }
         base.Dispose(disposing);
     }
 
@@ -30,6 +39,10 @@ partial class UserHostTrayContext
         restartMenu = new ToolStripMenuItem();
         stopMenu = new ToolStripMenuItem();
         trayIcon = new NotifyIcon(components);
+        serverMenu = new ToolStripMenuItem();
+        serverStatusMenu = new ToolStripMenuItem();
+        serverStartMenu = new ToolStripMenuItem();
+        serverStopMenu = new ToolStripMenuItem();
         trayMenu.SuspendLayout();
         resources.ApplyResources(autostartMenu, "autostartMenu");
         autostartMenu.Name = "autostartMenu";
@@ -47,11 +60,18 @@ partial class UserHostTrayContext
         resources.ApplyResources(stopMenu, "stopMenu");
         stopMenu.Name = "stopMenu";
         stopMenu.Click += StopClicked;
-        trayMenu.Items.AddRange([settingsMenu, autostartMenu, aboutMenu, restartMenu, stopMenu]);
+        resources.ApplyResources(serverMenu, "serverMenu");
+        resources.ApplyResources(serverStatusMenu, "serverStatusMenu");
+        resources.ApplyResources(serverStartMenu, "serverStartMenu");
+        resources.ApplyResources(serverStopMenu, "serverStopMenu");
+        serverStartMenu.Click += ServerStartClicked;
+        serverStopMenu.Click += ServerStopClicked;
+        serverMenu.DropDownItems.AddRange([serverStatusMenu, serverStartMenu, serverStopMenu]);
+        trayMenu.Items.AddRange([serverMenu, new ToolStripSeparator(), settingsMenu, autostartMenu, aboutMenu, restartMenu, stopMenu]);
         trayMenu.Name = "trayMenu";
         trayIcon.ContextMenuStrip = trayMenu;
         trayIcon.DoubleClick += SettingsClicked;
-        trayIcon.Icon = System.Drawing.SystemIcons.Application;
+        trayIcon.Icon = Githubie.Desktop.ApplicationIcon.Tray;
         resources.ApplyResources(trayIcon, "trayIcon");
         trayIcon.Visible = false;
         trayMenu.ResumeLayout(false);

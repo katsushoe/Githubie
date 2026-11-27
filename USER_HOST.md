@@ -52,7 +52,13 @@ githubie host stop
 githubie logs
 ```
 
-Startup toggles affect the next sign-in and persist independently of the current host's lifetime. Stopping/restarting does not change the preference. A stale sign-in entry is reconciled with the saved preference before starting business services. The tray offers the same startup toggle, restart and stop. Logoff cancels the host and owned dialogs, with a bounded shutdown.
+Startup toggles affect the next sign-in and persist independently of the current host's lifetime. Stopping/restarting does not change the preference. A stale sign-in entry is reconciled with the saved preference before starting business services. The tray offers the same startup toggle and restart. Logoff cancels the host and owned dialogs, with a bounded shutdown.
+
+### Tray Server menu
+
+Right-click the white H icon in the Windows notification area and open **Server**. **Status** shows a green LED when the HTTP server is ready and a dark-gray LED while off. **Start** is disabled while starting or running. **Stop** is disabled while stopped; both commands are disabled during shutdown.
+
+**Server > Stop** stops HTTP and revokes its connection information while keeping the tray available. Choose **Server > Start** to start it again. While stopped, HTTP clients and CLI host control are unavailable; use this tray's Start or Exit command rather than launching another host process. **Exit Githubie** closes the whole application. The existing CLI stop/restart commands continue to end the process when the server is running. See [ADR 0051](docs/adr/0051-tray-server-lifecycle.md).
 
 ## Codex and Claude Code
 

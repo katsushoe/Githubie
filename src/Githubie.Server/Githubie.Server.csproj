@@ -18,6 +18,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Githubie.Server.Tests" />
     <EmbeddedResource Include="ApplyStartupUpdate.ps1" />
+    <EmbeddedResource Include="../../assets/githubie.ico" LogicalName="Githubie.Icon.ico" />
+    <Compile Include="../Shared/ApplicationIcon.cs" Link="ApplicationIcon.cs" />
     <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
   </ItemGroup>
 </Project>

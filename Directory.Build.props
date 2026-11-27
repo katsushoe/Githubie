@@ -5,10 +5,13 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <LangVersion>13</LangVersion>
-    <Version>2.2.3.0</Version>
-    <AssemblyVersion>2.2.3.0</AssemblyVersion>
-    <FileVersion>2.2.3.0</FileVersion>
-    <InformationalVersion>2.2.3.0</InformationalVersion>
+    <Version>2.2.4.0</Version>
+    <AssemblyVersion>2.2.4.0</AssemblyVersion>
+    <FileVersion>2.2.4.0</FileVersion>
+    <InformationalVersion>2.2.4.0</InformationalVersion>
     <Company>Akatsukisoft</Company>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'Githubie.Server' Or '$(MSBuildProjectName)' == 'Githubie.ApprovalPrompt' Or '$(MSBuildProjectName)' == 'Githubie.Cli' Or '$(MSBuildProjectName)' == 'Githubie.McpClient' Or '$(MSBuildProjectName)' == 'Githubie.AskPass'">
+    <ApplicationIcon>$(MSBuildThisFileDirectory)assets\githubie.ico</ApplicationIcon>
   </PropertyGroup>
 </Project>

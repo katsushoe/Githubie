@@ -7,6 +7,10 @@ internal sealed partial class UserHostTrayContext : ApplicationContext
     private readonly UserAutostart _startup;
     private readonly Action _stop;
     private readonly Action _restart;
+    private readonly Func<Task> _startServer;
+    private readonly Func<Task> _stopServer;
+    private readonly Bitmap _serverOn = CreateStatusLed(Color.LimeGreen);
+    private readonly Bitmap _serverOff = CreateStatusLed(Color.FromArgb(64, 64, 64));
     private StartupUpdater? _updater;
     private UserHostSettingsForm? _settings;
     private UserHostAboutForm? _about;
@@ -15,13 +19,18 @@ internal sealed partial class UserHostTrayContext : ApplicationContext
     private string _updateStatus = "UpdateIdle";
     private bool _hostReady;
     private bool _checking;
+    private bool _startupUpdateChecked;
 
-    public UserHostTrayContext(UserAutostart startup, Action stop, Action restart, bool showTray = true)
+    public UserHostTrayContext(UserAutostart startup, Action stop, Action restart,
+        Func<Task> startServer, Func<Task> stopServer, bool showTray = true)
     {
         _startup = startup;
         _stop = stop;
         _restart = restart;
+        _startServer = startServer;
+        _stopServer = stopServer;
         InitializeComponent();
+        SetServerState(UserHostServerState.Stopped);
         autostartMenu.Checked = _startup.IsEnabled();
         trayIcon.Visible = showTray;
     }
@@ -44,6 +53,8 @@ internal sealed partial class UserHostTrayContext : ApplicationContext
     {
         if (_lifetime.IsCancellationRequested) return;
         _hostReady = true;
+        if (_startupUpdateChecked) return;
+        _startupUpdateChecked = true;
         if (_previousUpdate is "UpdateInstalled" or "UpdateCancelled" or "UpdateFailed" or "UpdateRebootRequired")
         {
             SetStatus(_previousUpdate);
@@ -85,6 +96,30 @@ internal sealed partial class UserHostTrayContext : ApplicationContext
         _updateStatus = status;
         _settings?.ShowUpdateStatus(status, _hostReady && !_checking);
     }
+
+    internal void SetServerState(UserHostServerState state)
+    {
+        _hostReady = state == UserHostServerState.Running;
+        serverStatusMenu.Image = _hostReady ? _serverOn : _serverOff;
+        serverStatusMenu.AccessibleDescription = _hostReady ? "ON" : "OFF";
+        serverStatusMenu.ToolTipText = serverStatusMenu.AccessibleDescription;
+        serverStartMenu.Enabled = state == UserHostServerState.Stopped && !_lifetime.IsCancellationRequested;
+        serverStopMenu.Enabled = state is UserHostServerState.Starting or UserHostServerState.Running;
+        SetStatus(_updateStatus);
+    }
+
+    private static Bitmap CreateStatusLed(Color color)
+    {
+        var image = new Bitmap(16, 16);
+        using var graphics = Graphics.FromImage(image);
+        graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using var brush = new SolidBrush(color);
+        graphics.FillEllipse(brush, 2, 2, 12, 12);
+        return image;
+    }
+
+    private async void ServerStartClicked(object? sender, EventArgs args) => await _startServer();
+    private async void ServerStopClicked(object? sender, EventArgs args) => await _stopServer();
 
     private void SettingsClicked(object? sender, EventArgs args)
     {

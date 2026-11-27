@@ -10,6 +10,8 @@ public sealed class ServiceReadinessStore(string statePath)
     private const string InitializingStatus = "initializing";
     private const string ReadyStatus = "ready";
     private const string FailedStatus = "failed";
+    private const int MaximumReplaceRetries = 20;
+    private static readonly TimeSpan ReplaceRetryDelay = TimeSpan.FromMilliseconds(25);
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
@@ -88,11 +90,30 @@ public sealed class ServiceReadinessStore(string statePath)
                 temporaryPath,
                 JsonSerializer.Serialize(state, SerializerOptions),
                 cancellationToken);
-            File.Move(temporaryPath, _statePath, overwrite: true);
+            await ReplaceAsync(temporaryPath, cancellationToken);
         }
         finally
         {
             if (File.Exists(temporaryPath)) File.Delete(temporaryPath);
+        }
+    }
+
+    private async Task ReplaceAsync(string temporaryPath, CancellationToken cancellationToken)
+    {
+        for (var retry = 0; ; retry++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                File.Move(temporaryPath, _statePath, overwrite: true);
+                return;
+            }
+            catch (UnauthorizedAccessException exception) when (OperatingSystem.IsWindows()
+                && exception.HResult == unchecked((int)0x80070005) && retry < MaximumReplaceRetries)
+            {
+                // Windows can reject replacement until a concurrent reader closes its handle.
+                await Task.Delay(ReplaceRetryDelay, cancellationToken);
+            }
         }
     }
 
