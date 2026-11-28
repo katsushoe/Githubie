@@ -2,7 +2,11 @@
 
 [English](RELEASE.md) | [日本語](RELEASE.ja.md)
 
-## 2.2.4.0 (unreleased)
+## 2.2.4.1 (unreleased)
+
+- Shows the running Githubie version at the top of the tray menu.
+
+## 2.2.4.0
 
 - Adds the white H icon with a bold black outline and Git-style nodes to the tray, application executables, dialogs and installed-app listing.
 - Adds Server > Status / Start / Stop. The LED is green only after HTTP readiness and dark gray while off. Stopping the server keeps the tray available for starting it again; Exit Githubie ends the application.

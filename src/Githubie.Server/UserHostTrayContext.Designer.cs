@@ -67,7 +67,9 @@ partial class UserHostTrayContext
         serverStartMenu.Click += ServerStartClicked;
         serverStopMenu.Click += ServerStopClicked;
         serverMenu.DropDownItems.AddRange([serverStatusMenu, serverStartMenu, serverStopMenu]);
-        trayMenu.Items.AddRange([serverMenu, new ToolStripSeparator(), settingsMenu, autostartMenu, aboutMenu, restartMenu, stopMenu]);
+        var versionLabel = new ToolStripLabel($"Githubie {StartupUpdater.CurrentVersion}");
+        trayMenu.Items.AddRange([versionLabel, new ToolStripSeparator(), serverMenu, new ToolStripSeparator(),
+            settingsMenu, autostartMenu, aboutMenu, restartMenu, stopMenu]);
         trayMenu.Name = "trayMenu";
         trayIcon.ContextMenuStrip = trayMenu;
         trayIcon.DoubleClick += SettingsClicked;

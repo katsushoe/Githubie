@@ -25,7 +25,7 @@ function Wait-UserHostReady([scriptblock]$Probe, [int]$TimeoutMilliseconds = 600
     }
 }
 if ($InstallRoot) { $InstallRoot = Resolve-InstallRoot $InstallRoot }
-$expectedVersion = '2.2.4.0'
+$expectedVersion = '2.2.4.1'
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = [Security.Principal.WindowsPrincipal]::new($identity)
 $targetSid = $identity.User.Value
@@ -36,8 +36,8 @@ if ($principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator) 
 
 if (-not $UserSetupOnly) {
     if (-not $MsiPath) {
-        $packages = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*2.2.4.0*.msi' -File)
-        if ($packages.Count -ne 1) { throw 'Specify exactly one Githubie 2.2.4.0 MSI with -MsiPath.' }
+        $packages = @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter "*${expectedVersion}*.msi" -File)
+        if ($packages.Count -ne 1) { throw "Specify exactly one Githubie $expectedVersion MSI with -MsiPath." }
         $MsiPath = $packages[0].FullName
     }
     $resolvedMsi = (Resolve-Path -LiteralPath $MsiPath).Path
@@ -81,7 +81,7 @@ if ($InstallRoot -and -not [string]::Equals($InstallRoot.TrimEnd('\'), $register
 $binaryDirectory = Join-Path $registeredRoot 'bin'
 $cli = Join-Path $binaryDirectory 'githubie.exe'
 if (-not (Test-Path -LiteralPath $cli) -or [Diagnostics.FileVersionInfo]::GetVersionInfo($cli).FileVersion -ne $expectedVersion) {
-    throw 'The installed Githubie CLI does not match 2.2.4.0; user setup is incomplete.'
+    throw "The installed Githubie CLI does not match $expectedVersion; user setup is incomplete."
 }
 $setupOutput = & $cli setup-user $targetSid
 if ($LASTEXITCODE -ne 0) { throw 'Current-user setup failed; installation is not complete. Legacy data remains available for recovery.' }
